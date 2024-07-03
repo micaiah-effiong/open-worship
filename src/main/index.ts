@@ -40,11 +40,11 @@ console.log(process.env["ELECTRON_RENDERER_URL"], { "is.dev": is.dev });
 
 function createSecondaryWindow(): void {
   const screens = electron.screen.getAllDisplays();
+  //
   // Create the browser window.
   const secondaryWindow = new BrowserWindow({
-    // width: 900,
-    // height: 670,
-    // show: false,
+    frame: false,
+    show: false,
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
@@ -54,14 +54,13 @@ function createSecondaryWindow(): void {
   });
 
   secondaryWindow.on("ready-to-show", () => {
-    // mainWindow.show();
     secondaryWindow.maximize();
-    if (screens.length > 1) {
-      const secScreen = screens[0];
-      secondaryWindow.setSize(secScreen.size.width, secScreen.size.height);
-      secondaryWindow.setPosition(secScreen.bounds.x, secScreen.bounds.y);
-      secondaryWindow.setFullScreen(true);
-    }
+    const screenIndex = screens.length > 1 ? 1 : 0;
+    const secScreen = screens[screenIndex];
+    secondaryWindow.setSize(secScreen.size.width, secScreen.size.height);
+    secondaryWindow.setPosition(secScreen.bounds.x, secScreen.bounds.y);
+    secondaryWindow.setFullScreen(true);
+    secondaryWindow.show();
   });
 
   secondaryWindow.webContents.setWindowOpenHandler((details) => {
