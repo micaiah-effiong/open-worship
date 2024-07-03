@@ -1,36 +1,44 @@
-import Versions from "./components/Versions";
-import electronLogo from "./assets/electron.svg";
-
 function App(): JSX.Element {
   const ipcHandle = () => {
     window.electron.ipcRenderer.send("ping");
   };
 
   return (
-    <>
-      <img alt="logo" className="logo" src={electronLogo} />
-      <div className="creator">Powered by electron-vite</div>
-      <div className="text">
-        Build an Electron app with <span className="react">React</span>
-        &nbsp;and <span className="ts">TypeScript</span>background-i
+    <div className="dark:bg-black h-dvh dark:text-white">
+      <button onClick={ipcHandle} hidden></button>
+
+      <div className="grid grid-rows-12 border-2 border-red-500 h-full">
+        <header>header</header>
+        <main className="row-span-11">
+          <div className="grid grid-rows-12 h-full">
+            <div className="row-span-8 border-2 border-white">
+              <div className="grid grid-rows-1 grid-cols-3 content-center">
+                <div className="border-2 border-green-500">
+                  <div>schedule</div>
+                </div>
+                <div className="border-2 border-green-500">
+                  <div>preview</div>
+                </div>
+                <div className="border-2 border-green-500">
+                  <div>live</div>
+                </div>
+              </div>
+            </div>
+            <div className="row-span-4 border-2 border-sky-500">
+              <div className="grid grid-cols-3">
+                <div className="border-2 border-green-500">
+                  <div className="">search/list</div>
+                </div>
+                <div className="col-span-2 border-2 border-green-500">
+                  <div className="">search preview</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+        <footer> footer </footer>
       </div>
-      <p className="tip">
-        Please try pressing <code>F12</code> to open the devTool
-      </p>
-      <div className="actions">
-        <div className="action">
-          <a href="https://electron-vite.org/" target="_blank" rel="noreferrer">
-            Documentation
-          </a>
-        </div>
-        <div className="action">
-          <a target="_blank" rel="noreferrer" onClick={ipcHandle}>
-            Send IPC
-          </a>
-        </div>
-      </div>
-      <Versions></Versions>
-    </>
+    </div>
   );
 }
 
