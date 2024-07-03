@@ -12,7 +12,7 @@ function createMainWindow(): void {
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: join(__dirname, "../preload/primary.js"),
       sandbox: false,
     },
   });
@@ -48,7 +48,7 @@ function createSecondaryWindow(): void {
     autoHideMenuBar: true,
     ...(process.platform === "linux" ? { icon } : {}),
     webPreferences: {
-      preload: join(__dirname, "../preload/index.js"),
+      preload: join(__dirname, "../preload/secondary.js"),
       sandbox: false,
     },
   });
@@ -98,15 +98,15 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on("ping", () => console.log("pong"));
 
-  createMainWindow();
   createSecondaryWindow();
+  createMainWindow();
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
       createSecondaryWindow();
+      createMainWindow();
     }
   });
 });
