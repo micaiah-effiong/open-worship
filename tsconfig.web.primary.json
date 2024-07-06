@@ -4,7 +4,7 @@
     "src/renderer/src/primary/env.d.ts",
     "src/renderer/src/primary/**/*",
     "src/renderer/src/primary/**/*.tsx",
-    "src/preload/*.primary.d.ts"
+    "src/preload/primary/**/*.d.ts"
   ],
   "compilerOptions": {
     "composite": true,

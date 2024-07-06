@@ -21,6 +21,8 @@ export default defineConfig({
     resolve: {
       alias: {
         "@renderer": resolve("src/renderer/src"),
+        // "@primary": resolve("src/renderer/src/primary/components"),
+        // "@secondary": resolve("src/renderer/src/secondary/components"),
       },
     },
     plugins: [react()],
