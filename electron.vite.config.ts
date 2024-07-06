@@ -11,8 +11,8 @@ export default defineConfig({
     build: {
       lib: {
         entry: {
-          primary: resolve("src/preload/primary.ts"),
-          secondary: resolve("src/preload/secondary.ts"),
+          primary: resolve("src/preload/primary/index.ts"),
+          secondary: resolve("src/preload/secondary/index.ts"),
         },
       },
     },
