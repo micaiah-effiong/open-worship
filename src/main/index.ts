@@ -57,9 +57,19 @@ function createSecondaryWindow(): void {
     secondaryWindow.maximize();
     const screenIndex = screens.length > 1 ? 1 : 0;
     const secScreen = screens[screenIndex];
-    secondaryWindow.setSize(secScreen.size.width, secScreen.size.height);
-    secondaryWindow.setPosition(secScreen.bounds.x, secScreen.bounds.y);
-    secondaryWindow.setFullScreen(true);
+
+    if (screenIndex > 1) {
+      secondaryWindow.setSize(secScreen.size.width, secScreen.size.height);
+      secondaryWindow.setPosition(secScreen.bounds.x, secScreen.bounds.y);
+      secondaryWindow.setFullScreen(true);
+    } else {
+      const width = screens[0].bounds.width / 2;
+      const height = screens[0].bounds.height / 2;
+      secondaryWindow.setSize(width, height, false);
+      secondaryWindow.setPosition(0, 0, false);
+      secondaryWindow.setFullScreen(false);
+    }
+
     secondaryWindow.show();
   });
 
