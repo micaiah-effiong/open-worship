@@ -1,0 +1,7 @@
+body {
+  overflow: hidden;
+  /* background-image: url("./wavy-lines.svg"); */
+  /* background-size: cover; */
+  background-color: black;
+  user-select: none;
+}
