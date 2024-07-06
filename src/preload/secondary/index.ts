@@ -1,5 +1,9 @@
-import { electronAPI } from "@electron-toolkit/preload";
+import { electronAPI, IpcRendererListener } from "@electron-toolkit/preload";
 import { contextBridge } from "electron";
+
+const chan = ["go_live", "test"] as const;
+const channels = chan.map((e) => "secondary::" + e);
+type i_channels = `secondary::${(typeof chan)[number]}`;
 
 // Custom APIs for renderer
 const api = {
@@ -8,7 +12,17 @@ const api = {
     electronAPI.ipcRenderer.send("ping");
   },
 
-  res: () => {},
+  listen: (channel: i_channels, func: IpcRendererListener) => {
+    if (channels.includes(channel)) {
+      const sub: IpcRendererListener = (event, ...args) => {
+        console.log(channel, "event recieved");
+        return func(event, ...args);
+      };
+      return electronAPI.ipcRenderer.on(channel, sub);
+    }
+
+    return () => {};
+  },
 };
 
 export type Api = typeof api;

@@ -3,7 +3,7 @@ import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
 
-function createMainWindow(): void {
+function createMainWindow() {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     // width: 900,
@@ -34,11 +34,13 @@ function createMainWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
+
+  return mainWindow;
 }
 
 console.log(process.env["ELECTRON_RENDERER_URL"], { "is.dev": is.dev });
 
-function createSecondaryWindow(): void {
+function createSecondaryWindow() {
   const screens = electron.screen.getAllDisplays();
   //
   // Create the browser window.
@@ -87,6 +89,8 @@ function createSecondaryWindow(): void {
   } else {
     secondaryWindow.loadFile(join(__dirname, "../renderer/secondary.html"));
   }
+
+  return secondaryWindow;
 }
 
 // This method will be called when Electron has finished
@@ -107,8 +111,12 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on("ping", () => console.log("pong"));
 
-  createSecondaryWindow();
+  const secondaryScreen = createSecondaryWindow();
   createMainWindow();
+
+  ipcMain.on("primary::go_live", (_event, ...args) => {
+    secondaryScreen.webContents.send("secondary::go_live", ...args);
+  });
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the

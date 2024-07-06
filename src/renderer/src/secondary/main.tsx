@@ -1,5 +1,4 @@
-import "@renderer/primary/assets/main.css";
-
+import "@renderer/secondary/assets/main.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
