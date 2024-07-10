@@ -1,17 +1,19 @@
-import { assert } from "tsafe";
-import React, { PropsWithChildren, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import clsx from "clsx";
+import { ActivityViewer, ItemKeyMap } from "./components/ActivityViewer";
 
 type DisplayItem = {
   text: string;
 };
+type ItemMapDisplay = ItemKeyMap<DisplayItem>;
+
 type LiveRenderList = [
   Array<ItemKeyMap<DisplayItem>>,
   ItemKeyMap<DisplayItem> | null,
 ];
 
 const defaultLive: Array<ItemKeyMap<DisplayItem>> = [];
-const data = [
+const previewData = [
   {
     key: "1",
     value: { text: "the song" },
@@ -23,10 +25,48 @@ const data = [
     },
   },
 ];
+const scheduleData = [
+  {
+    key: "1",
+    value: [
+      {
+        key: "1",
+        value: { text: "schedule 1 a" },
+      },
+      {
+        key: "2",
+        value: { text: "schedule 1 b" },
+      },
+      {
+        key: "3",
+        value: { text: "schedule 1 c" },
+      },
+    ],
+  },
+  {
+    key: "2",
+    value: [
+      {
+        key: "1",
+        value: { text: "schedule 2 a" },
+      },
+      {
+        key: "2",
+        value: { text: "schedule 2 b" },
+      },
+      {
+        key: "3",
+        value: { text: "schedule 2 c" },
+      },
+    ],
+  },
+];
 
 export function App(): JSX.Element {
+  const [scheduleList, _setScheduleList] =
+    useState<ItemKeyMap<ItemMapDisplay[]>[]>(scheduleData);
   const [previewList, _setPreviewList] =
-    useState<Array<ItemKeyMap<DisplayItem>>>(data);
+    useState<ItemMapDisplay[]>(previewData);
   const [liveList, setLiveList] = useState<LiveRenderList>([defaultLive, null]);
   const liveViewerRef = useRef<HTMLDivElement>(null);
 
@@ -48,11 +88,37 @@ export function App(): JSX.Element {
           <div className="grid grid-rows-12 h-full">
             <div className="row-span-8 border-2 border-black">
               <div className="grid grid-rows-1 grid-cols-3 h-full content-center">
-                <Viewer>
-                  <div>schedule</div>
-                </Viewer>
                 <ActivityViewer
-                  className="[&_[data-focus=true]]:focus-within:bg-blue-500 [&_[data-focus=true]]:bg-gray-500"
+                  onChange={(item, event) => {
+                    if (!item?.value) {
+                      return;
+                    }
+
+                    if (event === "select") {
+                      _setPreviewList(item?.value);
+                    } else if (event === "change") {
+                      setLiveList([item.value, item.value[0]]);
+                      goLive(item?.value[0].value.text || "");
+                      liveViewerRef.current?.focus();
+                    }
+                  }}
+                  itemList={scheduleList}
+                >
+                  {(value, action) => {
+                    return (
+                      <div key={value.item.key} className="grid">
+                        <button
+                          {...action}
+                          className={clsx("text-left whitespace-pre-line")}
+                          data-focus={value.isFocused}
+                        >
+                          {value?.item?.value[0].value.text}
+                        </button>
+                      </div>
+                    );
+                  }}
+                </ActivityViewer>
+                <ActivityViewer
                   onChange={(item, event) => {
                     if (event === "select") {
                       // setLiveList(previewList);
@@ -83,8 +149,6 @@ export function App(): JSX.Element {
                   onChange={(item) => goLive(item?.value?.text || "")}
                   itemList={liveList[0]}
                   defaultItemKey={liveList[1]?.key}
-                  // className="focus-within:text-green-500"
-                  className="[&_[data-focus=true]]:focus-within:bg-blue-500 [&_[data-focus=true]]:bg-gray-500"
                 >
                   {(value, action) => {
                     return (
@@ -120,115 +184,7 @@ export function App(): JSX.Element {
   );
 }
 
-function Viewer(props: PropsWithChildren & { className?: string }) {
-  return (
-    <div className={`border-2 border-green-500 ${props.className}`}>
-      <div className="h-full overflow-y-auto">{props.children}</div>
-    </div>
-  );
-}
-
-type ActivityChildrenItemProps<Val> = {
-  item: Val;
-  isFocused: boolean;
-};
-type ActivityChildrenActionProps = {
-  onClick: () => void;
-  // onSelect: (key: number) => void;
-  onDoubleClick: () => void;
-};
-type ActivityChildren<Val> = (
-  item: ActivityChildrenItemProps<Val>,
-  action: ActivityChildrenActionProps,
-) => React.JSX.Element;
-
-type ActivityViewerProps<T> = {
-  children?: ActivityChildren<T>;
-  className?: string;
-  onChange?: (item: Nullable<T>, event: "select" | "change") => void;
-  itemList: Array<T>;
-  defaultItemKey?: Nullable<React.Key>;
-};
-type ItemKeyMap<T> = {
-  value: T;
-  key: React.Key;
-};
-type Nullable<T> = T | null;
-type HashItemList<T> = { key: React.Key; value: T } & {
-  actions: Record<keyof ActivityChildrenActionProps, () => void>;
-};
-
-const ActivityViewer = fixedForwardRef(function ActivityViewer<T>(
-  props: ActivityViewerProps<{ key: React.Key; value: T }>,
-  ref: React.ForwardedRef<HTMLDivElement>,
-) {
-  const defaultItem = props.defaultItemKey
-    ? props.itemList.find((e) => e.key === props.defaultItemKey)
-    : props.itemList.at(0);
-  const [selectedItem, setSeletectedItem] =
-    useState<Nullable<ItemKeyMap<T>>>(null);
-
-  // console.log("default", defaultItem, "kwy", props.defaultItemKey);
-
-  assert(typeof props.children === "function");
-  const children = props.children; // as ActivityChildren<T>;
-
-  const itemMap = new Map<React.Key, ItemKeyMap<T>>();
-  const hashedItems = props.itemList.map((item) => {
-    itemMap.set(item.key, item);
-
-    return {
-      ...item,
-      actions: {
-        onClick: () => {
-          onClick(item.key);
-        },
-        onDoubleClick: () => {
-          onDoubleClick(item.key);
-        },
-      },
-    } as HashItemList<T>;
-  });
-
-  const onClick = (key: React.Key) => {
-    const item = itemMap.get(key);
-    // console.log("on-click", item);
-    if (item) {
-      setSeletectedItem(item);
-      props.onChange?.(item, "select");
-    }
-  };
-  const onDoubleClick = (key: React.Key) => {
-    const item = itemMap.get(key);
-    // console.log("on-double-cick", item);
-    if (item) {
-      setSeletectedItem(item);
-      props.onChange?.(item, "change");
-    }
-  };
-
-  useEffect(() => {
-    let selectedItemValue: Nullable<ItemKeyMap<T>> = null;
-    if (selectedItem !== null) {
-      selectedItemValue = selectedItem;
-    }
-    props.onChange?.(selectedItemValue, "select");
-  }, []);
-
-  return (
-    <div className={`border-2 border-green-500 ${props.className}`}>
-      <div className="h-full overflow-y-auto" tabIndex={-1} ref={ref}>
-        {hashedItems.map((item) => {
-          const key = selectedItem?.key || defaultItem?.key;
-          return children({ item, isFocused: item.key === key }, item.actions);
-        })}
-      </div>
-    </div>
-  );
-});
-
-function fixedForwardRef<T, P = {}>(
-  render: (props: P, ref: React.Ref<T>) => React.ReactNode,
-): (props: P & React.RefAttributes<T>) => React.ReactNode {
-  return React.forwardRef(render) as any;
-}
+// schedule -> preview
+// schedule -> preview
+// preview -> live
+// liveview -> live
