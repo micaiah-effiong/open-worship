@@ -1,5 +1,4 @@
 import { useRef, useState } from "react";
-import clsx from "clsx";
 import { ActivityViewer, ItemKeyMap } from "./components/ActivityViewer";
 
 type DisplayItem = {
@@ -30,15 +29,15 @@ const scheduleData = [
     key: "1",
     value: [
       {
-        key: "1",
+        key: "1.1",
         value: { text: "schedule 1 a" },
       },
       {
-        key: "2",
+        key: "1.2",
         value: { text: "schedule 1 b" },
       },
       {
-        key: "3",
+        key: "1.3",
         value: { text: "schedule 1 c" },
       },
     ],
@@ -47,16 +46,20 @@ const scheduleData = [
     key: "2",
     value: [
       {
-        key: "1",
+        key: "2.1",
         value: { text: "schedule 2 a" },
       },
       {
-        key: "2",
+        key: "2.2",
         value: { text: "schedule 2 b" },
       },
       {
-        key: "3",
+        key: "2.3",
         value: { text: "schedule 2 c" },
+      },
+      {
+        key: "2.4",
+        value: { text: "schedule 2 d" },
       },
     ],
   },
@@ -65,8 +68,7 @@ const scheduleData = [
 export function App(): JSX.Element {
   const [scheduleList, _setScheduleList] =
     useState<ItemKeyMap<ItemMapDisplay[]>[]>(scheduleData);
-  const [previewList, _setPreviewList] =
-    useState<ItemMapDisplay[]>(previewData);
+  const [previewList, setPreviewList] = useState<ItemMapDisplay[]>(previewData);
   const [liveList, setLiveList] = useState<LiveRenderList>([defaultLive, null]);
   const liveViewerRef = useRef<HTMLDivElement>(null);
 
@@ -89,16 +91,17 @@ export function App(): JSX.Element {
             <div className="row-span-8 border-2 border-black">
               <div className="grid grid-rows-1 grid-cols-3 h-full content-center">
                 <ActivityViewer
-                  onChange={(item, event) => {
+                  _viewName="schedule"
+                  onChange={(event, item) => {
                     if (!item?.value) {
                       return;
                     }
 
                     if (event === "select") {
-                      _setPreviewList(item?.value);
+                      setPreviewList(item.value);
                     } else if (event === "change") {
                       setLiveList([item.value, item.value[0]]);
-                      goLive(item?.value[0].value.text || "");
+                      goLive(item.value[0].value.text || "");
                       liveViewerRef.current?.focus();
                     }
                   }}
@@ -109,7 +112,7 @@ export function App(): JSX.Element {
                       <div key={value.item.key} className="grid">
                         <button
                           {...action}
-                          className={clsx("text-left whitespace-pre-line")}
+                          className="text-left whitespace-pre-line"
                           data-focus={value.isFocused}
                         >
                           {value?.item?.value[0].value.text}
@@ -119,34 +122,46 @@ export function App(): JSX.Element {
                   }}
                 </ActivityViewer>
                 <ActivityViewer
-                  onChange={(item, event) => {
+                  _viewName="preview"
+                  onChange={(event, item) => {
                     if (event === "select") {
                       // setLiveList(previewList);
                     } else if (event === "change") {
-                      setLiveList([previewList, item]);
+                      setLiveList([previewList, null]);
+                      setTimeout(() => {
+                        setLiveList([previewList, item]);
+                      }, 0);
                       goLive(item?.value.text || "");
                       liveViewerRef.current?.focus();
                     }
                   }}
+                  defaultItemKey={previewList[0].key}
                   itemList={previewList}
                 >
                   {(value, action) => {
                     return (
-                      <div key={value.item.key} className="grid">
+                      <div key={value.item.key.toString()} className="grid">
                         <button
                           {...action}
-                          className={clsx("text-left whitespace-pre-line")}
+                          className="text-left whitespace-pre-line"
                           data-focus={value.isFocused}
                         >
-                          {value?.item?.value?.text}
+                          {value.item.value.text} {String(value.isFocused)}
                         </button>
                       </div>
                     );
                   }}
                 </ActivityViewer>
                 <ActivityViewer
+                  _viewName="live"
                   ref={liveViewerRef}
-                  onChange={(item) => goLive(item?.value?.text || "")}
+                  onChange={(event, item) => {
+                    if (event === "change") {
+                      return;
+                    }
+
+                    goLive(item?.value?.text || "");
+                  }}
                   itemList={liveList[0]}
                   defaultItemKey={liveList[1]?.key}
                 >
@@ -155,10 +170,10 @@ export function App(): JSX.Element {
                       <div key={value.item.key} className="grid">
                         <button
                           {...action}
-                          className={clsx("text-left whitespace-pre-line")}
+                          className="text-left whitespace-pre-line"
                           data-focus={value.isFocused}
                         >
-                          {value.item.value.text}
+                          {value.item.value.text} {String(value.isFocused)}
                         </button>
                       </div>
                     );

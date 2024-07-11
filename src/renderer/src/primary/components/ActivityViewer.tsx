@@ -18,7 +18,8 @@ type ActivityChildren<Val> = (
 type ActivityViewerProps<T> = {
   children?: ActivityChildren<T>;
   className?: string;
-  onChange?: (item: Nullable<T>, event: "select" | "change") => void;
+  _viewName?: string;
+  onChange?: (event: "select" | "change", item: Nullable<T>) => void;
   itemList: Array<T>;
   defaultItemKey?: Nullable<React.Key>;
 };
@@ -41,10 +42,11 @@ export const ActivityViewer = fixedForwardRef(function ActivityViewer<T>(
   const [selectedItem, setSeletectedItem] =
     useState<Nullable<ItemKeyMap<T>>>(null);
 
-  // console.log("default", defaultItem, "kwy", props.defaultItemKey);
-
-  assert(typeof props.children === "function");
-  const children = props.children; // as ActivityChildren<T>;
+  assert(
+    typeof props.children === "function" ||
+      typeof props.children === "undefined",
+  );
+  const children = props.children || null;
 
   const itemMap = new Map<React.Key, ItemKeyMap<T>>();
   const hashedItems = props.itemList.map((item) => {
@@ -68,7 +70,7 @@ export const ActivityViewer = fixedForwardRef(function ActivityViewer<T>(
     // console.log("on-click", item);
     if (item) {
       setSeletectedItem(item);
-      props.onChange?.(item, "select");
+      props.onChange?.("select", item);
     }
   };
   const onDoubleClick = (key: React.Key) => {
@@ -76,17 +78,13 @@ export const ActivityViewer = fixedForwardRef(function ActivityViewer<T>(
     // console.log("on-double-cick", item);
     if (item) {
       setSeletectedItem(item);
-      props.onChange?.(item, "change");
+      props.onChange?.("change", item);
     }
   };
 
-  /* useEffect(() => {
-    let selectedItemValue: Nullable<ItemKeyMap<T>> = null;
-    if (selectedItem !== null) {
-      selectedItemValue = selectedItem;
-    }
-    // props.onChange?.(selectedItemValue, "select");
-  }, []); */
+  React.useEffect(() => {
+    setSeletectedItem(null);
+  }, [props.itemList, props.defaultItemKey]);
 
   return (
     <div
@@ -95,7 +93,8 @@ export const ActivityViewer = fixedForwardRef(function ActivityViewer<T>(
       <div className="h-full overflow-y-auto" tabIndex={-1} ref={ref}>
         {hashedItems.map((item) => {
           const key = selectedItem?.key || defaultItem?.key;
-          return children({ item, isFocused: item.key === key }, item.actions);
+          const isFocused = item.key === key;
+          return children?.({ item, isFocused }, item.actions);
         })}
       </div>
     </div>
