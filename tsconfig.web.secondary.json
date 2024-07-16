@@ -4,6 +4,7 @@
     "src/renderer/src/secondary/env.d.ts",
     "src/renderer/src/secondary/**/*",
     "src/renderer/src/secondary/**/*.tsx",
+    "src/renderer/src/general/**/*.tsx",
     "src/preload/secondary/**/*.d.ts"
   ],
   "compilerOptions": {

@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { ActivityViewer, ItemKeyMap } from "./components/ActivityViewer";
+import { ScreenViewer } from "@renderer/general/components/ScreenViewer";
 
 type DisplayItem = {
   text: string;
@@ -72,11 +73,15 @@ export function App(): JSX.Element {
   const [liveList, setLiveList] = useState<LiveRenderList>([defaultLive, null]);
   const liveViewerRef = useRef<HTMLDivElement>(null);
 
+  const [previewText, setPreviewText] = useState(previewData[0].value.text);
+  const [liveText, setLiveText] = useState("");
+
   const ipcHandle = () => {
     window.electron.ipcRenderer.send("ping");
   };
 
   const goLive = (msg: string) => {
+    setLiveText(msg);
     window.electron.ipcRenderer.send("primary::go_live", msg);
   };
 
@@ -103,6 +108,7 @@ export function App(): JSX.Element {
                       setLiveList([item.value, item.value[0]]);
                       goLive(item.value[0].value.text || "");
                       liveViewerRef.current?.focus();
+                      setPreviewText(item?.value[0].value.text || "");
                     }
                   }}
                   itemList={scheduleList}
@@ -126,6 +132,7 @@ export function App(): JSX.Element {
                   onChange={(event, item) => {
                     if (event === "select") {
                       // setLiveList(previewList);
+                      setPreviewText(item?.value.text || "");
                     } else if (event === "change") {
                       setLiveList([previewList, null]);
                       setTimeout(() => {
@@ -182,12 +189,31 @@ export function App(): JSX.Element {
               </div>
             </div>
             <div className="row-span-4 border-2 border-sky-500">
-              <div className="grid grid-cols-3 border-2 border-pink-500 h-full">
-                <div className="border-2 border-green-500">
-                  <div className="">search/list</div>
+              <div className="grid grid-cols-3 border-8 border-dotted border-pink-500 h-full">
+                <div className="border-2 border-green-500 h-full grid grid-rows-12">
+                  <div className="row-span-1">song/bible/backgrounds</div>
+                  <div className="border border-black row-span-11 flex flex-col">
+                    <div className="">
+                      <input
+                        type="search"
+                        placeholder="search/list"
+                        className="bg-gray-800 w-full"
+                      />
+                    </div>
+                    <div className="border-dashed border-2 border-rose-900 h-full">
+                      search preview
+                    </div>
+                  </div>
                 </div>
-                <div className="col-span-2 border-2 border-green-500">
-                  <div className="">search preview</div>
+                <div className="col-span-2 h-full border-2 border-green-500">
+                  <div className="grid grid-cols-2 border-2 h-full border-indigo-900">
+                    <div className="border-2 border-zinc-500">
+                      <ScreenViewer text={previewText} />
+                    </div>
+                    <div className="border-2 border-zinc-500">
+                      <ScreenViewer text={liveText} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

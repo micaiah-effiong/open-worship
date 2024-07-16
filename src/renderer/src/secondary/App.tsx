@@ -1,3 +1,4 @@
+import { ScreenViewer } from "@renderer/general/components/ScreenViewer";
 import { useEffect, useState } from "react";
 
 export function App() {
@@ -12,11 +13,7 @@ export function App() {
 
   return (
     <div className="border-red-500 border-5 h-dvh w-full grid grid-rows-1">
-      <div className="grid place-items-center">
-        <div className="text-center text-9xl text-white outline-black outline-4">
-          {liveText}
-        </div>
-      </div>
+      <ScreenViewer text={liveText} />
     </div>
   );
 }
