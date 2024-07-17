@@ -2,6 +2,9 @@ import electron, { app, shell, BrowserWindow, ipcMain } from "electron";
 import { join } from "path";
 import { electronApp, optimizer, is } from "@electron-toolkit/utils";
 import icon from "../../resources/icon.png?asset";
+import { db } from "./db";
+
+db;
 
 function createMainWindow() {
   // Create the browser window.
@@ -106,17 +109,17 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window);
   });
 
-  console.log(electron.screen.getAllDisplays());
+  // console.log(electron.screen.getAllDisplays());
 
   // IPC test
   ipcMain.on("ping", () => console.log("pong"));
 
-  const secondaryScreen = createSecondaryWindow();
-  createMainWindow();
-
-  ipcMain.on("primary::go_live", (_event, ...args) => {
-    secondaryScreen.webContents.send("secondary::go_live", ...args);
-  });
+  // const secondaryScreen = createSecondaryWindow();
+  // createMainWindow();
+  //
+  // ipcMain.on("primary::go_live", (_event, ...args) => {
+  //   secondaryScreen.webContents.send("secondary::go_live", ...args);
+  // });
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
