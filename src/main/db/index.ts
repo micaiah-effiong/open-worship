@@ -1,17 +1,12 @@
-import path from "path";
-import sqlite3 from "sqlite3";
 import { load_migrations, run_migration } from "./migrations";
+import { database, migration_path } from "./db";
 
-const base_db_path = path.resolve(process.cwd(), "src/main/db");
-const db_path = path.resolve(base_db_path, "store", "open_worship.sqlite");
-const migration_path = path.resolve(base_db_path, "migrations");
-
-export const db = new sqlite3.Database(db_path);
-
-load_migrations(migration_path)
-  .then((mig) => run_migration(db, mig))
-  .catch(console.error)
-  .finally(() => db.close());
+export function do_migration() {
+  load_migrations(migration_path)
+    .then((mig) => run_migration(database, mig))
+    .catch(console.error)
+    .finally(() => database.db.close());
+}
 
 // type i_bible_verse = {
 //   id: number;

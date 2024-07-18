@@ -1,8 +1,8 @@
-import { Database } from "sqlite3";
-import { async_handler, callback_handler, Result, unwrap } from "../utils";
+import { async_handler, Result, unwrap } from "../utils";
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import assert from "assert";
+import { i_database } from "./db";
 
 const FILE_NAME_REGEX = /^(\d+)_(\S+)(\.sql)$/;
 
@@ -21,39 +21,28 @@ type i_migration_data = {
 };
 
 export async function run_migration(
-  db: Database,
+  database: i_database,
   migrations: i_migration_data[],
 ) {
-  // const migrations = await load_migrations();
   const migration_table = "t_migrations";
 
-  await callback_handler((cb) => {
-    db.run(
-      `CREATE TABLE IF NOT EXISTS "${migration_table}" (
+  await database.run(
+    `CREATE TABLE IF NOT EXISTS "${migration_table}" (
         id   INTEGER PRIMARY KEY,
         name TEXT    NOT NULL,
         up   TEXT    NOT NULL,
         down TEXT    NOT NULL
       );
       `,
-      cb,
-    );
-  });
+  );
 
-  const [s, err, db_migrations] = await callback_handler<i_migrations[]>(
-    (cb) => {
-      db.all<i_migrations>(
-        `SELECT id, name, up, down FROM "${migration_table}" ORDER BY id ASC`,
-        cb,
-      );
-    },
+  const [s, err, db_migrations] = await database.all<i_migrations>(
+    `SELECT id, name, up, down FROM "${migration_table}" ORDER BY id ASC`,
   );
 
   if (s === "err") {
     throw err;
   }
-
-  db_migrations;
 
   const migration_map = new Map<number, boolean>();
   migrations.forEach((m) => migration_map.set(m.id, true));
@@ -69,29 +58,30 @@ export async function run_migration(
   for (let index = 0; index < rev_migration.length; index++) {
     const mig = rev_migration[index];
 
-    const begin_run = await callback_handler((cb) => db.run("BEGIN", cb));
+    const begin_run = await database.run("BEGIN");
     if (begin_run[0] === "err") {
-      await callback_handler((cb) => db.run("ROLLBACK", cb));
+      await database.run("ROLLBACK");
       throw begin_run[1];
     }
 
-    const mig_run = await callback_handler((cb) => db.exec(mig.down, cb));
+    const mig_run = await database.exec(mig.down);
     if (mig_run[0] === "err") {
-      await callback_handler((cb) => db.run("ROLLBACK", cb));
+      await database.run("ROLLBACK");
       throw mig_run[1];
     }
 
-    const del_run = await callback_handler((cb) => {
-      db.run(`DELETE FROM "${migration_table}" WHERE id= ?`, [mig.id], cb);
-    });
+    const del_run = await database.run(
+      `DELETE FROM "${migration_table}" WHERE id= ?`,
+      [mig.id],
+    );
     if (del_run[0] === "err") {
-      await callback_handler((cb) => db.run("ROLLBACK", cb));
+      await database.run("ROLLBACK");
       throw del_run[1];
     }
 
-    const commit_run = await callback_handler((cb) => db.run("COMMIT", cb));
+    const commit_run = await database.run("COMMIT");
     if (commit_run[0] === "err") {
-      await callback_handler((cb) => db.run("ROLLBACK", cb));
+      await database.run("ROLLBACK");
       throw del_run[1];
     }
   }
@@ -100,33 +90,30 @@ export async function run_migration(
 
   for (const mig of migrations) {
     if (mig.id > last_migration_id) {
-      const begin_run = await callback_handler((cb) => db.run("BEGIN", cb));
+      const begin_run = await database.run("BEGIN");
       if (begin_run[0] === "err") {
-        await callback_handler((cb) => db.run("ROLLBACK", cb));
+        await database.run("ROLLBACK");
         throw begin_run[1];
       }
 
-      const mig_run = await callback_handler((cb) => db.exec(mig.up, cb));
+      const mig_run = await database.exec(mig.up);
       if (mig_run[0] === "err") {
-        await callback_handler((cb) => db.run("ROLLBACK", cb));
+        await database.run("ROLLBACK");
         throw mig_run[1];
       }
 
-      const del_run = await callback_handler((cb) => {
-        db.run(
-          `INSERT INTO "${migration_table}" (id, name, up, down) VALUES (?, ?, ?, ?);`,
-          [mig.id, mig.name, mig.up, mig.down],
-          cb,
-        );
-      });
+      const del_run = await database.run(
+        `INSERT INTO "${migration_table}" (id, name, up, down) VALUES (?, ?, ?, ?);`,
+        [mig.id, mig.name, mig.up, mig.down],
+      );
       if (del_run[0] === "err") {
-        await callback_handler((cb) => db.run("ROLLBACK", cb));
+        await database.run("ROLLBACK");
         throw del_run[1];
       }
 
-      const commit_run = await callback_handler((cb) => db.run("COMMIT", cb));
+      const commit_run = await database.run("COMMIT");
       if (commit_run[0] === "err") {
-        await callback_handler((cb) => db.run("ROLLBACK", cb));
+        await database.run("ROLLBACK");
         throw del_run[1];
       }
     }
