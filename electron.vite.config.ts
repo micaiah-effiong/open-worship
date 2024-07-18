@@ -25,6 +25,14 @@ export default defineConfig({
         // "@secondary": resolve("src/renderer/src/secondary/components"),
       },
     },
+    build: {
+      rollupOptions: {
+        input: {
+          primary: resolve(__dirname, "src/renderer/index.html"),
+          secondary: resolve(__dirname, "src/renderer/secondary.html"),
+        },
+      },
+    },
     plugins: [react()],
   },
 });

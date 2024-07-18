@@ -1,6 +1,6 @@
 node_modules/
 out/
-
-src/main/db/store/
+dist/
+src/main/db/store/*
 
 *.nvim

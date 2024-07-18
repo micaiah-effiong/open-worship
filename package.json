@@ -8,10 +8,7 @@
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
-    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
-    "typecheck:web-primary": "tsc --noEmit -p tsconfig.web.primary.json --composite false",
-    "typecheck:web-secondary": "tsc --noEmit -p tsconfig.web.secondary.json --composite false",
-    "typecheck": "pnpm typecheck:node && pnpm typecheck:web-secondary && pnpm typecheck:web-primary",
+    "typecheck": "./tsconfig-check.sh",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "build": "npm run typecheck && electron-vite build",

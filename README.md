@@ -1,4 +1,4 @@
-# present
+# Open-worship
 
 An Electron application with React and TypeScript
 

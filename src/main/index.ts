@@ -114,12 +114,12 @@ app.whenReady().then(() => {
   // IPC test
   ipcMain.on("ping", () => console.log("pong"));
 
-  // const secondaryScreen = createSecondaryWindow();
-  // createMainWindow();
-  //
-  // ipcMain.on("primary::go_live", (_event, ...args) => {
-  //   secondaryScreen.webContents.send("secondary::go_live", ...args);
-  // });
+  const secondaryScreen = createSecondaryWindow();
+  createMainWindow();
+
+  ipcMain.on("primary::go_live", (_event, ...args) => {
+    secondaryScreen.webContents.send("secondary::go_live", ...args);
+  });
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the
