@@ -113,11 +113,10 @@ export function App(): JSX.Element {
                   }}
                   itemList={scheduleList}
                 >
-                  {(value, action) => {
+                  {(value) => {
                     return (
                       <div key={value.item.key} className="grid">
                         <button
-                          {...action}
                           className="text-left whitespace-pre-line"
                           data-focus={value.isFocused}
                         >
@@ -134,7 +133,7 @@ export function App(): JSX.Element {
                       // setLiveList(previewList);
                       setPreviewText(item?.value.text || "");
                     } else if (event === "change") {
-                      setLiveList([previewList, null]);
+                      setLiveList([previewList, previewList[1]]);
                       setTimeout(() => {
                         setLiveList([previewList, item]);
                       }, 0);
@@ -145,11 +144,10 @@ export function App(): JSX.Element {
                   defaultItemKey={previewList[0].key}
                   itemList={previewList}
                 >
-                  {(value, action) => {
+                  {(value) => {
                     return (
                       <div key={value.item.key.toString()} className="grid">
                         <button
-                          {...action}
                           className="text-left whitespace-pre-line"
                           data-focus={value.isFocused}
                         >
@@ -172,11 +170,10 @@ export function App(): JSX.Element {
                   itemList={liveList[0]}
                   defaultItemKey={liveList[1]?.key}
                 >
-                  {(value, action) => {
+                  {(value) => {
                     return (
                       <div key={value.item.key} className="grid">
                         <button
-                          {...action}
                           className="text-left whitespace-pre-line"
                           data-focus={value.isFocused}
                         >
