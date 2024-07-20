@@ -1,4 +1,4 @@
-import { async_handler, Result, unwrap } from "../utils";
+import { async_handler, Result } from "../utils";
 import { readdir, readFile } from "fs/promises";
 import path from "path";
 import assert from "assert";
@@ -36,18 +36,18 @@ export async function run_migration(
       `,
   );
 
-  const [s, err, db_migrations] = await database.all<i_migrations>(
+  const db_migrations = await database.all<i_migrations>(
     `SELECT id, name, up, down FROM "${migration_table}" ORDER BY id ASC`,
   );
 
-  if (s === "err") {
-    throw err;
+  if (!db_migrations.ok) {
+    throw db_migrations.error;
   }
 
   const migration_map = new Map<number, boolean>();
   migrations.forEach((m) => migration_map.set(m.id, true));
 
-  const db_only_migrations = db_migrations.filter((m) => {
+  const db_only_migrations = db_migrations.value.filter((m) => {
     return !migration_map.has(m.id);
   });
 
@@ -59,62 +59,62 @@ export async function run_migration(
     const mig = rev_migration[index];
 
     const begin_run = await database.run("BEGIN");
-    if (begin_run[0] === "err") {
+    if (!begin_run.ok) {
       await database.run("ROLLBACK");
-      throw begin_run[1];
+      throw begin_run.error;
     }
 
     const mig_run = await database.exec(mig.down);
-    if (mig_run[0] === "err") {
+    if (!mig_run.ok) {
       await database.run("ROLLBACK");
-      throw mig_run[1];
+      throw mig_run.error;
     }
 
     const del_run = await database.run(
       `DELETE FROM "${migration_table}" WHERE id= ?`,
       [mig.id],
     );
-    if (del_run[0] === "err") {
+    if (!del_run.ok) {
       await database.run("ROLLBACK");
-      throw del_run[1];
+      throw del_run.error;
     }
 
     const commit_run = await database.run("COMMIT");
-    if (commit_run[0] === "err") {
+    if (!commit_run.ok) {
       await database.run("ROLLBACK");
-      throw del_run[1];
+      throw commit_run.error;
     }
   }
 
-  const last_migration_id = db_migrations.at(-1)?.id || 0;
+  const last_migration_id = db_migrations.value.at(-1)?.id || 0;
 
   for (const mig of migrations) {
     if (mig.id > last_migration_id) {
       const begin_run = await database.run("BEGIN");
-      if (begin_run[0] === "err") {
+      if (!begin_run.ok) {
         await database.run("ROLLBACK");
-        throw begin_run[1];
+        throw begin_run.error;
       }
 
       const mig_run = await database.exec(mig.up);
-      if (mig_run[0] === "err") {
+      if (!mig_run.ok) {
         await database.run("ROLLBACK");
-        throw mig_run[1];
+        throw mig_run.error;
       }
 
       const del_run = await database.run(
         `INSERT INTO "${migration_table}" (id, name, up, down) VALUES (?, ?, ?, ?);`,
         [mig.id, mig.name, mig.up, mig.down],
       );
-      if (del_run[0] === "err") {
+      if (!del_run.ok) {
         await database.run("ROLLBACK");
-        throw del_run[1];
+        throw del_run.error;
       }
 
       const commit_run = await database.run("COMMIT");
-      if (commit_run[0] === "err") {
+      if (!commit_run.ok) {
         await database.run("ROLLBACK");
-        throw del_run[1];
+        throw commit_run.error;
       }
     }
   }
@@ -127,12 +127,12 @@ export async function load_migrations(
     return readdir(dir, { encoding: "utf8", recursive: false });
   });
 
-  if (_migration_flies[0] === "err") {
-    throw _migration_flies[1];
+  if (!_migration_flies.ok) {
+    throw _migration_flies.error;
   }
 
-  console.log(_migration_flies);
-  const migration_flies = _migration_flies[2].filter((filename) => {
+  console.log(_migration_flies.value);
+  const migration_flies = _migration_flies.value.filter((filename) => {
     return FILE_NAME_REGEX.test(filename);
   });
 
@@ -141,15 +141,15 @@ export async function load_migrations(
   const migration_promises = migration_flies.map(
     async (mig_filename): Promise<Result<i_migration_data, Error>> => {
       const file_path = path.resolve(dir, mig_filename);
-      const [s, err, migration_data] = await async_handler(() => {
+      const migration_data = await async_handler(() => {
         return readFile(file_path, { encoding: "utf8" });
       });
 
-      if (s === "err") {
-        return [s, err, null];
+      if (!migration_data.ok) {
+        return { ok: false, error: migration_data.error };
       }
 
-      const [up, down] = migration_data.split("-- DOWN");
+      const [up, down] = migration_data.value.split("-- DOWN");
       const match = mig_filename.match(FILE_NAME_REGEX);
 
       assert(match !== null, "invalid migration file name");
@@ -167,23 +167,22 @@ export async function load_migrations(
         down: normalize_sqlstr(down),
       };
 
-      return ["ok", null, data];
+      return { ok: true, value: data };
     },
   );
 
   const migrations = await async_handler(() => Promise.all(migration_promises));
-  if (migrations[0] === "err") {
-    throw migrations[1];
+  if (!migrations.ok) {
+    throw migrations.error;
   }
 
-  const unwrapped_migration = migrations[2]
+  const unwrapped_migration = migrations.value
     .map((m) => {
-      const unwapped_m = unwrap(m);
-      if (unwapped_m === null) {
-        throw m[1];
+      if (!m.ok) {
+        throw m.error;
       }
 
-      return unwapped_m;
+      return m.value;
     })
     .sort((a, b) => Math.sign(b.id - a.id));
 

@@ -1,7 +1,13 @@
-export type Result<T = unknown, E = Error> = ["ok", null, T] | ["err", E, null];
+export type Result<T = unknown, E = Error> =
+  | { ok: true; value: T }
+  | { ok: false; error: E | undefined };
 
 export function unwrap<T>(val: Result<T>) {
-  return val[2] || null;
+  if (val.ok) {
+    return val.value;
+  }
+
+  return null;
 }
 
 export async function async_handler<
@@ -10,9 +16,9 @@ export async function async_handler<
 >(fn: T): Promise<Result<Awaited<U>>> {
   try {
     const res = await fn();
-    return ["ok", null, res];
+    return { ok: true, value: res };
   } catch (error) {
-    return ["err", error as Error, null];
+    return { ok: false, error: error as Error };
   }
 }
 
