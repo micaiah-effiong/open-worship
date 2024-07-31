@@ -1,0 +1,35 @@
+.btn {
+  color: red;
+}
+
+.btn-blue {
+  background: blue;
+}
+
+.body_box {
+  border: 6px double red;
+}
+
+.blue_box {
+  border: 6px solid blue;
+}
+
+.green_box {
+  border: 6px solid green;
+}
+
+.red_box {
+  border: 6px solid red;
+}
+
+.pink_box {
+  border: 6px solid pink;
+}
+
+.yellow_box {
+  border: 6px double yellow;
+}
+
+.green_double_box {
+  border: 6px double green;
+}
