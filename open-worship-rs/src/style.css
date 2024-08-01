@@ -23,7 +23,7 @@
 }
 
 .pink_box {
-  border: 6px solid pink;
+  border: 6px double pink;
 }
 
 .yellow_box {
@@ -32,4 +32,12 @@
 
 .green_double_box {
   border: 6px double green;
+}
+
+.brown_box {
+  border: 6px double brown;
+}
+
+.black_bg_box {
+  background-color: black;
 }
