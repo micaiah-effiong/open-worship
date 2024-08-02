@@ -49,3 +49,11 @@
 .lg_font {
   /* font-size: 20px; */
 }
+
+.purple_box {
+  border: 6px solid purple;
+}
+
+label {
+  padding: 3px;
+}

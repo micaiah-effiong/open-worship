@@ -21,6 +21,9 @@ Aliqua reprehenderit commodo ex non excepteur duis sunt velit enim.
 Voluptate laboris sint cupidatat ullamco ut ea consectetur et est culpa et culpa duis.
 ";
 
+const MIN_GRID_HEIGHT: i32 = 300;
+const MIN_GRID_WIDTH: i32 = 300;
+
 fn main() -> gtk::glib::ExitCode {
     let app = gtk::Application::builder().application_id(APP_ID).build();
     app.connect_startup(|_| load_css());
@@ -79,6 +82,7 @@ fn build_layout() -> gtk::Box {
         .orientation(gtk::Orientation::Vertical)
         .build();
     build_body_content(&body_box);
+
     // footer
     let footer_label = gtk::Label::builder().label("footer").build();
     let footer_box = gtk::Box::builder().margin_end(12).build();
@@ -104,7 +108,7 @@ fn build_header_content(header_box: &gtk::Box) {
         .build();
 
     let button_2 = gtk::Button::builder()
-        .label("Preview")
+        .label("Blank")
         .margin_end(12)
         .margin_top(12)
         .margin_start(12)
@@ -181,15 +185,42 @@ fn build_header_content(header_box: &gtk::Box) {
 
 fn build_body_content(body_box: &gtk::Box) {
     let body_container = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .hexpand_set(true)
-        .vexpand_set(true)
+        .orientation(gtk::Orientation::Horizontal)
+        .hexpand(true)
+        .vexpand(true)
         .homogeneous(true)
         .build();
 
     body_container.add_css_class("blue_box");
-    build_activity_viewer(&body_container);
-    build_search_and_preview(&body_container);
+    // let activity_viewer_box = gtk::Box::builder()
+    //     .orientation(gtk::Orientation::Horizontal)
+    //     .vexpand(true)
+    //     .spacing(0)
+    //     .build();
+    // let search_and_preview_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    //
+    // build_activity_viewer(&activity_viewer_box);
+    // build_search_and_preview(&search_and_preview_box);
+
+    let pane1 = gtk::Paned::new(gtk::Orientation::Horizontal);
+    let pane2 = gtk::Paned::new(gtk::Orientation::Horizontal);
+    // schedule and search
+    build_schedule_and_search(&pane1);
+
+    // preview and screen
+    build_preview_and_screen(&pane2);
+
+    // live and screen
+    build_live_and_screen(&pane2);
+
+    pane1.set_end_child(Some(&pane2));
+    pane1.set_shrink_end_child(false);
+    pane1.set_shrink_start_child(false);
+
+    pane2.set_shrink_end_child(false);
+    pane2.set_shrink_start_child(false);
+
+    body_container.append(&pane1);
 
     body_box.set_homogeneous(true);
     body_box.add_css_class("red_box");
@@ -197,46 +228,7 @@ fn build_body_content(body_box: &gtk::Box) {
     body_box.append(&body_container);
 }
 
-fn build_activity_viewer(content_box: &gtk::Box) {
-    let container = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    container.set_homogeneous(true);
-    container.add_css_class("green_box");
-
-    let schedule_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .build();
-    schedule_box.add_css_class("pink_box");
-    let s_box_label = gtk::Label::builder().label("Schedule").build();
-    schedule_box.append(&s_box_label);
-
-    let preview_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .build();
-    let preview_box_label = gtk::Label::builder().label("Preview").build();
-    preview_box.append(&preview_box_label);
-    preview_box.add_css_class("pink_box");
-
-    let live_box = gtk::Box::builder()
-        .orientation(gtk::Orientation::Vertical)
-        .hexpand_set(true)
-        .vexpand_set(true)
-        .build();
-
-    let live_box_label = gtk::Label::builder().label("Live").build();
-    live_box.append(&live_box_label);
-    live_box.add_css_class("pink_box");
-    // live_box.append(&button_close_from_action_entry);
-    build_live_activity_viewer(&live_box);
-    build_live_activity_viewer(&preview_box);
-
-    container.append(&schedule_box);
-    container.append(&preview_box);
-    container.append(&live_box);
-
-    content_box.append(&container);
-}
-
-fn build_live_activity_viewer(container: &gtk::Box) {
+fn build_schedule_activity_viewer(container: &gtk::Box) {
     let signal_selection_factory = gtk::SignalListItemFactory::new();
     signal_selection_factory.connect_setup(move |_, list_item| {
         let label = gtk::Label::builder()
@@ -245,6 +237,45 @@ fn build_live_activity_viewer(container: &gtk::Box) {
             .lines(2)
             .margin_top(12)
             .margin_bottom(12)
+            .halign(gtk::Align::Start)
+            .justify(gtk::Justification::Fill)
+            .build();
+
+        list_item
+            .downcast_ref::<gtk::ListItem>()
+            .expect("Must be a list item")
+            .set_child(Some(&label));
+
+        list_item
+            .property_expression("item")
+            .chain_property::<gtk::StringObject>("string")
+            .bind(&label, "label", gtk::Widget::NONE);
+    });
+
+    let sub_list = (&LIST_VEC[..2]).to_owned();
+    let single_selection_modal =
+        gtk::SingleSelection::new(Some(sub_list.into_iter().collect::<gtk::StringList>()));
+    let list_view =
+        gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
+
+    let scroll_view = gtk::ScrolledWindow::builder()
+        .vexpand(true)
+        .child(&list_view)
+        .build();
+
+    container.append(&scroll_view);
+}
+
+fn build_preview_activity_viewer(container: &gtk::Box) {
+    let signal_selection_factory = gtk::SignalListItemFactory::new();
+    signal_selection_factory.connect_setup(move |_, list_item| {
+        let label = gtk::Label::builder()
+            .ellipsize(gtk::pango::EllipsizeMode::End)
+            .wrap_mode(gtk::pango::WrapMode::Word)
+            .lines(2)
+            .margin_top(12)
+            .margin_bottom(12)
+            .halign(gtk::Align::Start)
             .justify(gtk::Justification::Fill)
             .build();
 
@@ -272,60 +303,51 @@ fn build_live_activity_viewer(container: &gtk::Box) {
     container.append(&scroll_view);
 }
 
-fn build_search_and_preview(container: &gtk::Box) {
-    let content_box = gtk::Grid::new();
-    content_box.set_column_homogeneous(true);
-    content_box.set_row_homogeneous(true);
-    container.append(&content_box);
-
-    let search_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 3);
-    tab_box.add_css_class("red_box");
-    tab_box.set_height_request(48);
-
-    let notebook = gtk::Notebook::new();
-    notebook.set_hexpand(true);
-    {
-        build_songs_search_tab(&notebook, "Songs");
-        build_bible_search_tab(&notebook, "Scriptures");
-        build_background_search_tab(&notebook, "Backgrounds");
-    }
-    tab_box.append(&notebook);
-
-    search_box.append(&tab_box);
-
-    let screen_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    {
-        let preview_screen_box = gtk::Box::builder().homogeneous(true).build();
-        preview_screen_box.set_css_classes(&["brown_box", "black_bg_box"]);
-        preview_screen_box.set_overflow(gtk::Overflow::Hidden);
-        preview_screen_box.set_vexpand(true);
-
-        let preview_screen_label = gtk::Label::builder()
-            .label(PREVIEW_SCREEN_LABEL_STR)
-            .justify(gtk::Justification::Center)
-            .wrap(true)
+fn build_live_activity_viewer(container: &gtk::Box) {
+    let signal_selection_factory = gtk::SignalListItemFactory::new();
+    signal_selection_factory.connect_setup(move |_, list_item| {
+        let label = gtk::Label::builder()
+            .ellipsize(gtk::pango::EllipsizeMode::End)
             .wrap_mode(gtk::pango::WrapMode::Word)
+            .lines(2)
+            .margin_top(12)
+            .margin_bottom(12)
+            .halign(gtk::Align::Start)
+            .justify(gtk::Justification::Fill)
             .build();
 
-        println!("font => {:?}", preview_screen_label.style_context());
-        preview_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
-        preview_screen_box.append(&preview_screen_label);
+        list_item
+            .downcast_ref::<gtk::ListItem>()
+            .expect("Must be a list item")
+            .set_child(Some(&label));
 
-        let live_screen_box = gtk::Box::builder().build();
-        live_screen_box.add_css_class("brown_box");
+        list_item
+            .property_expression("item")
+            .chain_property::<gtk::StringObject>("string")
+            .bind(&label, "label", gtk::Widget::NONE);
 
-        screen_box.set_homogeneous(true);
-        screen_box.append(&preview_screen_box);
-        screen_box.append(&live_screen_box);
-    }
+        let gesture = gtk::GestureClick::new();
 
-    search_box.add_css_class("yellow_box");
-    screen_box.add_css_class("yellow_box");
+        gesture.set_button(gtk::gdk::ffi::GDK_BUTTON_PRIMARY as u32);
+        gesture.connect_pressed(|g, m, _, _| {
+            g.set_state(gtk::EventSequenceState::Claimed);
+            println!("clicked {} ", m);
+        });
 
-    content_box.attach(&search_box, 0, 0, 1, 1);
-    content_box.attach(&screen_box, 1, 0, 2, 1);
-    content_box.add_css_class("green_double_box");
+        label.add_controller(gesture);
+    });
+
+    let single_selection_modal =
+        gtk::SingleSelection::new(Some(LIST_VEC.into_iter().collect::<gtk::StringList>()));
+    let list_view =
+        gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
+
+    let scroll_view = gtk::ScrolledWindow::builder()
+        .vexpand(true)
+        .child(&list_view)
+        .build();
+
+    container.append(&scroll_view);
 }
 
 fn build_bible_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
@@ -356,6 +378,8 @@ fn build_bible_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
             let label = gtk::Label::new(None);
             label.set_ellipsize(gtk::pango::EllipsizeMode::End);
             label.set_single_line_mode(true);
+            label.set_halign(gtk::Align::Start);
+            label.set_justify(gtk::Justification::Fill);
 
             list_item
                 .downcast_ref::<gtk::ListItem>()
@@ -413,6 +437,8 @@ fn build_background_search_tab(container: &gtk::Notebook, label: &str) -> gtk::B
         signal_selection_factory.connect_setup(move |_, list_item| {
             let label = gtk::Label::new(None);
             label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            label.set_halign(gtk::Align::Start);
+            label.set_justify(gtk::Justification::Fill);
 
             list_item
                 .downcast_ref::<gtk::ListItem>()
@@ -470,6 +496,8 @@ fn build_songs_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
         signal_selection_factory.connect_setup(move |_, list_item| {
             let label = gtk::Label::new(None);
             label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            label.set_halign(gtk::Align::Start);
+            label.set_justify(gtk::Justification::Fill);
 
             list_item
                 .downcast_ref::<gtk::ListItem>()
@@ -548,4 +576,172 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
     };
 
     return Some(geometry);
+}
+
+fn build_schedule_and_search(container: &gtk::Paned) {
+    let content_box = gtk::Box::builder()
+        .homogeneous(true)
+        .orientation(gtk::Orientation::Vertical)
+        .vexpand(true)
+        .width_request(MIN_GRID_WIDTH)
+        .build();
+    let content_pane = gtk::Paned::new(gtk::Orientation::Vertical);
+    content_box.append(&content_pane);
+
+    {
+        let schedule_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .height_request(MIN_GRID_HEIGHT)
+            .hexpand(true)
+            .build();
+        schedule_box.add_css_class("pink_box");
+        let s_box_label = gtk::Label::builder().label("Schedule").build();
+        schedule_box.append(&s_box_label);
+
+        build_schedule_activity_viewer(&schedule_box);
+
+        content_pane.set_start_child(Some(&schedule_box));
+    }
+
+    {
+        let search_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .height_request(MIN_GRID_HEIGHT)
+            .hexpand(true)
+            .homogeneous(true)
+            .build();
+        let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 3);
+        tab_box.add_css_class("red_box");
+        tab_box.add_css_class("purple_box");
+        tab_box.set_height_request(48);
+
+        let notebook = gtk::Notebook::new();
+        notebook.set_hexpand(true);
+        {
+            build_songs_search_tab(&notebook, "Songs");
+            build_bible_search_tab(&notebook, "Scriptures");
+            build_background_search_tab(&notebook, "Backgrounds");
+        }
+        tab_box.append(&notebook);
+        search_box.append(&tab_box);
+
+        content_pane.set_end_child(Some(&search_box));
+    }
+
+    content_pane.set_shrink_start_child(false);
+    content_pane.set_shrink_end_child(false);
+
+    container.set_start_child(Some(&content_box));
+}
+
+fn build_preview_and_screen(container: &gtk::Paned) {
+    let content_box = gtk::Box::builder()
+        .homogeneous(true)
+        .orientation(gtk::Orientation::Vertical)
+        .vexpand(true)
+        .width_request(MIN_GRID_WIDTH)
+        .build();
+    let content_pane = gtk::Paned::new(gtk::Orientation::Vertical);
+    content_box.append(&content_pane);
+
+    {
+        let preview_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .hexpand(true)
+            .height_request(MIN_GRID_HEIGHT)
+            .build();
+        let preview_box_label = gtk::Label::builder().label("Preview").build();
+        preview_box.append(&preview_box_label);
+        preview_box.add_css_class("pink_box");
+        build_preview_activity_viewer(&preview_box);
+        content_pane.set_start_child(Some(&preview_box));
+    }
+
+    {
+        let preview_screen_box = gtk::Box::builder()
+            .homogeneous(true)
+            .height_request(MIN_GRID_HEIGHT)
+            .build();
+        preview_screen_box.set_css_classes(&["brown_box", "black_bg_box"]);
+        preview_screen_box.set_overflow(gtk::Overflow::Hidden);
+        // preview_screen_box.set_vexpand(true);
+
+        let preview_screen_label = gtk::Label::builder()
+            .label(PREVIEW_SCREEN_LABEL_STR)
+            .justify(gtk::Justification::Center)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::Word)
+            .build();
+
+        preview_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
+        preview_screen_box.append(&preview_screen_label);
+
+        let preview_frame = gtk::Frame::new(None);
+        preview_frame.set_child(Some(&preview_screen_box));
+
+        content_pane.set_end_child(Some(&preview_frame));
+    }
+
+    content_pane.set_shrink_start_child(false);
+    content_pane.set_shrink_end_child(false);
+
+    container.set_start_child(Some(&content_box));
+}
+
+fn build_live_and_screen(container: &gtk::Paned) {
+    let content_box = gtk::Box::builder()
+        .homogeneous(true)
+        .orientation(gtk::Orientation::Vertical)
+        .vexpand(true)
+        .width_request(MIN_GRID_WIDTH)
+        .build();
+    let content_pane = gtk::Paned::new(gtk::Orientation::Vertical);
+    content_box.append(&content_pane);
+
+    {
+        let live_box = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .hexpand(true)
+            .vexpand(true)
+            .height_request(MIN_GRID_HEIGHT)
+            .build();
+
+        let live_box_label = gtk::Label::builder().label("Live").build();
+        live_box.append(&live_box_label);
+        live_box.add_css_class("pink_box");
+
+        build_live_activity_viewer(&live_box);
+
+        content_pane.set_start_child(Some(&live_box));
+    }
+
+    {
+        let live_screen_box = gtk::Box::builder()
+            .homogeneous(true)
+            .height_request(MIN_GRID_HEIGHT)
+            .build();
+        live_screen_box.set_css_classes(&["brown_box", "black_bg_box"]);
+        live_screen_box.set_overflow(gtk::Overflow::Hidden);
+        // live_screen_box.set_vexpand(true);
+
+        let live_screen_label = gtk::Label::builder()
+            .label(PREVIEW_SCREEN_LABEL_STR)
+            .justify(gtk::Justification::Center)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::Word)
+            .build();
+
+        live_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
+        live_screen_box.append(&live_screen_label);
+
+        let live_frame = gtk::Frame::new(None);
+        live_frame.set_child(Some(&live_screen_box));
+
+        content_pane.set_end_child(Some(&live_frame));
+    }
+
+    content_pane.set_shrink_start_child(false);
+    content_pane.set_shrink_end_child(false);
+
+    container.set_end_child(Some(&content_box));
 }
