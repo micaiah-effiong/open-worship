@@ -1,5 +1,5 @@
 .btn {
-  color: red;
+  /* color: red; */
 }
 
 .btn-blue {
@@ -40,4 +40,12 @@
 
 .black_bg_box {
   background-color: black;
+}
+
+.white {
+  color: white;
+}
+
+.lg_font {
+  /* font-size: 20px; */
 }

@@ -10,6 +10,17 @@ const LIST_VEC: [&str; 5] = [
         "Lorem ipsum dolor sit amet, qui minim labore adipisicing minim sint cillum sint consectetur cupidatat. Lorem ipsum dolor sit amet, officia excepteur ex fugiat reprehenderit enim labore culpa sint ad nisi Lorem pariatur mollit ex esse exercitation amet. Nisi anim cupidatat excepteur officia. Reprehenderit nostrud nostrud ipsum Lorem est aliquip amet voluptate voluptate dolor minim nulla est proident. Nostrud officia pariatur ut officia. Sit irure elit esse ea nulla sunt ex occaecat reprehenderit commodo officia dolor Lorem duis laboris cupidatat officia voluptate. Culpa proident adipisicing id nulla nisi laboris ex in Lorem sunt duis officia eiusmod. Aliqua reprehenderit commodo ex non excepteur duis sunt velit enim. Voluptate laboris sint cupidatat ullamco ut ea consectetur et est culpa et culpa duis."
     ];
 
+const  PREVIEW_SCREEN_LABEL_STR: &str = "
+Lorem ipsum dolor sit amet, officia excepteur ex fugiat reprehenderit enim labore culpa sint ad nisi Lorem pariatur mollit ex esse exercitation amet.
+Nisi anim cupidatat excepteur officia.
+Reprehenderit nostrud nostrud ipsum Lorem est aliquip amet voluptate voluptate dolor minim nulla est proident.
+Nostrud officia pariatur ut officia.
+Sit irure elit esse ea nulla sunt ex occaecat reprehenderit commodo officia dolor Lorem duis laboris cupidatat officia voluptate.
+Culpa proident adipisicing id nulla nisi laboris ex in Lorem sunt duis officia eiusmod.
+Aliqua reprehenderit commodo ex non excepteur duis sunt velit enim.
+Voluptate laboris sint cupidatat ullamco ut ea consectetur et est culpa et culpa duis.
+";
+
 fn main() -> gtk::glib::ExitCode {
     let app = gtk::Application::builder().application_id(APP_ID).build();
     app.connect_startup(|_| load_css());
@@ -226,9 +237,6 @@ fn build_activity_viewer(content_box: &gtk::Box) {
 }
 
 fn build_live_activity_viewer(container: &gtk::Box) {
-    // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
-    // result_list_modal.extend_from_slice(&list_vec);
-
     let signal_selection_factory = gtk::SignalListItemFactory::new();
     signal_selection_factory.connect_setup(move |_, list_item| {
         let label = gtk::Label::builder()
@@ -271,67 +279,39 @@ fn build_search_and_preview(container: &gtk::Box) {
     container.append(&content_box);
 
     let search_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 3);
+    tab_box.add_css_class("red_box");
+    tab_box.set_height_request(48);
+
+    let notebook = gtk::Notebook::new();
+    notebook.set_hexpand(true);
     {
-        let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 3);
-        tab_box.add_css_class("red_box");
-        tab_box.set_height_request(48);
-
-        let search_field_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-        search_field_box.set_height_request(48);
-        search_field_box.add_css_class("green_double_box");
-
-        let search_input = gtk::SearchEntry::builder()
-            .placeholder_text("Search...")
-            .hexpand(true)
-            .build();
-        search_field_box.append(&search_input);
-
-        let search_result_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        search_result_box.add_css_class("blue_box");
-        search_result_box.set_vexpand(true);
-
-        {
-            let list_vec: gtk::StringList = (0..=3000).map(|num| num.to_string()).collect();
-            // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
-            // result_list_modal.extend_from_slice(&list_vec);
-
-            let signal_selection_factory = gtk::SignalListItemFactory::new();
-            signal_selection_factory.connect_setup(move |_, list_item| {
-                let label = gtk::Label::new(None);
-                label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-
-                list_item
-                    .downcast_ref::<gtk::ListItem>()
-                    .expect("Must be a list item")
-                    .set_child(Some(&label));
-
-                list_item
-                    .property_expression("item")
-                    .chain_property::<gtk::StringObject>("string")
-                    .bind(&label, "label", gtk::Widget::NONE);
-            });
-
-            let single_selection_modal = gtk::SingleSelection::new(Some(list_vec));
-            let list_view =
-                gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
-
-            let scroll_view = gtk::ScrolledWindow::builder()
-                .vexpand(true)
-                .child(&list_view)
-                .build();
-
-            search_result_box.append(&scroll_view);
-        }
-
-        search_box.append(&tab_box);
-        search_box.append(&search_field_box);
-        search_box.append(&search_result_box);
+        build_songs_search_tab(&notebook, "Songs");
+        build_bible_search_tab(&notebook, "Scriptures");
+        build_background_search_tab(&notebook, "Backgrounds");
     }
+    tab_box.append(&notebook);
+
+    search_box.append(&tab_box);
 
     let screen_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     {
-        let preview_screen_box = gtk::Box::builder().build();
-        preview_screen_box.add_css_class("brown_box");
+        let preview_screen_box = gtk::Box::builder().homogeneous(true).build();
+        preview_screen_box.set_css_classes(&["brown_box", "black_bg_box"]);
+        preview_screen_box.set_overflow(gtk::Overflow::Hidden);
+        preview_screen_box.set_vexpand(true);
+
+        let preview_screen_label = gtk::Label::builder()
+            .label(PREVIEW_SCREEN_LABEL_STR)
+            .justify(gtk::Justification::Center)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::Word)
+            .build();
+
+        println!("font => {:?}", preview_screen_label.style_context());
+        preview_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
+        preview_screen_box.append(&preview_screen_label);
+
         let live_screen_box = gtk::Box::builder().build();
         live_screen_box.add_css_class("brown_box");
 
@@ -346,6 +326,178 @@ fn build_search_and_preview(container: &gtk::Box) {
     content_box.attach(&search_box, 0, 0, 1, 1);
     content_box.attach(&screen_box, 1, 0, 2, 1);
     content_box.add_css_class("green_double_box");
+}
+
+fn build_bible_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
+    let search_result_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    search_result_box.add_css_class("blue_box");
+    search_result_box.set_vexpand(true);
+
+    let search_field_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+    search_field_box.set_height_request(48);
+    search_field_box.add_css_class("green_double_box");
+    {
+        let search_input = gtk::SearchEntry::builder()
+            .placeholder_text("Search...")
+            .hexpand(true)
+            .build();
+        search_field_box.append(&search_input);
+        search_result_box.append(&search_field_box);
+    }
+
+    // result lists
+    {
+        let list_model: gtk::StringList = (0..=3000).map(|num| num.to_string()).collect();
+        // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
+        // result_list_modal.extend_from_slice(&list_vec);
+
+        let signal_selection_factory = gtk::SignalListItemFactory::new();
+        signal_selection_factory.connect_setup(move |_, list_item| {
+            let label = gtk::Label::new(None);
+            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+            label.set_single_line_mode(true);
+
+            list_item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Must be a list item")
+                .set_child(Some(&label));
+
+            list_item
+                .property_expression("item")
+                .chain_property::<gtk::StringObject>("string")
+                .bind(&label, "label", gtk::Widget::NONE);
+        });
+
+        let single_selection_modal = gtk::SingleSelection::new(Some(list_model));
+        let list_view =
+            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
+
+        let scroll_view = gtk::ScrolledWindow::builder()
+            .vexpand(true)
+            .child(&list_view)
+            .build();
+
+        search_result_box.append(&scroll_view);
+    }
+
+    let bible_label = gtk::Label::new(Some(label));
+    container.append_page(&search_result_box, Some(&bible_label));
+
+    return search_result_box;
+}
+
+fn build_background_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
+    let search_result_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    search_result_box.add_css_class("blue_box");
+    search_result_box.set_vexpand(true);
+
+    let search_field_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+    search_field_box.set_height_request(48);
+    search_field_box.add_css_class("green_double_box");
+    {
+        let search_input = gtk::SearchEntry::builder()
+            .placeholder_text("Search...")
+            .hexpand(true)
+            .build();
+        search_field_box.append(&search_input);
+        search_result_box.append(&search_field_box);
+    }
+
+    // result lists
+    {
+        let list_model: gtk::StringList = (0..=3000).map(|num| num.to_string()).collect();
+        // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
+        // result_list_modal.extend_from_slice(&list_model);
+
+        let signal_selection_factory = gtk::SignalListItemFactory::new();
+        signal_selection_factory.connect_setup(move |_, list_item| {
+            let label = gtk::Label::new(None);
+            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+
+            list_item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Must be a list item")
+                .set_child(Some(&label));
+
+            list_item
+                .property_expression("item")
+                .chain_property::<gtk::StringObject>("string")
+                .bind(&label, "label", gtk::Widget::NONE);
+        });
+
+        let single_selection_modal = gtk::SingleSelection::new(Some(list_model));
+        let list_view =
+            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
+
+        let scroll_view = gtk::ScrolledWindow::builder()
+            .vexpand(true)
+            .child(&list_view)
+            .build();
+
+        search_result_box.append(&scroll_view);
+    }
+
+    let bible_label = gtk::Label::new(Some(label));
+    container.append_page(&search_result_box, Some(&bible_label));
+
+    return search_result_box;
+}
+
+fn build_songs_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
+    let search_result_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    search_result_box.add_css_class("blue_box");
+    search_result_box.set_vexpand(true);
+
+    let search_field_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
+    search_field_box.set_height_request(48);
+    search_field_box.add_css_class("green_double_box");
+    {
+        let search_input = gtk::SearchEntry::builder()
+            .placeholder_text("Search...")
+            .hexpand(true)
+            .build();
+        search_field_box.append(&search_input);
+        search_result_box.append(&search_field_box);
+    }
+
+    // result lists
+    {
+        let list_model: gtk::StringList = (0..=3000).map(|_| LIST_VEC[0]).collect();
+        // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
+        // result_list_modal.extend_from_slice(&list_model);
+
+        let signal_selection_factory = gtk::SignalListItemFactory::new();
+        signal_selection_factory.connect_setup(move |_, list_item| {
+            let label = gtk::Label::new(None);
+            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
+
+            list_item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Must be a list item")
+                .set_child(Some(&label));
+
+            list_item
+                .property_expression("item")
+                .chain_property::<gtk::StringObject>("string")
+                .bind(&label, "label", gtk::Widget::NONE);
+        });
+
+        let single_selection_modal = gtk::SingleSelection::new(Some(list_model));
+        let list_view =
+            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
+
+        let scroll_view = gtk::ScrolledWindow::builder()
+            .vexpand(true)
+            .child(&list_view)
+            .build();
+
+        search_result_box.append(&scroll_view);
+    }
+
+    let bible_label = gtk::Label::new(Some(label));
+    container.append_page(&search_result_box, Some(&bible_label));
+
+    return search_result_box;
 }
 
 fn load_css() {
