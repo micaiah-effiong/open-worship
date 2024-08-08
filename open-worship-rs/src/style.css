@@ -57,3 +57,11 @@
 label {
   padding: 3px;
 }
+
+.ow-listview:focus-within row:selected {
+  background-color: blue;
+}
+
+.ow-listview row:selected {
+  background-color: grey;
+}

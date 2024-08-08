@@ -192,15 +192,6 @@ fn build_body_content(body_box: &gtk::Box) {
         .build();
 
     body_container.add_css_class("blue_box");
-    // let activity_viewer_box = gtk::Box::builder()
-    //     .orientation(gtk::Orientation::Horizontal)
-    //     .vexpand(true)
-    //     .spacing(0)
-    //     .build();
-    // let search_and_preview_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-    //
-    // build_activity_viewer(&activity_viewer_box);
-    // build_search_and_preview(&search_and_preview_box);
 
     let pane1 = gtk::Paned::new(gtk::Orientation::Horizontal);
     let pane2 = gtk::Paned::new(gtk::Orientation::Horizontal);
@@ -332,6 +323,7 @@ fn build_live_activity_viewer(container: &gtk::Box) {
         gesture.connect_pressed(|g, m, _, _| {
             g.set_state(gtk::EventSequenceState::Claimed);
             println!("clicked {} ", m);
+            g.set_state(gtk::EventSequenceState::Denied);
         });
 
         label.add_controller(gesture);
@@ -594,7 +586,7 @@ fn build_schedule_and_search(container: &gtk::Paned) {
             .height_request(MIN_GRID_HEIGHT)
             .hexpand(true)
             .build();
-        schedule_box.add_css_class("pink_box");
+        schedule_box.set_css_classes(&["pink_box", "ow-listview"]);
         let s_box_label = gtk::Label::builder().label("Schedule").build();
         schedule_box.append(&s_box_label);
 
@@ -611,8 +603,7 @@ fn build_schedule_and_search(container: &gtk::Paned) {
             .homogeneous(true)
             .build();
         let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 3);
-        tab_box.add_css_class("red_box");
-        tab_box.add_css_class("purple_box");
+        tab_box.set_css_classes(&["purple_box", "ow-listview"]);
         tab_box.set_height_request(48);
 
         let notebook = gtk::Notebook::new();
@@ -652,7 +643,8 @@ fn build_preview_and_screen(container: &gtk::Paned) {
             .build();
         let preview_box_label = gtk::Label::builder().label("Preview").build();
         preview_box.append(&preview_box_label);
-        preview_box.add_css_class("pink_box");
+        preview_box.set_css_classes(&["pink_box", "ow-listview"]);
+
         build_preview_activity_viewer(&preview_box);
         content_pane.set_start_child(Some(&preview_box));
     }
@@ -674,6 +666,10 @@ fn build_preview_and_screen(container: &gtk::Paned) {
             .build();
 
         preview_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
+        preview_screen_label.set_markup(&format!(
+            "<span foreground=\"white\" size=\"{}pt\"> testing </span>",
+            30,
+        ));
         preview_screen_box.append(&preview_screen_label);
 
         let preview_frame = gtk::Frame::new(None);
@@ -708,7 +704,7 @@ fn build_live_and_screen(container: &gtk::Paned) {
 
         let live_box_label = gtk::Label::builder().label("Live").build();
         live_box.append(&live_box_label);
-        live_box.add_css_class("pink_box");
+        live_box.set_css_classes(&["pink_box", "ow-listview"]);
 
         build_live_activity_viewer(&live_box);
 
