@@ -1,5 +1,223 @@
-use gtk::glib;
+use std::u32;
+
 use gtk::prelude::*;
+use relm4::prelude::*;
+
+#[derive(Debug)]
+enum AppInput {}
+struct AppModel {
+    schedule_activity_viewer: relm4::Controller<ActivityViewerModel>,
+    preview_activity_viewer: relm4::Controller<ActivityViewerModel>,
+    live_activity_viewer: relm4::Controller<ActivityViewerModel>,
+
+    preview_activity_screen: relm4::Controller<ActivityScreenModel>,
+    live_activity_screen: relm4::Controller<ActivityScreenModel>,
+    search_viewer: relm4::Controller<SearchModel>,
+}
+// struct AppWidgets {}
+
+#[relm4::component]
+impl SimpleComponent for AppModel {
+    type Init = Option<()>;
+    type Input = AppInput;
+    type Output = ();
+    // type Root = gtk::Window;
+    // type Widgets = AppWidgets;
+
+    view! {
+        main_window = gtk::Window{
+            // if let Some(display_geometry) = get_display_geometry() {
+            //     set_default_width = display_geometry.width() / 2;
+            //     set_default_height = display_geometry.height() / 2;
+            // },
+
+            // layout box
+            #[wrap(Some)]
+            set_child = &gtk::Box {
+                set_orientation: gtk::Orientation::Vertical,
+
+                // header box
+                gtk::Box {
+                    set_orientation: gtk::Orientation::Vertical,
+                    set_height_request: 48,
+                },
+
+                // body box
+                gtk::Box {
+                    set_margin_all: 12,
+                    set_orientation: gtk::Orientation::Vertical,
+
+                    gtk::Box {
+                        set_hexpand: true,
+                        set_vexpand: true,
+                        set_homogeneous: true,
+                        set_orientation: gtk::Orientation::Horizontal,
+                        add_css_class: "blue_box",
+
+                        // pane1
+                        gtk::Paned {
+                            set_orientation: gtk::Orientation::Horizontal,
+                            set_shrink_start_child: false,
+                            set_shrink_end_child: false,
+
+                            #[wrap(Some)]
+                            set_start_child = &gtk::Box {
+                                set_homogeneous: true,
+                                set_orientation: gtk::Orientation::Vertical,
+                                set_vexpand: true,
+                                set_width_request: MIN_GRID_WIDTH,
+
+                                gtk::Paned {
+                                    set_orientation: gtk::Orientation::Vertical,
+                                    set_shrink_start_child: false,
+                                    set_shrink_end_child: false,
+
+                                    // schedule box
+                                    set_start_child = Some(model.schedule_activity_viewer.widget()),
+                                    // set_start_child = &gtk::Box {
+                                    //     set_orientation: gtk::Orientation::Vertical,
+                                    //     set_height_request: MIN_GRID_HEIGHT,
+                                    //     set_hexpand: true,
+                                    //     set_css_classes: &["pink_box", "ow-listview"],
+                                    //
+                                    //     gtk::Label {
+                                    //         set_label: "Schedule"
+                                    //     }
+                                    // }
+
+                                    set_end_child = Some(model.search_viewer.widget()),
+
+                                }
+
+                            },
+
+                            #[wrap(Some)]
+                            set_end_child = &gtk::Paned {
+                                set_orientation: gtk::Orientation::Horizontal,
+                                set_shrink_start_child: false,
+                                set_shrink_end_child: false,
+
+                                #[wrap(Some)]
+                                set_start_child = &gtk::Box {
+                                    set_homogeneous: true,
+                                    set_orientation: gtk::Orientation::Vertical,
+                                    set_vexpand: true,
+                                    set_width_request: MIN_GRID_WIDTH,
+
+                                    gtk::Paned {
+                                        set_orientation: gtk::Orientation::Vertical,
+                                        set_shrink_start_child: false,
+                                        set_shrink_end_child: false,
+                                        set_start_child = Some(model.preview_activity_viewer.widget()),
+                                        set_end_child = Some(model.preview_activity_screen.widget()),
+                                    }
+                                },
+
+                                #[wrap(Some)]
+                                set_end_child = &gtk::Box {
+                                    set_homogeneous: true,
+                                    set_orientation: gtk::Orientation::Vertical,
+                                    set_vexpand: true,
+                                    set_width_request: MIN_GRID_WIDTH,
+
+                                    gtk::Paned {
+                                        set_orientation: gtk::Orientation::Vertical,
+                                        set_shrink_start_child: false,
+                                        set_shrink_end_child: false,
+                                        set_start_child = Some(model.live_activity_viewer.widget()),
+                                        set_end_child = Some(model.live_activity_screen.widget()),
+                                    }
+                                }
+                            }
+
+                        }
+
+                            // pane2
+                    }
+                },
+
+                // footer box
+                append = &gtk::Box {
+                    set_margin_end: 12,
+                    set_orientation: gtk::Orientation::Vertical,
+
+                     gtk::Label {
+                       set_label: "footer",
+                    }
+                },
+
+            }
+        }
+    }
+
+    // fn init_root() -> Self::Root {
+    //     let window = gtk::Window::builder().title("Open Worship").build();
+    //
+    //     if let Some(display_geometry) = get_display_geometry() {
+    //         window.set_default_width(display_geometry.width() / 2);
+    //         window.set_default_height(display_geometry.height() / 2);
+    //     }
+    //
+    //     return window;
+    // }
+    fn init(
+        _init: Self::Init,
+        window: Self::Root,
+        _sender: ComponentSender<Self>,
+    ) -> relm4::ComponentParts<Self> {
+        // let close_action = gtk::gio::ActionEntry::builder("close")
+        // .activate(gtk::glib::clone!(
+        //     #[weak]
+        //     window,
+        //     move |_, _, _| window.close()
+        // ))
+        // .build();
+
+        // let action_group = gtk::gio::SimpleActionGroup::new();
+        // action_group.add_action_entries([close_action]);
+        // let layout_box = build_layout();
+
+        let schedule_activity_viewer = ActivityViewerModel::builder()
+            .launch(ActivityViewerData {
+                title: String::from("Schedule"),
+            })
+            .forward(_sender.input_sender(), |_| unreachable!());
+        let preview_activity_viewer = ActivityViewerModel::builder()
+            .launch(ActivityViewerData {
+                title: String::from("Preview"),
+            })
+            .forward(_sender.input_sender(), |_| unreachable!());
+        let live_activity_viewer = ActivityViewerModel::builder()
+            .launch(ActivityViewerData {
+                title: String::from("Live"),
+            })
+            .forward(_sender.input_sender(), |_| unreachable!());
+        let search_viewer = SearchModel::builder()
+            .launch(())
+            .forward(_sender.input_sender(), |_| unreachable!());
+
+        let preview_activity_screen = ActivityScreenModel::builder()
+            .launch(())
+            .forward(_sender.input_sender(), |_| unreachable!());
+        let live_activity_screen = ActivityScreenModel::builder()
+            .launch(())
+            .forward(_sender.input_sender(), |_| unreachable!());
+
+        let model = AppModel {
+            schedule_activity_viewer,
+            preview_activity_viewer,
+            live_activity_viewer,
+            search_viewer,
+            preview_activity_screen,
+            live_activity_screen,
+        };
+        let widgets = view_output!();
+
+        // window.set_child(Some(&layout_box));
+
+        return relm4::ComponentParts { model, widgets };
+    }
+}
 
 const APP_ID: &str = "com.open-worship";
 const LIST_VEC: [&str; 5] = [
@@ -24,45 +242,11 @@ Voluptate laboris sint cupidatat ullamco ut ea consectetur et est culpa et culpa
 const MIN_GRID_HEIGHT: i32 = 300;
 const MIN_GRID_WIDTH: i32 = 300;
 
-fn main() -> gtk::glib::ExitCode {
-    let app = gtk::Application::builder().application_id(APP_ID).build();
-    app.connect_startup(|_| load_css());
-    app.connect_activate(build_ui);
-
-    return app.run();
-}
-
-fn build_ui(app: &gtk::Application) {
+fn main() {
+    let app = relm4::RelmApp::new(APP_ID);
+    load_css();
     log_display_info();
-
-    let layout_box = build_layout();
-    let window = gtk::ApplicationWindow::builder()
-        .application(app)
-        .title("Open Worship")
-        .child(&layout_box)
-        .build();
-
-    let close_action = gtk::gio::ActionEntry::builder("close")
-        .activate(gtk::glib::clone!(
-            #[weak]
-            window,
-            move |_, _, _| window.close()
-        ))
-        .build();
-
-    let action_group = gtk::gio::SimpleActionGroup::new();
-    action_group.add_action_entries([close_action]);
-
-    window.insert_action_group("custom-group", Some(&action_group));
-    app.set_accels_for_action("custom-group.close", &["<Ctrl>W"]);
-
-    if let Some(display_geometry) = get_display_geometry() {
-        window.set_default_width(display_geometry.width() / 2);
-        window.set_default_height(display_geometry.height() / 2);
-    }
-
-    window.connect_destroy(|_| std::process::exit(0));
-    return window.present();
+    app.run::<AppModel>(None);
 }
 
 fn build_layout() -> gtk::Box {
@@ -117,46 +301,46 @@ fn build_header_content(header_box: &gtk::Box) {
 
     button_2.set_css_classes(&["btn", "btn-blue"]);
 
-    let number = std::rc::Rc::new(std::cell::Cell::new(-1));
+    // let number = std::rc::Rc::new(std::cell::Cell::new(-1));
 
-    button_2.connect_clicked(gtk::glib::clone!(
-        #[weak]
-        number,
-        #[weak]
-        button,
-        move |_| {
-            number.set(number.get() + 1);
-            let mut number_str = number.get().to_string();
-            number_str.insert_str(0, "Live ");
-            button.set_label(&number_str);
-        }
-    ));
-
-    button.connect_clicked(move |btn| {
-        gtk::glib::spawn_future_local(gtk::glib::clone!(
-            #[weak]
-            btn,
-            #[weak]
-            number,
-            async move {
-                number.set(number.get() + 1);
-                let mut num_str = number.get().to_string();
-                num_str.insert_str(0, "Live ");
-                btn.set_label(&num_str);
-
-                btn.set_sensitive(false);
-                // glib::timeout_future_seconds(2).await;
-                let wait_result = gtk::gio::spawn_blocking(move || {
-                    let wait = std::time::Duration::from_secs(2);
-                    std::thread::sleep(wait);
-                    return true;
-                })
-                .await
-                .expect("Blocking task must finish running");
-                btn.set_sensitive(wait_result);
-            }
-        ));
-    });
+    // button_2.connect_clicked(gtk::glib::clone!(
+    //     #[weak]
+    //     number,
+    //     #[weak]
+    //     button,
+    //     move |_| {
+    //         number.set(number.get() + 1);
+    //         let mut number_str = number.get().to_string();
+    //         number_str.insert_str(0, "Live ");
+    //         button.set_label(&number_str);
+    //     }
+    // ));
+    //
+    // button.connect_clicked(move |btn| {
+    //     gtk::glib::spawn_future_local(gtk::glib::clone!(
+    //         #[weak]
+    //         btn,
+    //         #[weak]
+    //         number,
+    //         async move {
+    //             number.set(number.get() + 1);
+    //             let mut num_str = number.get().to_string();
+    //             num_str.insert_str(0, "Live ");
+    //             btn.set_label(&num_str);
+    //
+    //             btn.set_sensitive(false);
+    //             // glib::timeout_future_seconds(2).await;
+    //             let wait_result = gtk::gio::spawn_blocking(move || {
+    //                 let wait = std::time::Duration::from_secs(2);
+    //                 std::thread::sleep(wait);
+    //                 return true;
+    //             })
+    //             .await
+    //             .expect("Blocking task must finish running");
+    //             btn.set_sensitive(wait_result);
+    //         }
+    //     ));
+    // });
 
     let button_close_from_action_entry = gtk::Button::builder()
         .label("close")
@@ -166,16 +350,16 @@ fn build_header_content(header_box: &gtk::Box) {
         .margin_bottom(12)
         .build();
 
-    button_close_from_action_entry.connect_clicked(gtk::glib::clone!(
-        #[weak]
-        button_close_from_action_entry,
-        move |_| {
-            button_close_from_action_entry
-                .activate_action("custom-group.close", None)
-                .expect("Should have close action")
-        }
-    ));
-
+    // button_close_from_action_entry.connect_clicked(gtk::glib::clone!(
+    //     #[weak]
+    //     button_close_from_action_entry,
+    //     move |_| {
+    //         button_close_from_action_entry
+    //             .activate_action("custom-group.close", None)
+    //             .expect("Should have close action")
+    //     }
+    // ));
+    //
     header_box.append(&header_label);
     header_box.append(&header_space);
     header_box.append(&button);
@@ -279,13 +463,42 @@ fn build_preview_activity_viewer(container: &gtk::Box) {
             .property_expression("item")
             .chain_property::<gtk::StringObject>("string")
             .bind(&label, "label", gtk::Widget::NONE);
+
+        // let gesture = gtk::GestureClick::new();
+        //
+        // gesture.set_button(gtk::gdk::ffi::GDK_BUTTON_PRIMARY as u32);
+        // gesture.connect_pressed(|g, m, n, o| {
+        //     g.set_state(gtk::EventSequenceState::Claimed);
+        //     println!("clicked {} || {:?} || {:?}", m, n, o);
+        //     list_item.
+        //     g.set_state(gtk::EventSequenceState::Denied);
+        // });
+        //
+        // label.add_controller(gesture);
     });
+
+    // let cb_app_state = ;
 
     let single_selection_modal =
         gtk::SingleSelection::new(Some(LIST_VEC.into_iter().collect::<gtk::StringList>()));
+
+    // single_selection_modal.connect_selection_changed(|m, p, n| {
+    //     if let Some(item) = m.selected_item() {
+    //         println!("act {:?} || {:?} || {:?}", item, p, n);
+    //     }
+    // });
+
     let list_view =
         gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
 
+    // list_view.connect_activate(move |m, n| {
+    //     println!("lv-act {:?} || {:?}", m, n);
+    //     println!("pre-list -> {:?}", app_state.borrow().live_state.list);
+    //     let list = app_state.borrow().preview_state.list.clone();
+    //     app_state.borrow_mut().live_state.set_list(list, None);
+    //     println!("list -> {:?}", app_state.borrow().live_state.list);
+    // });
+    //
     let scroll_view = gtk::ScrolledWindow::builder()
         .vexpand(true)
         .child(&list_view)
@@ -741,3 +954,334 @@ fn build_live_and_screen(container: &gtk::Paned) {
 
     container.set_end_child(Some(&content_box));
 }
+
+// model
+// widget
+// input
+#[derive(Debug)]
+enum ActivityViewerInput {}
+struct ActivityViewerData {
+    title: String,
+}
+struct ActivityViewerModel {
+    title: String,
+    list: gtk::ListView,
+}
+
+#[relm4::component]
+impl SimpleComponent for ActivityViewerModel {
+    type Input = ActivityViewerInput;
+    type Output = ();
+    type Init = ActivityViewerData;
+    // type Root = gtk::Box;
+    // type Widgets = ActivityViewerWidget;
+
+    // fn init_root() -> Self::Root {
+    //     let root_box = gtk::Box::builder()
+    //         .orientation(gtk::Orientation::Vertical)
+    //         .hexpand(true)
+    //         .height_request(MIN_GRID_HEIGHT)
+    //         .build();
+    //     let s_box_label = gtk::Label::builder().label("Schedule").build();
+    //     root_box.append(&s_box_label);
+    //
+    //     root_box.set_css_classes(&["pink_box", "ow-listview"]);
+    //
+    //     return root_box;
+    // }
+
+    view! {
+        #[root]
+        gtk::Box {
+            set_orientation: gtk::Orientation::Vertical,
+            set_hexpand: true,
+            set_height_request: MIN_GRID_HEIGHT,
+            set_css_classes: &["pink_box", "ow-listview"],
+
+            gtk::Label {
+                set_label: &model.title
+            },
+
+            gtk::ScrolledWindow {
+                set_vexpand: true,
+
+                #[local_ref]
+                the_list -> gtk::ListView{
+                    // #[wrap(Some)]
+                    // set_model = gtk::SingleSelection{
+                    //     set_model = Some(LIST_VEC.into_iter().collect::<gtk::StringList>())
+                    // },
+                    // #[wrap(Some)]
+                    // set_factory = gtk::SignalListItemFactory{
+                    //     // set_factory =
+                    // },
+                }
+            }
+        }
+    }
+
+    fn init(
+        _init: Self::Init,
+        root: Self::Root,
+        _sender: ComponentSender<Self>,
+    ) -> relm4::ComponentParts<Self> {
+        let signal_selection_factory = gtk::SignalListItemFactory::new();
+        signal_selection_factory.connect_setup(move |_, list_item| {
+            let label = gtk::Label::builder()
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .wrap_mode(gtk::pango::WrapMode::Word)
+                .lines(2)
+                .margin_top(12)
+                .margin_bottom(12)
+                .halign(gtk::Align::Start)
+                .justify(gtk::Justification::Fill)
+                .build();
+
+            list_item
+                .downcast_ref::<gtk::ListItem>()
+                .expect("Must be a list item")
+                .set_child(Some(&label));
+
+            list_item
+                .property_expression("item")
+                .chain_property::<gtk::StringObject>("string")
+                .bind(&label, "label", gtk::Widget::NONE);
+
+            // let gesture = gtk::GestureClick::new();
+            //
+            // gesture.set_button(gtk::gdk::ffi::GDK_BUTTON_PRIMARY as u32);
+            // gesture.connect_pressed(|g, m, n, o| {
+            //     g.set_state(gtk::EventSequenceState::Claimed);
+            //     println!("clicked {} || {:?} || {:?}", m, n, o);
+            //     list_item.
+            //     g.set_state(gtk::EventSequenceState::Denied);
+            // });
+            //
+            // label.add_controller(gesture);
+        });
+
+        // let cb_app_state = ;
+
+        let single_selection_modal =
+            gtk::SingleSelection::new(Some(LIST_VEC.into_iter().collect::<gtk::StringList>()));
+
+        // single_selection_modal.connect_selection_changed(|m, p, n| {
+        //     if let Some(item) = m.selected_item() {
+        //         println!("act {:?} || {:?} || {:?}", item, p, n);
+        //     }
+        // });
+
+        let list_view =
+            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
+
+        list_view.connect_activate(move |m, n| {
+            println!("lv-act {:?} || {:?}", m, n);
+        });
+        //
+        // let scroll_view = gtk::ScrolledWindow::builder()
+        //     .vexpand(true)
+        //     .child(&list_view)
+        //     .build();
+
+        // root.append(&scroll_view);
+
+        let model = ActivityViewerModel {
+            title: _init.title,
+            list: list_view.clone(),
+        };
+
+        let the_list = &model.list;
+
+        let widgets = view_output!();
+
+        return relm4::ComponentParts { model, widgets };
+    }
+}
+
+// search area (notebook)
+#[derive(Debug)]
+enum SearchInput {}
+struct SearchModel {}
+struct SearchWidget {}
+
+impl SimpleComponent for SearchModel {
+    type Init = ();
+    type Output = ();
+    type Root = gtk::Box;
+    type Input = SearchInput;
+    type Widgets = SearchWidget;
+
+    fn init_root() -> Self::Root {
+        return gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .height_request(MIN_GRID_HEIGHT)
+            .hexpand(true)
+            .homogeneous(true)
+            .build();
+    }
+
+    fn init(
+        _init: Self::Init,
+        root: Self::Root,
+        _sender: ComponentSender<Self>,
+    ) -> relm4::ComponentParts<Self> {
+        let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 3);
+        tab_box.set_css_classes(&["purple_box", "ow-listview"]);
+        tab_box.set_height_request(48);
+
+        let notebook = gtk::Notebook::new();
+        notebook.set_hexpand(true);
+        {
+            build_songs_search_tab(&notebook, "Songs");
+            build_bible_search_tab(&notebook, "Scriptures");
+            build_background_search_tab(&notebook, "Backgrounds");
+        }
+        tab_box.append(&notebook);
+        root.append(&tab_box);
+
+        return relm4::ComponentParts {
+            model: SearchModel {},
+            widgets: SearchWidget {},
+        };
+    }
+}
+
+// actrivity screen
+#[derive(Debug)]
+enum ActivityScreenInput {}
+struct ActivityScreenModel {}
+struct ActivityScreenWidget {}
+
+impl SimpleComponent for ActivityScreenModel {
+    type Init = ();
+    type Input = ActivityScreenInput;
+    type Output = ();
+    type Root = gtk::Frame;
+    type Widgets = ActivityScreenWidget;
+
+    fn init_root() -> Self::Root {
+        return gtk::Frame::new(None);
+    }
+
+    fn init(
+        _init: Self::Init,
+        root: Self::Root,
+        _sender: ComponentSender<Self>,
+    ) -> relm4::ComponentParts<Self> {
+        let screen_box = gtk::Box::builder()
+            .homogeneous(true)
+            .height_request(MIN_GRID_HEIGHT)
+            .build();
+        screen_box.set_css_classes(&["brown_box", "black_bg_box"]);
+        screen_box.set_overflow(gtk::Overflow::Hidden);
+
+        let live_screen_label = gtk::Label::builder()
+            .label(PREVIEW_SCREEN_LABEL_STR)
+            .justify(gtk::Justification::Center)
+            .wrap(true)
+            .wrap_mode(gtk::pango::WrapMode::Word)
+            .build();
+
+        live_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
+        screen_box.append(&live_screen_label);
+
+        root.set_child(Some(&screen_box));
+
+        return relm4::ComponentParts {
+            model: ActivityScreenModel {},
+            widgets: ActivityScreenWidget {},
+        };
+    }
+}
+
+// fn build_ui(app: &gtk::Application) {
+//     log_display_info();
+//
+//     let layout_box = build_layout();
+//     let window = gtk::ApplicationWindow::builder()
+//         .application(app)
+//         .title("Open Worship")
+//         .child(&layout_box)
+//         .build();
+//
+//     let close_action = gtk::gio::ActionEntry::builder("close")
+//         // .activate(gtk::glib::clone!(
+//         //     #[weak]
+//         //     window,
+//         //     move |_, _, _| window.close()
+//         // ))
+//         .build();
+//
+//     let action_group = gtk::gio::SimpleActionGroup::new();
+//     action_group.add_action_entries([close_action]);
+//
+//     window.insert_action_group("custom-group", Some(&action_group));
+//     app.set_accels_for_action("custom-group.close", &["<Ctrl>W"]);
+//
+//     if let Some(display_geometry) = get_display_geometry() {
+//         window.set_default_width(display_geometry.width() / 2);
+//         window.set_default_height(display_geometry.height() / 2);
+//     }
+//
+//     window.connect_destroy(|_| std::process::exit(0));
+//     return window.present();
+// }
+
+// struct ActivityState {
+//     list: Vec<String>,
+//     selected: Option<u32>,
+// }
+//
+// impl ActivityState {
+//     fn new() -> Self {
+//         return ActivityState {
+//             list: Vec::new(),
+//             selected: None,
+//         };
+//     }
+//
+//     fn set_selected(&mut self, index: u32) {
+//         if (index as usize) < self.list.len() {
+//             self.selected = Some(index);
+//         }
+//     }
+//
+//     fn set_list(&mut self, list: Vec<String>, index: Option<u32>) {
+//         let len = list.len();
+//         self.list = list;
+//
+//         let inx = match index {
+//             Some(inx) => inx,
+//             None => {
+//                 if len > 0 {
+//                     self.selected = Some(0);
+//                 } else {
+//                     self.selected = None;
+//                 }
+//                 return ();
+//             }
+//         };
+//
+//         if (inx as usize) < len {
+//             self.selected = Some(inx);
+//         } else {
+//             self.selected = None;
+//         }
+//     }
+// }
+//
+// struct OWAppState {
+//     preview_state: ActivityState,
+//     live_state: ActivityState,
+//     schedule_state: ActivityState,
+// }
+//
+// impl OWAppState {
+//     fn new() -> Self {
+//         return OWAppState {
+//             preview_state: ActivityState::new(),
+//             live_state: ActivityState::new(),
+//             schedule_state: ActivityState::new(),
+//         };
+//     }
+// }

@@ -4,4 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gtk = { package = "gtk4", version = "0.9.0" }
+# gtk = { package = "gtk4", version = "0.9.0" }
+# relm = { package = "relm4", version = "0.8.0" }
+relm4 = "0.8.0"
+relm4-components = "0.8.0"
