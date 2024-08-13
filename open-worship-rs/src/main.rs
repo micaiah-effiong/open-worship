@@ -1,14 +1,19 @@
-use crate::widgets::live_activity_viewer::{LiveViewerData, LiveViewerModel};
-use crate::widgets::preview_activity_viewer::{
-    PreviewViewerData, PreviewViewerModel, PreviewViewerOutput,
-};
-
 use std::u32;
 
 pub mod widgets;
-use gtk::{glib::clone, prelude::*};
+use gtk::prelude::*;
 use relm4::prelude::*;
-use widgets::live_activity_viewer::{LiveViewerInput, LiveViewerOutput};
+use widgets::activity_screen::ActivityScreenModel;
+use widgets::live_activity_viewer::{
+    LiveViewerData, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
+};
+use widgets::preview_activity_viewer::{
+    PreviewViewerData, PreviewViewerModel, PreviewViewerOutput,
+};
+use widgets::schedule_activity_viewer::{
+    ScheduleViewerData, ScheduleViewerModel, ScheduleViewerOutput,
+};
+use widgets::search::{SearchInit, SearchModel};
 
 #[derive(Debug)]
 enum AppInput {
@@ -27,6 +32,13 @@ struct AppModel {
 }
 
 impl AppModel {
+    fn convert_schedule_activity_response(res: ScheduleViewerOutput) -> AppInput {
+        return match res {
+            ScheduleViewerOutput::Selected(list, num) => {
+                AppInput::ScheduleActivitySelected(list, num)
+            }
+        };
+    }
     fn convert_live_activity_response(res: LiveViewerOutput) -> AppInput {
         return match res {
             LiveViewerOutput::Selected(list, num) => {
@@ -62,12 +74,8 @@ impl SimpleComponent for AppModel {
     // type Widgets = AppWidgets;
 
     view! {
+        #[root]
         main_window = gtk::Window{
-            // if let Some(display_geometry) = get_display_geometry() {
-            //     set_default_width = display_geometry.width() / 2;
-            //     set_default_height = display_geometry.height() / 2;
-            // },
-
             // layout box
             #[wrap(Some)]
             set_child = &gtk::Box {
@@ -196,8 +204,12 @@ impl SimpleComponent for AppModel {
             .launch(ScheduleViewerData {
                 title: String::from("Schedule"),
                 list: Vec::new(),
+                selected_index: None,
             })
-            .forward(sender.input_sender(), |_| unreachable!());
+            .forward(
+                sender.input_sender(),
+                AppModel::convert_schedule_activity_response,
+            );
         let preview_activity_viewer = PreviewViewerModel::builder()
             .launch(PreviewViewerData {
                 title: String::from("Preview"),
@@ -219,7 +231,7 @@ impl SimpleComponent for AppModel {
                 AppModel::convert_live_activity_response,
             );
         let search_viewer = SearchModel::builder()
-            .launch(())
+            .launch(SearchInit {})
             .forward(sender.input_sender(), |_| unreachable!());
 
         let preview_activity_screen = ActivityScreenModel::builder()
@@ -239,7 +251,10 @@ impl SimpleComponent for AppModel {
         };
         let widgets = view_output!();
 
-        // window.set_child(Some(&layout_box));
+        if let Some(display_geometry) = get_display_geometry() {
+            window.set_default_width(display_geometry.width() / 2);
+            window.set_default_height(display_geometry.height() / 2);
+        }
 
         return relm4::ComponentParts { model, widgets };
     }
@@ -277,18 +292,7 @@ const LIST_VEC: [&str; 16] = [
     "As love and friendship's bonds endure, forever and without an end.",
 ];
 
-const  PREVIEW_SCREEN_LABEL_STR: &str = "
-Lorem ipsum dolor sit amet, officia excepteur ex fugiat reprehenderit enim labore culpa sint ad nisi Lorem pariatur mollit ex esse exercitation amet.
-Nisi anim cupidatat excepteur officia.
-Reprehenderit nostrud nostrud ipsum Lorem est aliquip amet voluptate voluptate dolor minim nulla est proident.
-Nostrud officia pariatur ut officia.
-Sit irure elit esse ea nulla sunt ex occaecat reprehenderit commodo officia dolor Lorem duis laboris cupidatat officia voluptate.
-Culpa proident adipisicing id nulla nisi laboris ex in Lorem sunt duis officia eiusmod.
-Aliqua reprehenderit commodo ex non excepteur duis sunt velit enim.
-Voluptate laboris sint cupidatat ullamco ut ea consectetur et est culpa et culpa duis.
-";
-
-const MIN_GRID_HEIGHT: i32 = 300;
+// const MIN_GRID_HEIGHT: i32 = 300;
 const MIN_GRID_WIDTH: i32 = 300;
 
 fn main() {
@@ -296,184 +300,6 @@ fn main() {
     load_css();
     log_display_info();
     app.run::<AppModel>(None);
-}
-
-fn build_bible_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
-    let search_result_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    search_result_box.add_css_class("blue_box");
-    search_result_box.set_vexpand(true);
-
-    let search_field_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-    search_field_box.set_height_request(48);
-    search_field_box.add_css_class("green_double_box");
-    {
-        let search_input = gtk::SearchEntry::builder()
-            .placeholder_text("Search...")
-            .hexpand(true)
-            .build();
-        search_field_box.append(&search_input);
-        search_result_box.append(&search_field_box);
-    }
-
-    // result lists
-    {
-        let list_model: gtk::StringList = (0..=3000).map(|num| num.to_string()).collect();
-        // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
-        // result_list_modal.extend_from_slice(&list_vec);
-
-        let signal_selection_factory = gtk::SignalListItemFactory::new();
-        signal_selection_factory.connect_setup(move |_, list_item| {
-            let label = gtk::Label::new(None);
-            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            label.set_single_line_mode(true);
-            label.set_halign(gtk::Align::Start);
-            label.set_justify(gtk::Justification::Fill);
-
-            list_item
-                .downcast_ref::<gtk::ListItem>()
-                .expect("Must be a list item")
-                .set_child(Some(&label));
-
-            list_item
-                .property_expression("item")
-                .chain_property::<gtk::StringObject>("string")
-                .bind(&label, "label", gtk::Widget::NONE);
-        });
-
-        let single_selection_modal = gtk::SingleSelection::new(Some(list_model));
-        let list_view =
-            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
-
-        let scroll_view = gtk::ScrolledWindow::builder()
-            .vexpand(true)
-            .child(&list_view)
-            .build();
-
-        search_result_box.append(&scroll_view);
-    }
-
-    let bible_label = gtk::Label::new(Some(label));
-    container.append_page(&search_result_box, Some(&bible_label));
-
-    return search_result_box;
-}
-
-fn build_background_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
-    let search_result_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    search_result_box.add_css_class("blue_box");
-    search_result_box.set_vexpand(true);
-
-    let search_field_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-    search_field_box.set_height_request(48);
-    search_field_box.add_css_class("green_double_box");
-    {
-        let search_input = gtk::SearchEntry::builder()
-            .placeholder_text("Search...")
-            .hexpand(true)
-            .build();
-        search_field_box.append(&search_input);
-        search_result_box.append(&search_field_box);
-    }
-
-    // result lists
-    {
-        let list_model: gtk::StringList = (0..=3000).map(|num| num.to_string()).collect();
-        // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
-        // result_list_modal.extend_from_slice(&list_model);
-
-        let signal_selection_factory = gtk::SignalListItemFactory::new();
-        signal_selection_factory.connect_setup(move |_, list_item| {
-            let label = gtk::Label::new(None);
-            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            label.set_halign(gtk::Align::Start);
-            label.set_justify(gtk::Justification::Fill);
-
-            list_item
-                .downcast_ref::<gtk::ListItem>()
-                .expect("Must be a list item")
-                .set_child(Some(&label));
-
-            list_item
-                .property_expression("item")
-                .chain_property::<gtk::StringObject>("string")
-                .bind(&label, "label", gtk::Widget::NONE);
-        });
-
-        let single_selection_modal = gtk::SingleSelection::new(Some(list_model));
-        let list_view =
-            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
-
-        let scroll_view = gtk::ScrolledWindow::builder()
-            .vexpand(true)
-            .child(&list_view)
-            .build();
-
-        search_result_box.append(&scroll_view);
-    }
-
-    let bible_label = gtk::Label::new(Some(label));
-    container.append_page(&search_result_box, Some(&bible_label));
-
-    return search_result_box;
-}
-
-fn build_songs_search_tab(container: &gtk::Notebook, label: &str) -> gtk::Box {
-    let search_result_box = gtk::Box::new(gtk::Orientation::Vertical, 0);
-    search_result_box.add_css_class("blue_box");
-    search_result_box.set_vexpand(true);
-
-    let search_field_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-    search_field_box.set_height_request(48);
-    search_field_box.add_css_class("green_double_box");
-    {
-        let search_input = gtk::SearchEntry::builder()
-            .placeholder_text("Search...")
-            .hexpand(true)
-            .build();
-        search_field_box.append(&search_input);
-        search_result_box.append(&search_field_box);
-    }
-
-    // result lists
-    {
-        let list_model: gtk::StringList = (0..=3000).map(|_| LIST_VEC[0]).collect();
-        // let result_list_modal = gtk::gio::ListStore::new::<gtk::StringObject>();
-        // result_list_modal.extend_from_slice(&list_model);
-
-        let signal_selection_factory = gtk::SignalListItemFactory::new();
-        signal_selection_factory.connect_setup(move |_, list_item| {
-            let label = gtk::Label::new(None);
-            label.set_ellipsize(gtk::pango::EllipsizeMode::End);
-            label.set_halign(gtk::Align::Start);
-            label.set_justify(gtk::Justification::Fill);
-
-            list_item
-                .downcast_ref::<gtk::ListItem>()
-                .expect("Must be a list item")
-                .set_child(Some(&label));
-
-            list_item
-                .property_expression("item")
-                .chain_property::<gtk::StringObject>("string")
-                .bind(&label, "label", gtk::Widget::NONE);
-        });
-
-        let single_selection_modal = gtk::SingleSelection::new(Some(list_model));
-        let list_view =
-            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
-
-        let scroll_view = gtk::ScrolledWindow::builder()
-            .vexpand(true)
-            .child(&list_view)
-            .build();
-
-        search_result_box.append(&scroll_view);
-    }
-
-    let bible_label = gtk::Label::new(Some(label));
-    container.append_page(&search_result_box, Some(&bible_label));
-
-    return search_result_box;
 }
 
 fn load_css() {
@@ -524,206 +350,4 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
     };
 
     return Some(geometry);
-}
-
-#[derive(Debug)]
-enum ScheduleViewerInput {
-    Selected(u32),
-}
-#[derive(Debug)]
-enum ScheduleViewerOutput {
-    Selected(Vec<String>, u32),
-}
-struct ScheduleViewerData {
-    title: String,
-    list: Vec<String>,
-}
-struct ScheduleViewerModel {
-    title: String,
-    list_view: gtk::ListView,
-    list: Vec<String>,
-}
-
-#[relm4::component]
-impl SimpleComponent for ScheduleViewerModel {
-    type Input = ScheduleViewerInput;
-    type Output = ScheduleViewerOutput;
-    type Init = ScheduleViewerData;
-
-    view! {
-        #[root]
-        gtk::Box {
-            set_orientation: gtk::Orientation::Vertical,
-            set_hexpand: true,
-            set_height_request: MIN_GRID_HEIGHT,
-            set_css_classes: &["pink_box", "ow-listview"],
-
-            gtk::Label {
-                set_label: &model.title
-            },
-
-            gtk::ScrolledWindow {
-                set_vexpand: true,
-                set_child: Some(&model.list_view)
-            }
-        }
-    }
-
-    fn init(
-        init: Self::Init,
-        root: Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> relm4::ComponentParts<Self> {
-        let signal_selection_factory = gtk::SignalListItemFactory::new();
-        signal_selection_factory.connect_setup(move |_, list_item| {
-            let label = gtk::Label::builder()
-                .ellipsize(gtk::pango::EllipsizeMode::End)
-                .wrap_mode(gtk::pango::WrapMode::Word)
-                .lines(2)
-                .margin_top(12)
-                .margin_bottom(12)
-                .halign(gtk::Align::Start)
-                .justify(gtk::Justification::Fill)
-                .build();
-
-            list_item
-                .downcast_ref::<gtk::ListItem>()
-                .expect("Must be a list item")
-                .set_child(Some(&label));
-
-            list_item
-                .property_expression("item")
-                .chain_property::<gtk::StringObject>("string")
-                .bind(&label, "label", gtk::Widget::NONE);
-        });
-
-        let single_selection_modal = gtk::SingleSelection::new(Some(
-            init.list.clone().into_iter().collect::<gtk::StringList>(),
-        ));
-
-        let list_view =
-            gtk::ListView::new(Some(single_selection_modal), Some(signal_selection_factory));
-
-        list_view.connect_activate(clone!(@strong sender =>  move |m, pos| {
-                println!("lv-act {:?} || {:?}", m, pos);
-                sender.input(ScheduleViewerInput::Selected(pos));
-            }
-        ));
-
-        let model = ScheduleViewerModel {
-            title: init.title,
-            list: init.list,
-            list_view: list_view.clone(),
-        };
-
-        let widgets = view_output!();
-
-        return relm4::ComponentParts { model, widgets };
-    }
-
-    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
-        let _ = match message {
-            ScheduleViewerInput::Selected(position) => {
-                sender.output(ScheduleViewerOutput::Selected(self.list.clone(), position))
-            }
-        };
-
-        return ();
-    }
-}
-
-// search area (notebook)
-#[derive(Debug)]
-enum SearchInput {}
-struct SearchModel {}
-struct SearchWidget {}
-
-impl SimpleComponent for SearchModel {
-    type Init = ();
-    type Output = ();
-    type Root = gtk::Box;
-    type Input = SearchInput;
-    type Widgets = SearchWidget;
-
-    fn init_root() -> Self::Root {
-        return gtk::Box::builder()
-            .orientation(gtk::Orientation::Vertical)
-            .height_request(MIN_GRID_HEIGHT)
-            .hexpand(true)
-            .homogeneous(true)
-            .build();
-    }
-
-    fn init(
-        _init: Self::Init,
-        root: Self::Root,
-        _sender: ComponentSender<Self>,
-    ) -> relm4::ComponentParts<Self> {
-        let tab_box = gtk::Box::new(gtk::Orientation::Horizontal, 3);
-        tab_box.set_css_classes(&["purple_box", "ow-listview"]);
-        tab_box.set_height_request(48);
-
-        let notebook = gtk::Notebook::new();
-        notebook.set_hexpand(true);
-        {
-            build_songs_search_tab(&notebook, "Songs");
-            build_bible_search_tab(&notebook, "Scriptures");
-            build_background_search_tab(&notebook, "Backgrounds");
-        }
-        tab_box.append(&notebook);
-        root.append(&tab_box);
-
-        return relm4::ComponentParts {
-            model: SearchModel {},
-            widgets: SearchWidget {},
-        };
-    }
-}
-
-// actrivity screen
-#[derive(Debug)]
-enum ActivityScreenInput {}
-struct ActivityScreenModel {}
-struct ActivityScreenWidget {}
-
-impl SimpleComponent for ActivityScreenModel {
-    type Init = ();
-    type Input = ActivityScreenInput;
-    type Output = ();
-    type Root = gtk::Frame;
-    type Widgets = ActivityScreenWidget;
-
-    fn init_root() -> Self::Root {
-        return gtk::Frame::new(None);
-    }
-
-    fn init(
-        _init: Self::Init,
-        root: Self::Root,
-        _sender: ComponentSender<Self>,
-    ) -> relm4::ComponentParts<Self> {
-        let screen_box = gtk::Box::builder()
-            .homogeneous(true)
-            .height_request(MIN_GRID_HEIGHT)
-            .build();
-        screen_box.set_css_classes(&["brown_box", "black_bg_box"]);
-        screen_box.set_overflow(gtk::Overflow::Hidden);
-
-        let live_screen_label = gtk::Label::builder()
-            .label(PREVIEW_SCREEN_LABEL_STR)
-            .justify(gtk::Justification::Center)
-            .wrap(true)
-            .wrap_mode(gtk::pango::WrapMode::Word)
-            .build();
-
-        live_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
-        screen_box.append(&live_screen_label);
-
-        root.set_child(Some(&screen_box));
-
-        return relm4::ComponentParts {
-            model: ActivityScreenModel {},
-            widgets: ActivityScreenWidget {},
-        };
-    }
 }
