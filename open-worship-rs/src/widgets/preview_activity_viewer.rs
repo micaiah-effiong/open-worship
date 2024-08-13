@@ -48,27 +48,46 @@ impl SimpleComponent for PreviewViewerModel {
                 // set_child: Some(&model.list_view)
                 #[wrap(Some)]
                 set_child= &gtk::ListView{
+                    connect_activate[sender] => move |list_view,_|{
+                        let selection_model = match list_view.model() {
+                            Some(m)=>m,
+                            None=>return,
+                        };
+
+                        let ss_model = match selection_model.downcast_ref::<gtk::SingleSelection>(){
+                            Some(ss)=>ss,
+                            None => return,
+                        };
+
+
+                        let pos = ss_model.selected();
+                        println!("activate-preview {:?}", &pos);
+
+                        sender.input(PreviewViewerInput::Selected(pos));
+                    },
+
                     #[wrap(Some)]
                     #[name="single_selection_model"]
                     set_model = &gtk::SingleSelection {
+
                         #[watch]
                         set_model:Some( &model.list.clone().into_iter().collect::<gtk::StringList>()),
 
                         #[watch]
                         set_selected: model.selected_index,
 
-                        connect_selection_changed[sender] => move |selection_model,_,_|{
-                            let single_selection_model =
-                                match selection_model.downcast_ref::<gtk::SingleSelection>() {
-                                    Some(ss) => ss,
-                                    None => return,
-                                };
-
-                            let pos = single_selection_model.selected();
-                            println!("selec {:?}", &pos);
-
-                            sender.input(PreviewViewerInput::Selected(pos));
-                        }
+                        // connect_selection_changed[sender] => move |_selection_model,_,_|{
+                            // let single_selection_model =
+                            //     match selection_model.downcast_ref::<gtk::SingleSelection>() {
+                            //         Some(ss) => ss,
+                            //         None => return,
+                            //     };
+                            //
+                            // let pos = single_selection_model.selected();
+                            // println!("selec {:?}", &pos);
+                            //
+                            // sender.input(PreviewViewerInput::Selected(pos));
+                        // }
                     },
 
                     #[wrap(Some)]
