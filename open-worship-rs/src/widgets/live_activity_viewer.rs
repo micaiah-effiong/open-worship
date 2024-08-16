@@ -1,27 +1,35 @@
+use std::{cell::RefCell, rc::Rc};
+
 use gtk::prelude::*;
 use relm4::prelude::*;
+
+use crate::dto;
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
 
 #[derive(Debug)]
 pub enum LiveViewerInput {
-    Selected(u32),
-    NewList(Vec<String>, u32),
+    // Selected(u32),
+    // Activated(u32),
+    NewList(dto::ListPayload),
 }
 #[derive(Debug)]
 pub enum LiveViewerOutput {
-    Selected(Vec<String>, u32),
+    Selected(dto::Payload),
+    Activated(String),
 }
 pub struct LiveViewerData {
     pub title: String,
     pub list: Vec<String>,
     pub selected_index: Option<u32>,
 }
+
+#[derive(Clone)]
 pub struct LiveViewerModel {
     title: String,
-    list: Vec<String>,
-    selected_index: u32,
+    list: Rc<RefCell<Vec<String>>>,
+    list_view: gtk::ListView,
 }
 
 #[relm4::component(pub)]
@@ -45,28 +53,52 @@ impl SimpleComponent for LiveViewerModel {
             gtk::ScrolledWindow {
                 set_vexpand: true,
                 // set_child: Some(&model.list_view)
+
                 #[wrap(Some)]
-                set_child= &gtk::ListView{
+                #[local_ref]
+                set_child = &list_view -> gtk::ListView {
+                    // connect_activate[sender] => move |list_view,_|{
+                        // let selection_model = match list_view.model() {
+                        //     Some(m)=>m,
+                        //     None=>return,
+                        // };
+                        //
+                        // let single_selection_model =
+                        //     match selection_model.downcast_ref::<gtk::SingleSelection>() {
+                        //         Some(ss) => ss,
+                        //         None => return,
+                        //     };
+                        //
+                        // let pos = single_selection_model.selected();
+                        // println!("live activate {:?}", &pos);
+                        //
+                        // sender.input(LiveViewerInput::Activated(pos));
+                    // },
+
                     #[wrap(Some)]
                     #[name="single_selection_model"]
                     set_model = &gtk::SingleSelection {
                         #[watch]
-                        set_model:Some( &model.list.clone().into_iter().collect::<gtk::StringList>()),
+                        set_model:Some( &model.list.borrow().clone().into_iter().collect::<gtk::StringList>()),
 
-                        #[watch]
-                        set_selected: model.selected_index,
+                        // #[watch]
+                        // set_selected: model.selected_index,
 
-                        connect_selection_changed[sender] => move |selection_model,_,_|{
-                            let single_selection_model =
-                                match selection_model.downcast_ref::<gtk::SingleSelection>() {
-                                    Some(ss) => ss,
-                                    None => return,
-                                };
+                        connect_selection_changed[sender, model=model.clone()] => move |selection_model,_,_|{
+                            let pos = selection_model.selected();
+                            let list  = &model.list.borrow();
+                            let txt = match list.get(pos as usize) {
+                                Some(txt) => txt,
+                                None => &String::from(""),
+                            };
+                            println!("live selec no={:?} text={:?}", &pos, &list);
 
-                            let pos = single_selection_model.selected();
-                            println!("live selec {:?}", &pos);
+                            let payload = dto::Payload{
+                                text: txt.to_string(),
+                                position: pos,
+                            };
 
-                            sender.input(LiveViewerInput::Selected(pos));
+                            let _ = sender.output(LiveViewerOutput::Selected(payload));
                         }
                     },
 
@@ -104,15 +136,12 @@ impl SimpleComponent for LiveViewerModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let selected_index = match init.selected_index {
-            Some(index) => index,
-            None => 0,
-        };
+        let list_view = gtk::ListView::builder().build();
 
         let model = LiveViewerModel {
             title: init.title,
-            list: init.list,
-            selected_index, // list_view: list_view.clone(),
+            list: Rc::new(RefCell::new(init.list)),
+            list_view: list_view.clone(),
         };
 
         let widgets = view_output!();
@@ -120,18 +149,17 @@ impl SimpleComponent for LiveViewerModel {
         return relm4::ComponentParts { model, widgets };
     }
 
-    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         let _ = match message {
-            LiveViewerInput::Selected(position) => {
-                self.selected_index = position;
-                sender.output(LiveViewerOutput::Selected(self.list.clone(), position))
-            }
-            LiveViewerInput::NewList(list, pos) => {
-                self.selected_index = pos;
-                self.list = list.clone();
-
-                println!("live new sli pos={}, si={}", pos, self.selected_index);
-                Ok(())
+            LiveViewerInput::NewList(list_payload) => {
+                self.list.borrow_mut().clear();
+                self.list
+                    .borrow_mut()
+                    .append(&mut list_payload.list.clone());
+                if let Some(s) = self.list_view.model() {
+                    s.select_item(list_payload.position, true);
+                }
+                println!("try {:?}", self.list);
             }
         };
 

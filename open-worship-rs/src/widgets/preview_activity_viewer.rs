@@ -1,3 +1,6 @@
+use std::{cell::RefCell, rc::Rc, usize};
+
+use crate::dto;
 use gtk::prelude::*;
 use relm4::prelude::*;
 
@@ -6,21 +9,28 @@ const MIN_GRID_HEIGHT: i32 = 300;
 
 #[derive(Debug)]
 pub enum PreviewViewerInput {
-    Selected(u32),
+    // Selected(u32),
+    // Activated(u32),
     NewList(Vec<String>, u32),
 }
 #[derive(Debug)]
 pub enum PreviewViewerOutput {
-    Selected(Vec<String>, u32),
+    Selected(dto::Payload),
+    Activated(dto::ListPayload),
 }
 pub struct PreviewViewerData {
     pub title: String,
     pub list: Vec<String>,
     pub selected_index: Option<u32>,
 }
+
+#[derive(Clone)]
 pub struct PreviewViewerModel {
     title: String,
-    list: Vec<String>,
+    list: Rc<RefCell<Vec<String>>>,
+
+    /// Because selected_index is used to updated selected list-item
+    /// it must be updated for every input that changes the selected item
     selected_index: u32,
     // list_view: gtk::ListView,
 }
@@ -48,7 +58,7 @@ impl SimpleComponent for PreviewViewerModel {
                 // set_child: Some(&model.list_view)
                 #[wrap(Some)]
                 set_child= &gtk::ListView{
-                    connect_activate[sender] => move |list_view,_|{
+                    connect_activate[sender, model] => move |list_view,_|{
                         let selection_model = match list_view.model() {
                             Some(m)=>m,
                             None=>return,
@@ -59,11 +69,22 @@ impl SimpleComponent for PreviewViewerModel {
                             None => return,
                         };
 
-
                         let pos = ss_model.selected();
                         println!("activate-preview {:?}", &pos);
 
-                        sender.input(PreviewViewerInput::Selected(pos));
+                        let list = model.list.borrow();
+
+                        let txt = match list.get(pos as usize) {
+                            Some(txt) => txt,
+                            None => &String::from(""),
+                        };
+
+                        let payload = dto::ListPayload {
+                            text: txt.to_string(),
+                            list: list.clone(),
+                            position: pos
+                        };
+                        let _ = sender.output(PreviewViewerOutput::Activated(payload));
                     },
 
                     #[wrap(Some)]
@@ -71,23 +92,34 @@ impl SimpleComponent for PreviewViewerModel {
                     set_model = &gtk::SingleSelection {
 
                         #[watch]
-                        set_model:Some( &model.list.clone().into_iter().collect::<gtk::StringList>()),
+                        set_model:Some( &model.list.borrow().clone().into_iter().collect::<gtk::StringList>()),
 
-                        #[watch]
-                        set_selected: model.selected_index,
+                        // #[watch]
+                        // set_selected: model.selected_index,
 
-                        // connect_selection_changed[sender] => move |_selection_model,_,_|{
-                            // let single_selection_model =
-                            //     match selection_model.downcast_ref::<gtk::SingleSelection>() {
-                            //         Some(ss) => ss,
-                            //         None => return,
-                            //     };
-                            //
-                            // let pos = single_selection_model.selected();
-                            // println!("selec {:?}", &pos);
-                            //
-                            // sender.input(PreviewViewerInput::Selected(pos));
-                        // }
+                        connect_selection_changed[sender, list=model.clone().list ] => move |selection_model,_,_|{
+                            let single_selection_model =
+                                match selection_model.downcast_ref::<gtk::SingleSelection>() {
+                                    Some(ss) => ss,
+                                    None => return,
+                                };
+
+                            let pos = single_selection_model.selected();
+                            println!("selec {:?}", &pos);
+
+                            let list = list.borrow().clone();
+                            let txt = match list.get(pos as usize) {
+                                Some(txt) => txt,
+                                None => &String::from(""),
+                            };
+
+                            let payload = dto::Payload {
+                                text: txt.to_string(),
+                                position: pos
+                            };
+
+                            let _ = sender.output(PreviewViewerOutput::Selected(payload ));
+                        }
                     },
 
                     #[wrap(Some)]
@@ -131,7 +163,7 @@ impl SimpleComponent for PreviewViewerModel {
 
         let model = PreviewViewerModel {
             title: init.title,
-            list: init.list,
+            list: Rc::new(RefCell::new(init.list)),
             selected_index, // list_view: list_view.clone(),
         };
 
@@ -140,18 +172,14 @@ impl SimpleComponent for PreviewViewerModel {
         return relm4::ComponentParts { model, widgets };
     }
 
-    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         let _ = match message {
-            PreviewViewerInput::Selected(position) => {
-                self.selected_index = position;
-                sender.output(PreviewViewerOutput::Selected(self.list.clone(), position))
-            }
             PreviewViewerInput::NewList(list, pos) => {
-                self.list = list.clone();
+                self.list.borrow_mut().clear();
+                self.list.borrow_mut().append(&mut list.clone());
                 self.selected_index = pos;
 
                 println!("preview new sli pos={}, si={}", pos, self.selected_index);
-                Ok(())
             }
         };
 

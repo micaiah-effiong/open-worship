@@ -3,7 +3,7 @@ use std::u32;
 pub mod widgets;
 use gtk::prelude::*;
 use relm4::prelude::*;
-use widgets::activity_screen::ActivityScreenModel;
+use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
 use widgets::live_activity_viewer::{
     LiveViewerData, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
 };
@@ -14,12 +14,15 @@ use widgets::schedule_activity_viewer::{
     ScheduleViewerData, ScheduleViewerModel, ScheduleViewerOutput,
 };
 use widgets::search::{SearchInit, SearchModel};
+mod dto;
 
 #[derive(Debug)]
 enum AppInput {
     ScheduleActivitySelected(Vec<String>, u32),
-    PreviewActivitySelected(Vec<String>, u32),
-    LiveActivitySelected(Vec<String>, u32),
+    PreviewActivitySelected(dto::Payload),
+    PreviewActivityActivated(dto::ListPayload),
+    LiveActivitySelected(dto::Payload),
+    LiveActivityActivated(String),
 }
 struct AppModel {
     schedule_activity_viewer: relm4::Controller<ScheduleViewerModel>,
@@ -41,26 +44,17 @@ impl AppModel {
     }
     fn convert_live_activity_response(res: LiveViewerOutput) -> AppInput {
         return match res {
-            LiveViewerOutput::Selected(list, num) => {
-                println!(
-                    "app receive live selected pos={:?} len={:?}",
-                    num,
-                    list.len()
-                );
-                AppInput::LiveActivitySelected(list, num)
-            }
+            LiveViewerOutput::Selected(payload) => AppInput::LiveActivitySelected(payload),
+            LiveViewerOutput::Activated(txt) => AppInput::LiveActivityActivated(txt),
         };
     }
     fn convert_preview_activity_response(res: PreviewViewerOutput) -> AppInput {
         return match res {
-            PreviewViewerOutput::Selected(list, num) => {
-                println!(
-                    "app receive preview selected pos={:?} len={:?}",
-                    num,
-                    list.len()
-                );
-                AppInput::PreviewActivitySelected(list, num)
+            PreviewViewerOutput::Selected(payload) => {
+                println!("app preview {:?}", payload);
+                AppInput::PreviewActivitySelected(payload)
             }
+            PreviewViewerOutput::Activated(text) => AppInput::PreviewActivityActivated(text),
         };
     }
 }
@@ -261,12 +255,32 @@ impl SimpleComponent for AppModel {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            AppInput::PreviewActivitySelected(list, num) => {
-                self.live_activity_viewer
-                    .emit(LiveViewerInput::NewList(list, num)) //
-            }
-            AppInput::LiveActivitySelected(_, _) => return,
+            // schedule
             AppInput::ScheduleActivitySelected(_, _) => return,
+
+            // live
+            AppInput::LiveActivityActivated(_) => return,
+            AppInput::LiveActivitySelected(paylaod) => self
+                .live_activity_screen
+                .emit(ActivityScreenInput::DisplayUpdate(paylaod.text)),
+
+            // preview
+            AppInput::PreviewActivitySelected(payload) => {
+                self.preview_activity_screen
+                    .emit(ActivityScreenInput::DisplayUpdate(payload.text));
+            }
+            AppInput::PreviewActivityActivated(list_payload) => {
+                self.live_activity_viewer
+                    .emit(LiveViewerInput::NewList(list_payload.clone())); //
+                self.preview_activity_screen
+                    .emit(ActivityScreenInput::DisplayUpdate(
+                        list_payload.text.clone(),
+                    ));
+                self.live_activity_screen
+                    .emit(ActivityScreenInput::DisplayUpdate(
+                        list_payload.text.clone(),
+                    ));
+            }
         };
     }
 }

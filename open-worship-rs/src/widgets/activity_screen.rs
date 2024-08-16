@@ -3,8 +3,12 @@ use relm4::prelude::*;
 
 // actrivity screen
 #[derive(Debug)]
-pub enum ActivityScreenInput {}
-pub struct ActivityScreenModel {}
+pub enum ActivityScreenInput {
+    DisplayUpdate(String),
+}
+pub struct ActivityScreenModel {
+    display_data: String,
+}
 
 const MIN_GRID_HEIGHT: i32 = 300;
 
@@ -25,7 +29,8 @@ impl SimpleComponent for ActivityScreenModel {
                 set_overflow: gtk::Overflow::Hidden,
 
                 gtk::Label {
-                    set_label: PREVIEW_SCREEN_LABEL_STR,
+                    #[watch]
+                    set_label: &model.display_data,
                     set_justify: gtk::Justification::Center,
                     set_wrap: true,
                     set_wrap_mode: gtk::pango::WrapMode::Word,
@@ -41,39 +46,20 @@ impl SimpleComponent for ActivityScreenModel {
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        // let screen_box = gtk::Box::builder()
-        //     .homogeneous(true)
-        //     .height_request(MIN_GRID_HEIGHT)
-        //     .build();
-        // screen_box.set_css_classes(&["brown_box", "black_bg_box"]);
-        // screen_box.set_overflow(gtk::Overflow::Hidden);
-        //
-        // let live_screen_label = gtk::Label::builder()
-        //     .label(PREVIEW_SCREEN_LABEL_STR)
-        //     .justify(gtk::Justification::Center)
-        //     .wrap(true)
-        //     .wrap_mode(gtk::pango::WrapMode::Word)
-        //     .build();
-        //
-        // live_screen_label.set_css_classes(&["red_box", "white", "yellow_box"]);
-        // screen_box.append(&live_screen_label);
-        //
-        // root.set_child(Some(&screen_box));
-
-        let model = ActivityScreenModel {};
+        let model = ActivityScreenModel {
+            display_data: String::from(""),
+        };
         let widgets = view_output!();
 
         return relm4::ComponentParts { model, widgets };
     }
-}
 
-const  PREVIEW_SCREEN_LABEL_STR: &str = "
-Lorem ipsum dolor sit amet, officia excepteur ex fugiat reprehenderit enim labore culpa sint ad nisi Lorem pariatur mollit ex esse exercitation amet.
-Nisi anim cupidatat excepteur officia.
-Reprehenderit nostrud nostrud ipsum Lorem est aliquip amet voluptate voluptate dolor minim nulla est proident.
-Nostrud officia pariatur ut officia.
-Sit irure elit esse ea nulla sunt ex occaecat reprehenderit commodo officia dolor Lorem duis laboris cupidatat officia voluptate.
-Culpa proident adipisicing id nulla nisi laboris ex in Lorem sunt duis officia eiusmod.
-Aliqua reprehenderit commodo ex non excepteur duis sunt velit enim.
-Voluptate laboris sint cupidatat ullamco ut ea consectetur et est culpa et culpa duis.
-";
+    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+        match message {
+            ActivityScreenInput::DisplayUpdate(display_data) => {
+                self.display_data = display_data;
+                ()
+            }
+        };
+    }
+}
