@@ -11,7 +11,7 @@ const MIN_GRID_HEIGHT: i32 = 300;
 pub enum PreviewViewerInput {
     // Selected(u32),
     // Activated(u32),
-    NewList(Vec<String>, u32),
+    NewList(dto::ListPayload),
 }
 #[derive(Debug)]
 pub enum PreviewViewerOutput {
@@ -174,12 +174,15 @@ impl SimpleComponent for PreviewViewerModel {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         let _ = match message {
-            PreviewViewerInput::NewList(list, pos) => {
+            PreviewViewerInput::NewList(payload) => {
                 self.list.borrow_mut().clear();
-                self.list.borrow_mut().append(&mut list.clone());
-                self.selected_index = pos;
+                self.list.borrow_mut().append(&mut payload.list.clone());
+                self.selected_index = payload.position;
 
-                println!("preview new sli pos={}, si={}", pos, self.selected_index);
+                println!(
+                    "preview new sli pos={}, si={}",
+                    payload.position, self.selected_index
+                );
             }
         };
 
