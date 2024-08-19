@@ -56,6 +56,7 @@ impl SimpleComponent for PreviewViewerModel {
                 set_vexpand: true,
                 // set_child: Some(&model.list_view)
                 #[wrap(Some)]
+                #[name="list_view"]
                 set_child= &gtk::ListView{
                     connect_activate[sender, model] => move |list_view,_|{
                         let selection_model = match list_view.model() {
@@ -161,6 +162,9 @@ impl SimpleComponent for PreviewViewerModel {
         };
 
         let widgets = view_output!();
+        let list_view = widgets.list_view.clone();
+
+        PreviewViewerModel::listen_for_items_change(list_view);
 
         return relm4::ComponentParts { model, widgets };
     }
@@ -176,5 +180,26 @@ impl SimpleComponent for PreviewViewerModel {
         };
 
         return ();
+    }
+}
+
+impl PreviewViewerModel {
+    fn listen_for_items_change(list_view: gtk::ListView) {
+        let model = match list_view.model() {
+            Some(m) => m,
+            None => return,
+        };
+
+        model.connect_items_changed(gtk::glib::clone!(
+            @strong
+            list_view,
+            => move |model, _, _, _| {
+                if let Some(first_child) = list_view.first_child(){
+                    first_child.grab_focus();
+                    list_view.set_focus_child(Some(&first_child));
+                    model.select_item(0, true);
+                }
+            }
+        ));
     }
 }
