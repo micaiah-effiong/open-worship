@@ -1,6 +1,3 @@
-use std::u32;
-
-pub mod widgets;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
@@ -8,17 +5,19 @@ use widgets::live_activity_viewer::{
     LiveViewerData, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
 };
 use widgets::preview_activity_viewer::{
-    PreviewViewerData, PreviewViewerModel, PreviewViewerOutput,
+    PreviewViewerData, PreviewViewerInput, PreviewViewerModel, PreviewViewerOutput,
 };
 use widgets::schedule_activity_viewer::{
-    ScheduleViewerData, ScheduleViewerModel, ScheduleViewerOutput,
+    ScheduleData, ScheduleViewerData, ScheduleViewerModel, ScheduleViewerOutput,
 };
 use widgets::search::{SearchInit, SearchModel};
 mod dto;
+mod structs;
+mod widgets;
 
 #[derive(Debug)]
 enum AppInput {
-    ScheduleActivitySelected(Vec<String>, u32),
+    ScheduleActivityActivated(dto::ListPayload),
     PreviewActivitySelected(dto::Payload),
     PreviewActivityActivated(dto::ListPayload),
     LiveActivitySelected(dto::Payload),
@@ -37,8 +36,8 @@ struct AppModel {
 impl AppModel {
     fn convert_schedule_activity_response(res: ScheduleViewerOutput) -> AppInput {
         return match res {
-            ScheduleViewerOutput::Selected(list, num) => {
-                AppInput::ScheduleActivitySelected(list, num)
+            ScheduleViewerOutput::Activated(payload) => {
+                AppInput::ScheduleActivityActivated(payload)
             }
         };
     }
@@ -197,8 +196,7 @@ impl SimpleComponent for AppModel {
         let schedule_activity_viewer = ScheduleViewerModel::builder()
             .launch(ScheduleViewerData {
                 title: String::from("Schedule"),
-                list: Vec::new(),
-                selected_index: None,
+                list: Vec::new() as Vec<ScheduleData>,
             })
             .forward(
                 sender.input_sender(),
@@ -207,8 +205,7 @@ impl SimpleComponent for AppModel {
         let preview_activity_viewer = PreviewViewerModel::builder()
             .launch(PreviewViewerData {
                 title: String::from("Preview"),
-                list: Vec::from(LIST_VEC.map(|s| s.to_string())),
-                selected_index: None,
+                list: Vec::new(),
             })
             .forward(
                 sender.input_sender(),
@@ -256,7 +253,10 @@ impl SimpleComponent for AppModel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             // schedule
-            AppInput::ScheduleActivitySelected(_, _) => return,
+            AppInput::ScheduleActivityActivated(payload) => {
+                self.preview_activity_viewer
+                    .emit(PreviewViewerInput::NewList(payload));
+            }
 
             // live
             AppInput::LiveActivityActivated(_) => return,
