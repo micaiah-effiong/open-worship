@@ -65,3 +65,41 @@ label {
 .ow-listview row:selected {
   background-color: grey;
 }
+
+row:focus{
+  background-color: red;
+}
+
+
+editablelabel.schedule-list-item-editable {
+  font-style: italic;
+  color: gray;
+}
+
+*:focus editablelabel.schedule-list-item-editable {
+  font-style: italic;
+  color: white;
+}
+
+.schedule-list-item-preview {
+  background-color: black;
+  border: 3px solid white;
+  outline: 1px solid gray;
+}
+
+
+.bg-preview-box {
+  background-color: black;
+  border: 3px solid white;
+  outline: 1px solid gray;
+}
+
+.border {
+  border-width: 1px;
+  border-style: solid;
+}
+
+.border-black {
+  border-color: black;
+}
+

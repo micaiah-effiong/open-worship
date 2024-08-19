@@ -1,5 +1,7 @@
 use gtk::prelude::*;
-use relm4::prelude::*;
+use relm4::{prelude::*, typed_view::grid::TypedGridView};
+
+use crate::structs::background_grid_list_item::BackgroundGridListItem;
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -164,32 +166,33 @@ impl SimpleComponent for SearchModel {
                             set_vexpand: true,
 
                             #[wrap(Some)]
-                            set_child = &gtk::ListView {
-                                #[wrap(Some)]
-                                set_model = &gtk::SingleSelection{
-                                    set_model: Some(&(0..1000).map(|_| LIST_VEC[0]).collect::<gtk::StringList>()),
-                                },
-
-                                #[wrap(Some)]
-                                set_factory = &gtk::SignalListItemFactory {
-                                    connect_setup => move |_, list_item|{
-                                        let label = gtk::Label::builder()
-                                        .ellipsize(gtk::pango::EllipsizeMode::End)
-                                        .single_line_mode(true)
-                                        .halign(gtk::Align::Start)
-                                        .justify(gtk::Justification::Fill).build();
-
-                                        list_item
-                                            .downcast_ref::<gtk::ListItem>()
-                                            .expect("Must be a list item")
-                                            .set_child(Some(&label));
-
-                                        list_item
-                                            .property_expression("item")
-                                            .chain_property::<gtk::StringObject>("string")
-                                            .bind(&label, "label", gtk::Widget::NONE);
-                                    }
-                                }
+                            #[local_ref]
+                            set_child = &bg_grid_view -> gtk::GridView {
+                                // #[wrap(Some)]
+                                // set_model = &gtk::SingleSelection{
+                                //     set_model: Some(&(0..1000).map(|_| LIST_VEC[0]).collect::<gtk::StringList>()),
+                                // },
+                                //
+                                // #[wrap(Some)]
+                                // set_factory = &gtk::SignalListItemFactory {
+                                //     connect_setup => move |_, list_item|{
+                                //         let label = gtk::Label::builder()
+                                //         .ellipsize(gtk::pango::EllipsizeMode::End)
+                                //         .single_line_mode(true)
+                                //         .halign(gtk::Align::Start)
+                                //         .justify(gtk::Justification::Fill).build();
+                                //
+                                //         list_item
+                                //             .downcast_ref::<gtk::ListItem>()
+                                //             .expect("Must be a list item")
+                                //             .set_child(Some(&label));
+                                //
+                                //         list_item
+                                //             .property_expression("item")
+                                //             .chain_property::<gtk::StringObject>("string")
+                                //             .bind(&label, "label", gtk::Widget::NONE);
+                                //     }
+                                // }
                             }
                         }
 
@@ -205,6 +208,18 @@ impl SimpleComponent for SearchModel {
         root: Self::Root,
         _sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
+        let mut background_grid_view: TypedGridView<BackgroundGridListItem, gtk::SingleSelection> =
+            TypedGridView::new();
+
+        for _i in 0..31 {
+            background_grid_view.append(BackgroundGridListItem::new(
+                "clean imageclean imageclean image".to_string(),
+                "image.jpg".to_string(),
+            ));
+        }
+
+        let bg_grid_view = background_grid_view.view;
+
         let model = SearchModel {};
         let widgets = view_output!();
 
