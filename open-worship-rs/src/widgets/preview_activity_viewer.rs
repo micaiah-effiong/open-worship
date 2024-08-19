@@ -21,17 +21,16 @@ pub enum PreviewViewerOutput {
 pub struct PreviewViewerData {
     pub title: String,
     pub list: Vec<String>,
-    pub selected_index: Option<u32>,
+    // pub selected_index: Option<u32>,
 }
 
 #[derive(Clone)]
 pub struct PreviewViewerModel {
     title: String,
     list: Rc<RefCell<Vec<String>>>,
-
-    /// Because selected_index is used to updated selected list-item
-    /// it must be updated for every input that changes the selected item
-    selected_index: u32,
+    // Because selected_index is used to updated selected list-item
+    // it must be updated for every input that changes the selected item
+    // selected_index: u32,
     // list_view: gtk::ListView,
 }
 
@@ -156,15 +155,9 @@ impl SimpleComponent for PreviewViewerModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let selected_index = match init.selected_index {
-            Some(index) => index,
-            None => 0,
-        };
-
         let model = PreviewViewerModel {
             title: init.title,
             list: Rc::new(RefCell::new(init.list)),
-            selected_index, // list_view: list_view.clone(),
         };
 
         let widgets = view_output!();
@@ -177,12 +170,8 @@ impl SimpleComponent for PreviewViewerModel {
             PreviewViewerInput::NewList(payload) => {
                 self.list.borrow_mut().clear();
                 self.list.borrow_mut().append(&mut payload.list.clone());
-                self.selected_index = payload.position;
 
-                println!(
-                    "preview new sli pos={}, si={}",
-                    payload.position, self.selected_index
-                );
+                println!("preview new sli pos={}", payload.position);
             }
         };
 
