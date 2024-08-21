@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use gtk::prelude::*;
 use relm4::{prelude::*, typed_view::grid::TypedGridView};
 
@@ -9,13 +11,25 @@ const MIN_GRID_HEIGHT: i32 = 300;
 // search area (notebook)
 #[derive(Debug)]
 pub enum SearchInput {}
-pub struct SearchModel {}
-pub struct SearchInit {}
+
+#[derive(Debug)]
+pub enum SearchOutput {
+    PreviewBackground(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct SearchModel {
+    image_src_list: Rc<RefCell<Vec<String>>>,
+}
+
+pub struct SearchInit {
+    pub image_src_list: Vec<String>,
+}
 
 #[relm4::component(pub)]
 impl SimpleComponent for SearchModel {
     type Init = SearchInit;
-    type Output = ();
+    type Output = SearchOutput;
     type Input = SearchInput;
 
     view! {
@@ -168,6 +182,33 @@ impl SimpleComponent for SearchModel {
                             #[wrap(Some)]
                             #[local_ref]
                             set_child = &bg_grid_view -> gtk::GridView {
+                                connect_activate[sender] => move |grid_view, _|{
+                                    let s_model = match grid_view.model() {
+                                        Some(model)=>model,
+                                        None=> return
+                                    };
+
+                                    let ss_model = match s_model.downcast_ref::<gtk::SingleSelection>() {
+                                        Some(model)=>model,
+                                        None=> return
+                                    };
+
+                                    let selected_pos = ss_model.selected();
+
+                                    println!("bg activated => {}", selected_pos);
+
+                                    let fullpath_image = match std::env::current_dir(){
+                                        Ok(path)=>format!("{}/data/background/image.jpg", path.display()),
+                                        Err(_)=>return,
+                                    };
+
+                                    // let abs_path = match std::path::absolute( std::path::Path::new(&fullpath_image)){
+                                    //     Ok(path)=>path,
+                                    //     Err(_)=>return
+                                    // };
+
+                                    let _ = sender.output(SearchOutput::PreviewBackground(fullpath_image.to_string()));
+                                },
                                 // #[wrap(Some)]
                                 // set_model = &gtk::SingleSelection{
                                 //     set_model: Some(&(0..1000).map(|_| LIST_VEC[0]).collect::<gtk::StringList>()),
@@ -204,9 +245,9 @@ impl SimpleComponent for SearchModel {
     }
 
     fn init(
-        _init: Self::Init,
+        init: Self::Init,
         root: Self::Root,
-        _sender: ComponentSender<Self>,
+        sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
         let mut background_grid_view: TypedGridView<BackgroundGridListItem, gtk::SingleSelection> =
             TypedGridView::new();
@@ -214,13 +255,15 @@ impl SimpleComponent for SearchModel {
         for _i in 0..31 {
             background_grid_view.append(BackgroundGridListItem::new(
                 "clean imageclean imageclean image".to_string(),
-                "image.jpg".to_string(),
+                "data/background/image.jpg".to_string(),
             ));
         }
 
         let bg_grid_view = background_grid_view.view;
 
-        let model = SearchModel {};
+        let model = SearchModel {
+            image_src_list: Rc::new(RefCell::new(init.image_src_list)),
+        };
         let widgets = view_output!();
 
         return relm4::ComponentParts { model, widgets };

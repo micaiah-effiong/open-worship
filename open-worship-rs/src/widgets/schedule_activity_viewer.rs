@@ -35,7 +35,24 @@ pub struct ScheduleViewerData {
 pub struct ScheduleViewerModel {
     title: String,
     list: Rc<RefCell<Vec<ScheduleData>>>,
+    background_image: Rc<RefCell<Option<String>>>,
     // list_view: gtk::ListView,
+}
+
+impl ScheduleViewerModel {
+    fn new(list_data: Option<Vec<ScheduleData>>)->Self{
+        let list = match list_data {
+            Some(list)=>list,
+            None=>Vec::new()
+        };
+
+        return ScheduleViewerModel{
+            background_image: Rc::new(RefCell::new(None)),
+            list: Rc::new(RefCell::new(list)),
+            title:String::new(),
+
+        }
+    }
 }
 
 #[relm4::component(pub)]
@@ -87,7 +104,8 @@ impl SimpleComponent for ScheduleViewerModel {
                         let payload = dto::ListPayload {
                             text: data_list.title.to_string(),
                             list: data_list.list.clone(),
-                            position: pos
+                            position: pos,
+                            background_image: model.background_image.borrow().clone()
                         };
                         let _ = sender.output(ScheduleViewerOutput::Activated(payload));
                     },
@@ -98,16 +116,13 @@ impl SimpleComponent for ScheduleViewerModel {
     }
 
     fn init(
-        init: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
         let mut list_view: TypedListView<ScheduleListItem, gtk::SingleSelection> = TypedListView::new();
 
-        let model = ScheduleViewerModel {
-            title: init.title,
-            list: Rc::new(RefCell::new(get_default_data())),
-        };
+        let model = ScheduleViewerModel::new(Some(get_default_data()));
 
         for item in model.list.borrow().clone() {
             list_view.append(ScheduleListItem::new(item.title, item.list))

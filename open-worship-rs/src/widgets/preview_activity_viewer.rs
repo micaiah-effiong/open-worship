@@ -1,7 +1,7 @@
 use std::{cell::RefCell, rc::Rc, usize};
 
 use crate::dto;
-use gtk::prelude::*;
+use gtk::{glib::property::PropertySet, prelude::*};
 use relm4::prelude::*;
 
 const MIN_GRID_HEIGHT: i32 = 300;
@@ -12,6 +12,7 @@ pub enum PreviewViewerInput {
     // Selected(u32),
     // Activated(u32),
     NewList(dto::ListPayload),
+    Background(String),
 }
 #[derive(Debug)]
 pub enum PreviewViewerOutput {
@@ -28,10 +29,39 @@ pub struct PreviewViewerData {
 pub struct PreviewViewerModel {
     title: String,
     list: Rc<RefCell<Vec<String>>>,
+    background_image: Rc<RefCell<Option<String>>>,
     // Because selected_index is used to updated selected list-item
     // it must be updated for every input that changes the selected item
     // selected_index: u32,
     // list_view: gtk::ListView,
+}
+
+impl PreviewViewerModel {
+    fn new() -> Self {
+        return PreviewViewerModel {
+            title: String::new(),
+            list: Rc::new(RefCell::new(Vec::new())),
+            background_image: Rc::new(RefCell::new(None)),
+        };
+    }
+    fn listen_for_items_change(list_view: gtk::ListView) {
+        let model = match list_view.model() {
+            Some(m) => m,
+            None => return,
+        };
+
+        model.connect_items_changed(gtk::glib::clone!(
+            @strong
+            list_view,
+            => move |model, _, _, _| {
+                if let Some(first_child) = list_view.first_child(){
+                    first_child.grab_focus();
+                    list_view.set_focus_child(Some(&first_child));
+                    model.select_item(0, true);
+                }
+            }
+        ));
+    }
 }
 
 #[relm4::component(pub)]
@@ -70,10 +100,7 @@ impl SimpleComponent for PreviewViewerModel {
                         };
 
                         let pos = ss_model.selected();
-                        println!("activate-preview {:?}", &pos);
-
                         let list = model.list.borrow();
-
                         let txt = match list.get(pos as usize) {
                             Some(txt) => txt,
                             None => &String::from(""),
@@ -82,8 +109,10 @@ impl SimpleComponent for PreviewViewerModel {
                         let payload = dto::ListPayload {
                             text: txt.to_string(),
                             list: list.clone(),
-                            position: pos
+                            position: pos,
+                            background_image: model.background_image.borrow().clone(),
                         };
+
                         let _ = sender.output(PreviewViewerOutput::Activated(payload));
                     },
 
@@ -97,7 +126,9 @@ impl SimpleComponent for PreviewViewerModel {
                         // #[watch]
                         // set_selected: model.selected_index,
 
-                        connect_selection_changed[sender, list=model.clone().list ] => move |selection_model,_,_|{
+                        connect_selection_changed[sender, model] => move |selection_model,_,_|{
+                            let list = model.clone().list;
+
                             let single_selection_model =
                                 match selection_model.downcast_ref::<gtk::SingleSelection>() {
                                     Some(ss) => ss,
@@ -115,10 +146,11 @@ impl SimpleComponent for PreviewViewerModel {
 
                             let payload = dto::Payload {
                                 text: txt.to_string(),
-                                position: pos
+                                position: pos,
+                                background_image: model.background_image.borrow().clone(),
                             };
 
-                            let _ = sender.output(PreviewViewerOutput::Selected(payload ));
+                            let _ = sender.output(PreviewViewerOutput::Selected(payload));
                         }
                     },
 
@@ -152,14 +184,11 @@ impl SimpleComponent for PreviewViewerModel {
     }
 
     fn init(
-        init: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let model = PreviewViewerModel {
-            title: init.title,
-            list: Rc::new(RefCell::new(init.list)),
-        };
+        let model = PreviewViewerModel::new();
 
         let widgets = view_output!();
         let list_view = widgets.list_view.clone();
@@ -177,29 +206,11 @@ impl SimpleComponent for PreviewViewerModel {
 
                 println!("preview new sli pos={}", payload.position);
             }
+            PreviewViewerInput::Background(img) => {
+                self.background_image.set(Some(img));
+            }
         };
 
         return ();
-    }
-}
-
-impl PreviewViewerModel {
-    fn listen_for_items_change(list_view: gtk::ListView) {
-        let model = match list_view.model() {
-            Some(m) => m,
-            None => return,
-        };
-
-        model.connect_items_changed(gtk::glib::clone!(
-            @strong
-            list_view,
-            => move |model, _, _, _| {
-                if let Some(first_child) = list_view.first_child(){
-                    first_child.grab_focus();
-                    list_view.set_focus_child(Some(&first_child));
-                    model.select_item(0, true);
-                }
-            }
-        ));
     }
 }

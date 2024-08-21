@@ -10,7 +10,7 @@ use widgets::preview_activity_viewer::{
 use widgets::schedule_activity_viewer::{
     ScheduleData, ScheduleViewerData, ScheduleViewerModel, ScheduleViewerOutput,
 };
-use widgets::search::{SearchInit, SearchModel};
+use widgets::search::{SearchInit, SearchModel, SearchOutput};
 mod dto;
 mod structs;
 mod widgets;
@@ -22,6 +22,9 @@ enum AppInput {
     PreviewActivityActivated(dto::ListPayload),
     LiveActivitySelected(dto::Payload),
     LiveActivityActivated(String),
+
+    //
+    SearchPreviewBackground(String),
 }
 struct AppModel {
     schedule_activity_viewer: relm4::Controller<ScheduleViewerModel>,
@@ -54,6 +57,14 @@ impl AppModel {
                 AppInput::PreviewActivitySelected(payload)
             }
             PreviewViewerOutput::Activated(text) => AppInput::PreviewActivityActivated(text),
+        };
+    }
+
+    fn convert_search_response(res: SearchOutput) -> AppInput {
+        return match res {
+            SearchOutput::PreviewBackground(image_src) => {
+                AppInput::SearchPreviewBackground(image_src)
+            }
         };
     }
 }
@@ -222,8 +233,10 @@ impl SimpleComponent for AppModel {
                 AppModel::convert_live_activity_response,
             );
         let search_viewer = SearchModel::builder()
-            .launch(SearchInit {})
-            .forward(sender.input_sender(), |_| unreachable!());
+            .launch(SearchInit {
+                image_src_list: Vec::new(),
+            })
+            .forward(sender.input_sender(), AppModel::convert_search_response);
 
         let preview_activity_screen = ActivityScreenModel::builder()
             .launch(())
@@ -255,56 +268,60 @@ impl SimpleComponent for AppModel {
             // schedule
             AppInput::ScheduleActivityActivated(payload) => {
                 self.preview_activity_viewer
-                    .emit(PreviewViewerInput::NewList(payload));
+                    .emit(PreviewViewerInput::NewList(payload.clone()));
+                if let Some(txt) = payload.list.get(0) {
+                    self.preview_activity_screen
+                        .emit(ActivityScreenInput::DisplayUpdate(
+                            dto::DisplayPayload::new(txt.to_string()),
+                        ));
+                }
             }
 
             // live
             AppInput::LiveActivityActivated(_) => return,
-            AppInput::LiveActivitySelected(paylaod) => self
-                .live_activity_screen
-                .emit(ActivityScreenInput::DisplayUpdate(paylaod.text)),
+            AppInput::LiveActivitySelected(payload) => {
+                self.live_activity_screen
+                    .emit(ActivityScreenInput::DisplayUpdate(
+                        dto::DisplayPayload::new(payload.text),
+                    ))
+            }
 
             // preview
             AppInput::PreviewActivitySelected(payload) => {
                 self.preview_activity_screen
-                    .emit(ActivityScreenInput::DisplayUpdate(payload.text));
+                    .emit(ActivityScreenInput::DisplayUpdate(
+                        dto::DisplayPayload::new(payload.text),
+                    ));
             }
             AppInput::PreviewActivityActivated(list_payload) => {
                 self.live_activity_viewer
                     .emit(LiveViewerInput::NewList(list_payload.clone())); //
                 self.preview_activity_screen
                     .emit(ActivityScreenInput::DisplayUpdate(
-                        list_payload.text.clone(),
+                        dto::DisplayPayload::new(list_payload.text.clone()),
                     ));
                 self.live_activity_screen
                     .emit(ActivityScreenInput::DisplayUpdate(
-                        list_payload.text.clone(),
+                        dto::DisplayPayload::new(list_payload.text.clone()),
                     ));
+
+                if let Some(image_src) = list_payload.background_image {
+                    self.live_activity_screen
+                        .emit(ActivityScreenInput::DisplayBackground(image_src));
+                }
+            }
+
+            AppInput::SearchPreviewBackground(image_src) => {
+                self.preview_activity_screen
+                    .emit(ActivityScreenInput::DisplayBackground(image_src.clone()));
+                self.preview_activity_viewer
+                    .emit(PreviewViewerInput::Background(image_src));
             }
         };
     }
 }
 
 const APP_ID: &str = "com.open-worship";
-
-const LIST_VEC: [&str; 16] = [
-    "Golden sun, a radiant masterpiece, paints the canvas of the morning sky,",
-    "With hues of pink and softest blue, a breathtaking, ethereal sight,",
-    "A gentle breeze, a whispered lullaby, carries softly through and through,",
-    "Enveloping the world in calm as morning dew begins to fall anew.",
-    "Dew-kissed flowers, adorned with sparkling gems, open wide to greet the day,",
-    "Unfurling petals, soft and sweet, in a vibrant, colorful display,",
-    "Nature's beauty, a masterpiece, unfolds before our wondering eyes,",
-    "Inviting us to pause and breathe, beneath the endless, open skies.",
-    "Children laugh, their joy infectious, as they chase their dreams so high,",
-    "Imaginations soar and fly, reaching for the boundless sky,",
-    "Hopeful wishes, like tiny stars, twinkle brightly in their hearts,",
-    "As golden moments slip away, leaving precious, lasting marks.",
-    "Hand in hand, we'll journey on, through life's winding, twisting road,",
-    "With courage, strength, and hearts aflame, carrying hope's precious load,",
-    "Brighter days, a promised land, await us just beyond the bend,",
-    "As love and friendship's bonds endure, forever and without an end.",
-];
 
 // const MIN_GRID_HEIGHT: i32 = 300;
 const MIN_GRID_WIDTH: i32 = 300;
@@ -341,6 +358,10 @@ fn log_display_info() {
         println!("|	model {:?}", x_mon.model());
         println!("|	manufacturer {:?}", x_mon.manufacturer());
         println!("|	geometry {:?}", x_mon.geometry());
+        println!(
+            "|	ratio {:?}",
+            (x_mon.geometry().width() as f32 / x_mon.geometry().height() as f32)
+        );
         println!("|	refresh rate {:?}hz", x_mon.refresh_rate() / 1000);
     });
 

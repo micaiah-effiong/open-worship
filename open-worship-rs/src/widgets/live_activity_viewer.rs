@@ -34,6 +34,19 @@ pub struct LiveViewerModel {
     list: Rc<RefCell<Vec<String>>>,
     selected_index: Rc<RefCell<Option<u32>>>,
     list_view: gtk::ListView,
+    background_image: Rc<RefCell<Option<String>>>,
+}
+
+impl LiveViewerModel {
+    fn new() -> Self {
+        return LiveViewerModel {
+            title: String::from(""),
+            list: Rc::new(RefCell::new(Vec::new())),
+            selected_index: Rc::new(RefCell::new(None)),
+            list_view: gtk::ListView::builder().build(),
+            background_image: Rc::new(RefCell::new(None)),
+        };
+    }
 }
 
 impl LiveViewerModel {
@@ -161,6 +174,7 @@ impl SimpleComponent for LiveViewerModel {
                             let payload = dto::Payload{
                                 text: txt.to_string(),
                                 position: pos,
+                                background_image:model.background_image.borrow().clone(),
                             };
 
                             let _ = sender.output(LiveViewerOutput::Selected(payload));
@@ -198,18 +212,13 @@ impl SimpleComponent for LiveViewerModel {
     }
 
     fn init(
-        init: Self::Init,
+        _init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let list_view = gtk::ListView::builder().build();
+        let model = LiveViewerModel::new();
 
-        let model = LiveViewerModel {
-            title: init.title,
-            list: Rc::new(RefCell::new(init.list)),
-            list_view: list_view.clone(),
-            selected_index: Rc::new(RefCell::new(None)),
-        };
+        let list_view = model.clone().list_view;
 
         let widgets = view_output!();
 
