@@ -169,8 +169,6 @@ impl SimpleComponent for LiveViewerModel {
                             // println!("live selec no={:?} text={:?}", &pos, &list);
                             println!("Damn selected");
 
-                            selection_model.selected_item();
-
                             let payload = dto::Payload{
                                 text: txt.to_string(),
                                 position: pos,

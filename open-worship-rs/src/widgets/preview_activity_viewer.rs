@@ -30,10 +30,7 @@ pub struct PreviewViewerModel {
     title: String,
     list: Rc<RefCell<Vec<String>>>,
     background_image: Rc<RefCell<Option<String>>>,
-    // Because selected_index is used to updated selected list-item
-    // it must be updated for every input that changes the selected item
-    // selected_index: u32,
-    // list_view: gtk::ListView,
+    list_view: gtk::ListView,
 }
 
 impl PreviewViewerModel {
@@ -42,25 +39,20 @@ impl PreviewViewerModel {
             title: String::new(),
             list: Rc::new(RefCell::new(Vec::new())),
             background_image: Rc::new(RefCell::new(None)),
+            list_view: gtk::ListView::builder().build(),
         };
     }
-    fn listen_for_items_change(list_view: gtk::ListView) {
+    fn update_focus_item(list_view: &gtk::ListView) {
         let model = match list_view.model() {
             Some(m) => m,
             None => return,
         };
 
-        model.connect_items_changed(gtk::glib::clone!(
-            @strong
-            list_view,
-            => move |model, _, _, _| {
-                if let Some(first_child) = list_view.first_child(){
-                    first_child.grab_focus();
-                    list_view.set_focus_child(Some(&first_child));
-                    model.select_item(0, true);
-                }
-            }
-        ));
+        if let Some(first_child) = list_view.first_child() {
+            first_child.grab_focus();
+            list_view.set_focus_child(Some(&first_child));
+            model.select_item(0, true);
+        }
     }
 }
 
@@ -86,8 +78,9 @@ impl SimpleComponent for PreviewViewerModel {
                 set_vexpand: true,
                 // set_child: Some(&model.list_view)
                 #[wrap(Some)]
-                #[name="list_view"]
-                set_child= &gtk::ListView{
+                #[local_ref]
+                // #[name="list_view"]
+                set_child= &list_view -> gtk::ListView{
                     connect_activate[sender, model] => move |list_view,_|{
                         let selection_model = match list_view.model() {
                             Some(m)=>m,
@@ -189,11 +182,9 @@ impl SimpleComponent for PreviewViewerModel {
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
         let model = PreviewViewerModel::new();
+        let list_view = model.list_view.clone();
 
         let widgets = view_output!();
-        let list_view = widgets.list_view.clone();
-
-        PreviewViewerModel::listen_for_items_change(list_view);
 
         return relm4::ComponentParts { model, widgets };
     }
@@ -204,10 +195,12 @@ impl SimpleComponent for PreviewViewerModel {
                 self.list.borrow_mut().clear();
                 self.list.borrow_mut().append(&mut payload.list.clone());
 
-                println!("preview new sli pos={}", payload.position);
+                PreviewViewerModel::update_focus_item(&self.list_view);
+                // println!("preview new sli pos={}", payload.position);
             }
             PreviewViewerInput::Background(img) => {
                 self.background_image.set(Some(img));
+                self.list_view.grab_focus();
             }
         };
 
