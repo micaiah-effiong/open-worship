@@ -1,6 +1,7 @@
 use gtk::prelude::{OrientableExt, WidgetExt};
 use relm4::{gtk, typed_view::grid::RelmGridItem, view};
 
+#[derive(Debug, Clone)]
 pub struct BackgroundGridListItem {
     title: String,
     src: String,
@@ -18,8 +19,21 @@ impl Drop for BackgroundGridListItemWidget {
 }
 
 impl BackgroundGridListItem {
-    pub fn new(title: String, src: String) -> Self {
-        return BackgroundGridListItem { title, src };
+    pub fn new(src: String, title: Option<String>) -> Self {
+        if let Some(title) = title {
+            return BackgroundGridListItem { src, title };
+        }
+
+        let name = match std::path::Path::new(&src).file_name() {
+            Some(name) => name.to_str(),
+            None => panic!("Invalid file name"),
+        };
+        let title = match name {
+            Some(name) => name.to_string(),
+            None => panic!("Error converting file name to string"),
+        };
+
+        return BackgroundGridListItem { src, title };
     }
 }
 
