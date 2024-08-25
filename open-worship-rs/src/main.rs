@@ -321,27 +321,25 @@ impl SimpleComponent for AppModel {
     }
 }
 
-const APP_ID: &str = "com.open-worship";
+const APP_ID: &str = "com.open-worship.app";
+const RESOURECE_PATH: &str = "/com/open-worship/app";
 
 // const MIN_GRID_HEIGHT: i32 = 300;
 const MIN_GRID_WIDTH: i32 = 300;
 
 fn main() {
-    let app = relm4::RelmApp::new(APP_ID);
-    load_css();
+    let app = relm4::main_application();
+    app.set_application_id(Some(APP_ID));
+    app.set_resource_base_path(Some(RESOURECE_PATH));
+    relm4_icons::initialize_icons();
+
+    let app = relm4::RelmApp::from_app(app);
+    let _ = relm4::gtk::init();
+
     log_display_info();
+    let _ = app.set_global_css_from_file(std::path::Path::new("./src/style.css"));
+
     app.run::<AppModel>(None);
-}
-
-fn load_css() {
-    let css_provider = gtk::CssProvider::new();
-    css_provider.load_from_path("src/style.css");
-
-    gtk::style_context_add_provider_for_display(
-        &gtk::gdk::Display::default().expect("Could not connect to display"),
-        &css_provider,
-        gtk::STYLE_PROVIDER_PRIORITY_USER,
-    );
 }
 
 fn log_display_info() {
@@ -386,3 +384,14 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
 
     return Some(geometry);
 }
+
+// fn load_css() {
+//     let css_provider = gtk::CssProvider::new();
+//     css_provider.load_from_path("src/style.css");
+//
+//     gtk::style_context_add_provider_for_display(
+//         &gtk::gdk::Display::default().expect("Could not connect to display"),
+//         &css_provider,
+//         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+//     );
+// }

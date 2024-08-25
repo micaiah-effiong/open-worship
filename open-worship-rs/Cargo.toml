@@ -8,3 +8,4 @@ edition = "2021"
 # relm = { package = "relm4", version = "0.8.0" }
 relm4 = "0.8.0"
 relm4-components = "0.8.0"
+relm4-icons = "0.8.0"
