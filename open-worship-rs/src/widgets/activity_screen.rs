@@ -1,4 +1,4 @@
-use std::{borrow::BorrowMut, cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
 use gtk::{glib::property::PropertySet, prelude::*};
 use relm4::prelude::*;
@@ -22,13 +22,23 @@ const MIN_GRID_HEIGHT: i32 = 300;
 
 impl ActivityScreenModel {
     fn format_bg_style(image: String) -> String {
-        return format!(
-            "background-image: url(\"file://{}\"); background-size: cover; background-position: center center;",
-            image
+        let mut style = format!(
+            "background-size: cover; background-position: center center; background-color: black;",
         );
+
+        if !image.is_empty() {
+            let bg_image_style = format!("background-image: url(\"file://{}\");", image);
+            style = style + &bg_image_style;
+        }
+
+        return style;
     }
 
     fn update_display_image(&mut self, image_src: String) {
+        if image_src.is_empty() {
+            return;
+        }
+
         println!("display bg {image_src}");
         self.background_image.set(Some(image_src));
         {
@@ -79,7 +89,7 @@ impl SimpleComponent for ActivityScreenModel {
         let model = ActivityScreenModel {
             display_text: String::from(""),
             background_image: Rc::new(RefCell::new(None)),
-            bg_style: String::new(),
+            bg_style: ActivityScreenModel::format_bg_style(String::new()),
         };
         let widgets = view_output!();
 
