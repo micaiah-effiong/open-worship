@@ -1,9 +1,9 @@
-use std::{cell::RefCell, rc::Rc, usize};
+mod background;
 
-use gtk::{glib::clone, prelude::*};
-use relm4::{prelude::*, typed_view::grid::TypedGridView};
+use gtk::prelude::*;
+use relm4::prelude::*;
 
-use crate::structs::background_grid_list_item::BackgroundGridListItem;
+use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundModel};
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -11,7 +11,7 @@ const MIN_GRID_HEIGHT: i32 = 300;
 // search area (notebook)
 #[derive(Debug)]
 pub enum SearchInput {
-    NewBackgroundImages(Vec<String>),
+    PreviewBackground(String),
 }
 
 #[derive(Debug)]
@@ -19,84 +19,26 @@ pub enum SearchOutput {
     PreviewBackground(String),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SearchModel {
-    image_src_list: Rc<RefCell<Vec<String>>>,
-    view: Rc<RefCell<TypedGridView<BackgroundGridListItem, gtk::SingleSelection>>>,
+    background_page: relm4::Controller<SearchBackgroundModel>,
+}
+
+impl SearchModel {
+    fn convert_background_msg(msg: SearchBacgroundOutput) -> SearchInput {
+        return match msg {
+            SearchBacgroundOutput::SendPreviewBackground(bg_src) => {
+                SearchInput::PreviewBackground(bg_src)
+            }
+        };
+    }
 }
 
 pub struct SearchInit {
     pub image_src_list: Vec<String>,
 }
 
-impl SearchModel {
-    fn append_background(&mut self, bg: Vec<String>) {
-        let mut view = self.view.borrow_mut();
-        let mut list = self.image_src_list.borrow_mut();
-
-        for path in bg {
-            view.append(BackgroundGridListItem::new(path.clone(), None));
-            list.push(path);
-        }
-    }
-
-    fn register_backgroud_chooser(sender: ComponentSender<SearchModel>) -> gtk::FileChooserDialog {
-        let file_filter = gtk::FileFilter::new();
-        file_filter.add_mime_type("image/png");
-        file_filter.add_mime_type("image/jpeg");
-
-        let fc = gtk::FileChooserDialog::builder()
-            .select_multiple(true)
-            .maximized(false)
-            .modal(true)
-            .title("Import background")
-            .action(gtk::FileChooserAction::Open)
-            .filter(&file_filter)
-            .build();
-
-        fc.add_button("Open", gtk::ResponseType::Ok);
-        fc.add_button("Cancel", gtk::ResponseType::Cancel);
-
-        fc.connect_response(clone!(
-            @strong sender,
-            => move |f, r| {
-                let list = match r {
-                    gtk::ResponseType::Ok => f.files(),
-                    gtk::ResponseType::Cancel => {
-                        f.close();
-                        return;
-                    }
-                    _ => return,
-                };
-
-                let mut new_images:Vec<String> = vec![];
-
-                for item in &list {
-                    if item.is_err() {
-                        continue;
-                    }
-
-                    let file = match item.unwrap().downcast::<gtk::gio::File>() {
-                        Ok(file) => file,
-                        Err(_) => continue,
-                    };
-
-                    println!("file -> {:?}", &file.path());
-                    if let Some(path) = file.path() {
-                        // print!("{}", path.display().to_string());
-                        new_images.push(path.display().to_string());
-                    }
-                }
-
-                sender.input(SearchInput::NewBackgroundImages(new_images));
-
-                f.close();
-            }
-        ));
-
-        return fc;
-    }
-}
+impl SearchModel {}
 
 #[relm4::component(pub)]
 impl SimpleComponent for SearchModel {
@@ -173,10 +115,9 @@ impl SimpleComponent for SearchModel {
                                 }
                             }
                         }
-
                     },
 
-                    append_page[Some(&gtk::Label::new(Some("Bible")))] = &gtk::Box {
+                    append_page[Some(&gtk::Label::new(Some("Scriptures")))] = &gtk::Box {
                         set_orientation:gtk::Orientation::Vertical,
                         set_vexpand: true,
                         add_css_class: "blue_box",
@@ -230,74 +171,8 @@ impl SimpleComponent for SearchModel {
                     },
 
 
-                    append_page[Some(&gtk::Label::new(Some("Backgrounds")))] = &gtk::Box {
-                        set_orientation:gtk::Orientation::Vertical,
-                        set_vexpand: true,
-                        add_css_class: "blue_box",
-
-                        // #[name="search_field"]
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 2,
-                            set_height_request: 48,
-                            add_css_class: "green_double_box",
-
-                            gtk::SearchEntry {
-                                set_placeholder_text: Some("Search..."),
-                                set_hexpand: true
-                            }
-                        },
-
-                        gtk::ScrolledWindow {
-                            set_vexpand: true,
-
-                            #[wrap(Some)]
-                            #[local_ref]
-                            set_child = &bg_grid_view -> gtk::GridView {
-                                connect_activate[sender, model] => move |grid_view, _| {
-                                    let s_model = match grid_view.model() {
-                                        Some(model)=>model,
-                                        None=> return
-                                    };
-
-                                    let ss_model = match s_model.downcast_ref::<gtk::SingleSelection>() {
-                                        Some(model)=>model,
-                                        None=> return
-                                    };
-
-                                    let selected_pos = ss_model.selected();
-                                    let list = model.image_src_list.borrow();
-                                    let path = list.get(selected_pos as usize);
-
-                                    let path = match path{
-                                        Some(path)=>path,
-                                        None=>return,
-                                    };
-
-                                    let _ = sender.output(SearchOutput::PreviewBackground(path.to_string()));
-                                },
-                            }
-                        },
-
-                        gtk::Box {
-                            gtk::Button {
-                                set_icon_name: "plus",
-                                set_tooltip: "Add background",
-
-                                connect_clicked[sender] => move |btn|{
-                                    let window = match btn.toplevel_window(){
-                                        Some(win)=>win,
-                                        None=>return
-                                    };
-
-                                    let file_chooser = SearchModel::register_backgroud_chooser(sender.clone());
-                                    file_chooser.set_transient_for(Some(&window));
-                                    file_chooser.show();
-                                }
-                            }
-                        },
-
-                    }
+                    #[local_ref]
+                    append_page[Some(&gtk::Label::new(Some("Backgrounds")))] = background_page_widget -> gtk::Box{}
                 }
             }
 
@@ -309,22 +184,23 @@ impl SimpleComponent for SearchModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let model = SearchModel {
-            image_src_list: Rc::new(RefCell::new(Vec::new())),
-            view: Rc::new(RefCell::new(TypedGridView::new())),
-        };
+        let background_page = SearchBackgroundModel::builder()
+            .launch(SearchBackgroundInit {})
+            .forward(sender.input_sender(), SearchModel::convert_background_msg);
 
-        let bg_grid_view = model.view.borrow().view.clone();
+        let model = SearchModel { background_page };
+
+        let background_page_widget = model.background_page.widget();
 
         let widgets = view_output!();
 
         return relm4::ComponentParts { model, widgets };
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
-            SearchInput::NewBackgroundImages(list) => {
-                self.append_background(list);
+            SearchInput::PreviewBackground(bg) => {
+                let _ = sender.output(SearchOutput::PreviewBackground(bg));
             }
         };
     }
