@@ -165,11 +165,11 @@ impl SimpleComponent for SearchBackgroundModel {
                 set_orientation: gtk::Orientation::Horizontal,
                 set_spacing: 2,
                 set_height_request: 48,
-                set_height_request: 58,
+                set_width_request: 58,
                 add_css_class: "green_double_box",
 
                 gtk::SearchEntry {
-                    set_placeholder_text: Some("Genesis 1:1"),
+                    set_placeholder_text: Some("Search..."),
                     set_hexpand: true
                 }
             },

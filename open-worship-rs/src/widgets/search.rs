@@ -1,9 +1,13 @@
 mod background;
+mod scriptures;
+mod songs;
 
 use gtk::prelude::*;
 use relm4::prelude::*;
 
 use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundModel};
+use scriptures::{SearchScriptureInit, SearchScriptureModel};
+use songs::{SearchSongInit, SearchSongModel};
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -22,6 +26,8 @@ pub enum SearchOutput {
 #[derive(Debug)]
 pub struct SearchModel {
     background_page: relm4::Controller<SearchBackgroundModel>,
+    scripture_page: relm4::Controller<SearchScriptureModel>,
+    song_page: relm4::Controller<SearchSongModel>,
 }
 
 impl SearchModel {
@@ -64,112 +70,11 @@ impl SimpleComponent for SearchModel {
                 gtk::Notebook {
                     set_hexpand: true,
 
-                    append_page[Some(&gtk::Label::new(Some("Songs")))] = &gtk::Box {
-                        set_orientation:gtk::Orientation::Vertical,
-                        set_vexpand: true,
-                        add_css_class: "blue_box",
+                    #[local_ref]
+                    append_page[Some(&gtk::Label::new(Some("Songs")))] = song_page_widget -> gtk::Box {},
 
-                        #[name="search_field"]
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 2,
-                            set_height_request: 48,
-                            add_css_class: "green_double_box",
-
-                            gtk::SearchEntry {
-                                set_placeholder_text: Some("Search..."),
-                                set_hexpand: true
-                            }
-                        },
-
-                        gtk::ScrolledWindow {
-                            set_vexpand: true,
-
-                            #[wrap(Some)]
-                            set_child = &gtk::ListView {
-
-                                #[wrap(Some)]
-                                set_model = &gtk::SingleSelection{
-                                    set_model: Some(&(0..1000).map(|_| LIST_VEC[0]).collect::<gtk::StringList>()),
-                                },
-
-                                #[wrap(Some)]
-                                set_factory = &gtk::SignalListItemFactory {
-                                    connect_setup => move |_, list_item|{
-                                        let label = gtk::Label::builder()
-                                        .ellipsize(gtk::pango::EllipsizeMode::End)
-                                        .single_line_mode(true)
-                                        .halign(gtk::Align::Start)
-                                        .justify(gtk::Justification::Fill).build();
-
-                                        list_item
-                                            .downcast_ref::<gtk::ListItem>()
-                                            .expect("Must be a list item")
-                                            .set_child(Some(&label));
-
-                                        list_item
-                                            .property_expression("item")
-                                            .chain_property::<gtk::StringObject>("string")
-                                            .bind(&label, "label", gtk::Widget::NONE);
-                                    }
-                                }
-                            }
-                        }
-                    },
-
-                    append_page[Some(&gtk::Label::new(Some("Scriptures")))] = &gtk::Box {
-                        set_orientation:gtk::Orientation::Vertical,
-                        set_vexpand: true,
-                        add_css_class: "blue_box",
-
-                        // #[name="search_field"]
-                        gtk::Box {
-                            set_orientation: gtk::Orientation::Horizontal,
-                            set_spacing: 2,
-                            set_height_request: 48,
-                            add_css_class: "green_double_box",
-
-                            gtk::SearchEntry {
-                                set_placeholder_text: Some("Search..."),
-                                set_hexpand: true
-                            }
-                        },
-
-                        gtk::ScrolledWindow {
-                            set_vexpand: true,
-
-                            #[wrap(Some)]
-                            set_child = &gtk::ListView {
-                                #[wrap(Some)]
-                                set_model = &gtk::SingleSelection{
-                                    set_model: Some(&(0..1000).map(|_| LIST_VEC[0]).collect::<gtk::StringList>()),
-                                },
-
-                                #[wrap(Some)]
-                                set_factory = &gtk::SignalListItemFactory {
-                                    connect_setup => move |_, list_item|{
-                                        let label = gtk::Label::builder()
-                                        .ellipsize(gtk::pango::EllipsizeMode::End)
-                                        .single_line_mode(true)
-                                        .halign(gtk::Align::Start)
-                                        .justify(gtk::Justification::Fill).build();
-
-                                        list_item
-                                            .downcast_ref::<gtk::ListItem>()
-                                            .expect("Must be a list item")
-                                            .set_child(Some(&label));
-
-                                        list_item
-                                            .property_expression("item")
-                                            .chain_property::<gtk::StringObject>("string")
-                                            .bind(&label, "label", gtk::Widget::NONE);
-                                    }
-                                }
-                            }
-                        }
-
-                    },
-
+                    #[local_ref]
+                    append_page[Some(&gtk::Label::new(Some("Scriptures")))] = scripture_page_widget -> gtk::Box{},
 
                     #[local_ref]
                     append_page[Some(&gtk::Label::new(Some("Backgrounds")))] = background_page_widget -> gtk::Box{}
@@ -184,13 +89,25 @@ impl SimpleComponent for SearchModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
+        let song_page = SearchSongModel::builder()
+            .launch(SearchSongInit {})
+            .forward(sender.input_sender(), |_| unimplemented!());
+        let scripture_page = SearchScriptureModel::builder()
+            .launch(SearchScriptureInit {})
+            .forward(sender.input_sender(), |_| unimplemented!());
         let background_page = SearchBackgroundModel::builder()
             .launch(SearchBackgroundInit {})
             .forward(sender.input_sender(), SearchModel::convert_background_msg);
 
-        let model = SearchModel { background_page };
+        let model = SearchModel {
+            song_page,
+            background_page,
+            scripture_page,
+        };
 
         let background_page_widget = model.background_page.widget();
+        let scripture_page_widget = model.scripture_page.widget();
+        let song_page_widget = model.song_page.widget();
 
         let widgets = view_output!();
 
