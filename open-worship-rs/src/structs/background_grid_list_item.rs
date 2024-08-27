@@ -3,8 +3,8 @@ use relm4::{gtk, typed_view::grid::RelmGridItem, view};
 
 #[derive(Debug, Clone)]
 pub struct BackgroundGridListItem {
-    title: String,
-    src: String,
+    pub title: String,
+    pub src: String,
 }
 
 pub struct BackgroundGridListItemWidget {

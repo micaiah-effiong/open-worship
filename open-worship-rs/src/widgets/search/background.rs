@@ -20,12 +20,10 @@ pub enum SearchBacgroundOutput {
 #[derive(Debug, Clone)]
 pub struct SearchBackgroundModel {
     image_src_list: Rc<RefCell<Vec<String>>>,
-    view: Rc<RefCell<TypedGridView<BackgroundGridListItem, gtk::SingleSelection>>>,
+    grid_view_wrapper: Rc<RefCell<TypedGridView<BackgroundGridListItem, gtk::SingleSelection>>>,
 }
 
-pub struct SearchBackgroundInit {
-    // pub image_src_list: Vec<String>,
-}
+pub struct SearchBackgroundInit {}
 
 impl SearchBackgroundModel {
     fn join_path(path: std::path::PathBuf) -> std::path::PathBuf {
@@ -56,8 +54,7 @@ impl SearchBackgroundModel {
     }
 
     fn append_background(&mut self, bg: Vec<String>) {
-        let mut view = self.view.borrow_mut();
-        let mut list = self.image_src_list.borrow_mut();
+        let mut view = self.grid_view_wrapper.borrow_mut();
 
         for path in bg {
             // create symlink
@@ -84,7 +81,6 @@ impl SearchBackgroundModel {
 
             let path = sym_path.display().to_string();
             view.append(BackgroundGridListItem::new(path.clone(), None));
-            list.push(path);
         }
     }
 
@@ -229,7 +225,7 @@ impl SimpleComponent for SearchBackgroundModel {
                     set_tooltip: "Remove background",
 
                     connect_clicked[sender, model] => move |_|{
-                        let grid_view = model.view.borrow().view.clone();
+                        let grid_view = model.grid_view_wrapper.borrow().view.clone();
 
                         let s_model = match grid_view.model() {
                             Some(model)=>model,
@@ -256,20 +252,21 @@ impl SimpleComponent for SearchBackgroundModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let view = Rc::new(RefCell::new(TypedGridView::new()));
+        let grid_view_wrapper = Rc::new(RefCell::new(TypedGridView::new()));
 
         let bg_list = SearchBackgroundModel::load_backgrounds();
         for item in bg_list.clone() {
-            view.borrow_mut()
+            grid_view_wrapper
+                .borrow_mut()
                 .append(BackgroundGridListItem::new(item, None));
         }
 
         let model = SearchBackgroundModel {
             image_src_list: Rc::new(RefCell::new(bg_list)),
-            view,
+            grid_view_wrapper,
         };
 
-        let bg_grid_view = model.view.borrow().view.clone();
+        let bg_grid_view = model.grid_view_wrapper.borrow().view.clone();
 
         let widgets = view_output!();
         return relm4::ComponentParts { model, widgets };
@@ -282,10 +279,14 @@ impl SimpleComponent for SearchBackgroundModel {
             }
             SearchBackgroundInput::RemoveBackgroundImages(position_list) => {
                 for index in position_list.clone() {
-                    let removed_item = self.image_src_list.borrow_mut().remove(index as usize);
-                    self.view.borrow_mut().remove(index);
+                    let item_to_remove = self.grid_view_wrapper.clone().borrow().get(index);
 
-                    let _ = std::fs::remove_file(removed_item);
+                    if let Some(item) = item_to_remove {
+                        let item = item.borrow().clone();
+
+                        self.grid_view_wrapper.borrow_mut().remove(index);
+                        let _ = std::fs::remove_file(&item.src);
+                    }
                 }
             }
         };
