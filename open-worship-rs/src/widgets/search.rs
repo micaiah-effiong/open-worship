@@ -6,8 +6,10 @@ use gtk::prelude::*;
 use relm4::prelude::*;
 
 use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundModel};
-use scriptures::{SearchScriptureInit, SearchScriptureModel};
+use scriptures::{SearchScriptureInit, SearchScriptureModel, SearchScriptureOutput};
 use songs::{SearchSongInit, SearchSongModel};
+
+use crate::dto;
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -16,11 +18,13 @@ const MIN_GRID_HEIGHT: i32 = 300;
 #[derive(Debug)]
 pub enum SearchInput {
     PreviewBackground(String),
+    PreviewScriptures(dto::ListPayload),
 }
 
 #[derive(Debug)]
 pub enum SearchOutput {
     PreviewBackground(String),
+    PreviewScriptures(dto::ListPayload),
 }
 
 #[derive(Debug)]
@@ -38,11 +42,17 @@ impl SearchModel {
             }
         };
     }
+
+    fn convert_scripture_msg(msg: SearchScriptureOutput) -> SearchInput {
+        return match msg {
+            SearchScriptureOutput::SendScriptures(list_payload) => {
+                SearchInput::PreviewScriptures(list_payload)
+            }
+        };
+    }
 }
 
-pub struct SearchInit {
-    pub image_src_list: Vec<String>,
-}
+pub struct SearchInit {}
 
 impl SearchModel {}
 
@@ -94,7 +104,7 @@ impl SimpleComponent for SearchModel {
             .forward(sender.input_sender(), |_| unimplemented!());
         let scripture_page = SearchScriptureModel::builder()
             .launch(SearchScriptureInit {})
-            .forward(sender.input_sender(), |_| unimplemented!());
+            .forward(sender.input_sender(), SearchModel::convert_scripture_msg);
         let background_page = SearchBackgroundModel::builder()
             .launch(SearchBackgroundInit {})
             .forward(sender.input_sender(), SearchModel::convert_background_msg);
@@ -119,22 +129,9 @@ impl SimpleComponent for SearchModel {
             SearchInput::PreviewBackground(bg) => {
                 let _ = sender.output(SearchOutput::PreviewBackground(bg));
             }
+            SearchInput::PreviewScriptures(list) => {
+                let _ = sender.output(SearchOutput::PreviewScriptures(list));
+            }
         };
     }
 }
-
-const LIST_VEC: [&str; 13] = [
-    "Golden sun, a radiant masterpiece, paints the canvas of the morning sky. With hues of pink and softest blue, a breathtaking, ethereal sight,",
-    "A gentle breeze, a whispered lullaby, carries softly through and through, Enveloping the world in calm as morning dew begins to fall anew.",
-    "Dew-kissed flowers, adorned with sparkling gems, open wide to greet the day, Unfurling petals, soft and sweet, in a vibrant, colorful display,",
-    "Nature's beauty, a masterpiece, unfolds before our wondering eyes,",
-    "Inviting us to pause and breathe, beneath the endless, open skies.",
-    "Children laugh, their joy infectious, as they chase their dreams so high,",
-    "Imaginations soar and fly, reaching for the boundless sky,",
-    "Hopeful wishes, like tiny stars, twinkle brightly in their hearts,",
-    "As golden moments slip away, leaving precious, lasting marks.",
-    "Hand in hand, we'll journey on, through life's winding, twisting road,",
-    "With courage, strength, and hearts aflame, carrying hope's precious load,",
-    "Brighter days, a promised land, await us just beyond the bend,",
-    "As love and friendship's bonds endure, forever and without an end.",
-];

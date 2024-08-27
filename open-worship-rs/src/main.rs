@@ -25,6 +25,7 @@ enum AppInput {
 
     //
     SearchPreviewBackground(String),
+    SearchPreviewActivity(dto::ListPayload),
 }
 struct AppModel {
     schedule_activity_viewer: relm4::Controller<ScheduleViewerModel>,
@@ -65,6 +66,7 @@ impl AppModel {
             SearchOutput::PreviewBackground(image_src) => {
                 AppInput::SearchPreviewBackground(image_src)
             }
+            SearchOutput::PreviewScriptures(list) => AppInput::SearchPreviewActivity(list),
         };
     }
 }
@@ -233,9 +235,7 @@ impl SimpleComponent for AppModel {
                 AppModel::convert_live_activity_response,
             );
         let search_viewer = SearchModel::builder()
-            .launch(SearchInit {
-                image_src_list: Vec::new(),
-            })
+            .launch(SearchInit {})
             .forward(sender.input_sender(), AppModel::convert_search_response);
 
         let preview_activity_screen = ActivityScreenModel::builder()
@@ -316,6 +316,16 @@ impl SimpleComponent for AppModel {
                     .emit(ActivityScreenInput::DisplayBackground(image_src.clone()));
                 self.preview_activity_viewer
                     .emit(PreviewViewerInput::Background(image_src));
+            }
+            AppInput::SearchPreviewActivity(list_payload) => {
+                if let Some(item) = list_payload.list.get(0) {
+                    self.preview_activity_screen
+                        .emit(ActivityScreenInput::DisplayUpdate(
+                            dto::DisplayPayload::new(item.clone()),
+                        ));
+                }
+                self.preview_activity_viewer
+                    .emit(PreviewViewerInput::NewList(list_payload));
             }
         };
     }
