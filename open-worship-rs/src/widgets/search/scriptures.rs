@@ -34,11 +34,18 @@ impl SearchScriptureModel {
             @strong typed_list,
             =>move |lv, _| {
                 //
-                let model = lv
-                    .model()
-                    .unwrap() //
-                    .downcast::<gtk::MultiSelection>()
-                    .unwrap(); //
+                let model = match lv.model() {
+                    Some(model)=>model,
+                    None=>return
+                };
+
+                let model = match model.downcast::<gtk::MultiSelection>(){
+                    Ok(model)=>model,
+                    Err(err)=>{
+                        println!("error getting model.\n{:?}", err);
+                        return;
+                    }
+                };
                 let typed_list = typed_list.borrow();
 
                 let mut selected_items = Vec::new();
