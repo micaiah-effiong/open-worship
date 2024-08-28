@@ -116,9 +116,6 @@ impl SimpleComponent for PreviewViewerModel {
                         #[watch]
                         set_model:Some( &model.list.borrow().clone().into_iter().collect::<gtk::StringList>()),
 
-                        // #[watch]
-                        // set_selected: model.selected_index,
-
                         connect_selection_changed[sender, model] => move |selection_model,_,_|{
                             let list = model.clone().list;
 

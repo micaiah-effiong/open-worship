@@ -123,41 +123,16 @@ impl SimpleComponent for LiveViewerModel {
 
             gtk::ScrolledWindow {
                 set_vexpand: true,
-                // set_child: Some(&model.list_view)
-
-                // #[wrap(Some)]
-                // set_child = &gtk::Viewport {
-                // set_scroll_to_focus: true,
 
                 #[wrap(Some)]
                 #[local_ref]
                 set_child = &list_view -> gtk::ListView {
-                    // connect_activate[sender] => move |list_view,_|{
-                        // let selection_model = match list_view.model() {
-                        //     Some(m)=>m,
-                        //     None=>return,
-                        // };
-                        //
-                        // let single_selection_model =
-                        //     match selection_model.downcast_ref::<gtk::SingleSelection>() {
-                        //         Some(ss) => ss,
-                        //         None => return,
-                        //     };
-                        //
-                        // let pos = single_selection_model.selected();
-                        // println!("live activate {:?}", &pos);
-                        //
-                        // sender.input(LiveViewerInput::Activated(pos));
-                    // },
 
                     #[wrap(Some)]
                     #[name="single_selection_model"]
                     set_model = &gtk::SingleSelection {
                         #[watch]
                         set_model:Some( &model.list.borrow().clone().into_iter().collect::<gtk::StringList>()),
-
-                        // #[watch]
-                        // set_selected: model.selected_index,
 
                         connect_selection_changed[sender, model=model.clone()] => move |selection_model,_,_|{
                             let pos = selection_model.selected();
@@ -166,8 +141,6 @@ impl SimpleComponent for LiveViewerModel {
                                 Some(txt) => txt,
                                 None => &String::from(""),
                             };
-                            // println!("live selec no={:?} text={:?}", &pos, &list);
-                            println!("Damn selected");
 
                             let payload = dto::Payload{
                                 text: txt.to_string(),

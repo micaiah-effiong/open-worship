@@ -67,6 +67,7 @@ impl AppModel {
                 AppInput::SearchPreviewBackground(image_src)
             }
             SearchOutput::PreviewScriptures(list) => AppInput::SearchPreviewActivity(list),
+            SearchOutput::PreviewSongs(list) => AppInput::SearchPreviewActivity(list),
         };
     }
 }

@@ -7,7 +7,7 @@ use relm4::prelude::*;
 
 use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundModel};
 use scriptures::{SearchScriptureInit, SearchScriptureModel, SearchScriptureOutput};
-use songs::{SearchSongInit, SearchSongModel};
+use songs::{SearchSongInit, SearchSongModel, SearchSongOutput};
 
 use crate::dto;
 
@@ -19,12 +19,14 @@ const MIN_GRID_HEIGHT: i32 = 300;
 pub enum SearchInput {
     PreviewBackground(String),
     PreviewScriptures(dto::ListPayload),
+    PreviewSongs(dto::ListPayload),
 }
 
 #[derive(Debug)]
 pub enum SearchOutput {
     PreviewBackground(String),
     PreviewScriptures(dto::ListPayload),
+    PreviewSongs(dto::ListPayload),
 }
 
 #[derive(Debug)]
@@ -48,6 +50,12 @@ impl SearchModel {
             SearchScriptureOutput::SendScriptures(list_payload) => {
                 SearchInput::PreviewScriptures(list_payload)
             }
+        };
+    }
+
+    fn convert_song_msg(msg: SearchSongOutput) -> SearchInput {
+        return match msg {
+            SearchSongOutput::SendSongs(list_payload) => SearchInput::PreviewSongs(list_payload),
         };
     }
 }
@@ -101,7 +109,7 @@ impl SimpleComponent for SearchModel {
     ) -> relm4::ComponentParts<Self> {
         let song_page = SearchSongModel::builder()
             .launch(SearchSongInit {})
-            .forward(sender.input_sender(), |_| unimplemented!());
+            .forward(sender.input_sender(), SearchModel::convert_song_msg);
         let scripture_page = SearchScriptureModel::builder()
             .launch(SearchScriptureInit {})
             .forward(sender.input_sender(), SearchModel::convert_scripture_msg);
@@ -131,6 +139,9 @@ impl SimpleComponent for SearchModel {
             }
             SearchInput::PreviewScriptures(list) => {
                 let _ = sender.output(SearchOutput::PreviewScriptures(list));
+            }
+            SearchInput::PreviewSongs(list) => {
+                let _ = sender.output(SearchOutput::PreviewSongs(list));
             }
         };
     }
