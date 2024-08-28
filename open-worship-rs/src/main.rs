@@ -5,7 +5,7 @@ use widgets::live_activity_viewer::{
     LiveViewerData, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
 };
 use widgets::preview_activity_viewer::{
-    PreviewViewerData, PreviewViewerInput, PreviewViewerModel, PreviewViewerOutput,
+    PreviewViewerInit, PreviewViewerInput, PreviewViewerModel, PreviewViewerOutput,
 };
 use widgets::schedule_activity_viewer::{
     ScheduleData, ScheduleViewerData, ScheduleViewerModel, ScheduleViewerOutput,
@@ -217,10 +217,7 @@ impl SimpleComponent for AppModel {
                 AppModel::convert_schedule_activity_response,
             );
         let preview_activity_viewer = PreviewViewerModel::builder()
-            .launch(PreviewViewerData {
-                title: String::from("Preview"),
-                list: Vec::new(),
-            })
+            .launch(PreviewViewerInit {})
             .forward(
                 sender.input_sender(),
                 AppModel::convert_preview_activity_response,
