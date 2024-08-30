@@ -1,34 +1,6 @@
-# Open-worship
+This project is using GTK4 via [gtk-rs](https://www.gkt-rs.org) and [relm4](https://relm4.org/)
 
-An Electron application with React and TypeScript
+Steps
 
-## Recommended IDE Setup
-
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
-
-## Project Setup
-
-### Install
-
-```bash
-$ pnpm install
-```
-
-### Development
-
-```bash
-$ pnpm dev
-```
-
-### Build
-
-```bash
-# For windows
-$ pnpm build:win
-
-# For macOS
-$ pnpm build:mac
-
-# For Linux
-$ pnpm build:linux
-```
+1. [Setup gtk](https://gtk-rs.org/gtk4-rs/stable/latest/book/installation.html)
+   and check your gtk4 version `pkg-config --modversion gtk4`
