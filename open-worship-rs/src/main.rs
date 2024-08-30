@@ -2,7 +2,7 @@ use gtk::prelude::*;
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
 use widgets::live_activity_viewer::{
-    LiveViewerData, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
+    LiveViewerInit, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
 };
 use widgets::preview_activity_viewer::{
     PreviewViewerInit, PreviewViewerInput, PreviewViewerModel, PreviewViewerOutput,
@@ -48,7 +48,7 @@ impl AppModel {
     fn convert_live_activity_response(res: LiveViewerOutput) -> AppInput {
         return match res {
             LiveViewerOutput::Selected(payload) => AppInput::LiveActivitySelected(payload),
-            LiveViewerOutput::Activated(txt) => AppInput::LiveActivityActivated(txt),
+            // LiveViewerOutput::Activated(txt) => AppInput::LiveActivityActivated(txt),
         };
     }
     fn convert_preview_activity_response(res: PreviewViewerOutput) -> AppInput {
@@ -223,7 +223,7 @@ impl SimpleComponent for AppModel {
                 AppModel::convert_preview_activity_response,
             );
         let live_activity_viewer = LiveViewerModel::builder()
-            .launch(LiveViewerData {
+            .launch(LiveViewerInit {
                 title: String::from("Live"),
                 list: Vec::new(),
                 selected_index: None,

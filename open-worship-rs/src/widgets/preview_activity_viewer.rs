@@ -1,12 +1,10 @@
-mod list_item;
 use std::{cell::RefCell, rc::Rc};
 
-use crate::dto;
+use crate::{dto, structs::activity_list_item::ActivityListItem};
 use gtk::{
     glib::{clone, property::PropertySet},
     prelude::*,
 };
-use list_item::ActivityListItem;
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 const MIN_GRID_HEIGHT: i32 = 300;

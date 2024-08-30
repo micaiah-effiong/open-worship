@@ -1,12 +1,12 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, usize};
 
 use gtk::{
     glib::{clone, property::PropertySet},
     prelude::*,
 };
-use relm4::prelude::*;
+use relm4::{prelude::*, typed_view::list::TypedListView};
 
-use crate::dto;
+use crate::{dto, structs::activity_list_item::ActivityListItem};
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -20,9 +20,9 @@ pub enum LiveViewerInput {
 #[derive(Debug)]
 pub enum LiveViewerOutput {
     Selected(dto::Payload),
-    Activated(String),
+    // Activated(String),
 }
-pub struct LiveViewerData {
+pub struct LiveViewerInit {
     pub title: String,
     pub list: Vec<String>,
     pub selected_index: Option<u32>,
@@ -33,38 +33,70 @@ pub struct LiveViewerModel {
     title: String,
     list: Rc<RefCell<Vec<String>>>,
     selected_index: Rc<RefCell<Option<u32>>>,
-    list_view: gtk::ListView,
     background_image: Rc<RefCell<Option<String>>>,
+    list_view_wrapper: Rc<RefCell<TypedListView<ActivityListItem, gtk::SingleSelection>>>,
 }
 
 impl LiveViewerModel {
     fn new() -> Self {
+        let list_view_wrapper = Rc::new(RefCell::new(TypedListView::new()));
+
         return LiveViewerModel {
             title: String::from(""),
             list: Rc::new(RefCell::new(Vec::new())),
             selected_index: Rc::new(RefCell::new(None)),
-            list_view: gtk::ListView::builder().build(),
             background_image: Rc::new(RefCell::new(None)),
+            list_view_wrapper,
         };
     }
 }
 
 impl LiveViewerModel {
+    fn listen_for_selection_changed(&self, sender: &ComponentSender<LiveViewerModel>) {
+        let model = self.clone();
+        let selection_model = model.list_view_wrapper.borrow().selection_model.clone();
+        let list = model.list.borrow().clone();
+        let background_image = model.background_image.borrow().clone();
+        let selected_index = model.selected_index.borrow().clone();
+
+        selection_model.connect_selection_changed(clone!(
+            @strong list,
+            @strong sender,
+            @strong background_image,
+            @strong selected_index
+            => move |selection_model,_,_|{
+                let pos = selection_model.selected();
+                let txt = match list.get(pos as usize) {
+                    Some(txt) => txt.clone(),
+                    None => return,
+                };
+
+                println!("selection changed {:?}", selected_index);
+
+                let payload = dto::Payload{
+                    text: txt,
+                    position: pos,
+                    background_image:background_image.clone(),
+                };
+
+                let _ = sender.output(LiveViewerOutput::Selected(payload));
+            }
+        ));
+    }
+
     fn listen_for_items_change(&self) {
-        let selection_model = match self.list_view.model() {
-            Some(sm) => sm,
-            None => return,
-        };
+        let model = self.clone();
+        let selection_model = model.list_view_wrapper.borrow().selection_model.clone();
+        let selected_index = model.selected_index;
+        let list_view = model.list_view_wrapper.borrow().view.clone();
 
-        let selected_index = self.clone().selected_index;
-        let list_view = self.clone().list_view;
+        selection_model.connect_items_changed(clone!(
+            @strong list_view,
+            @strong selected_index,
+            => move |selection_model, _, _, _| {
 
-        selection_model.clone().connect_items_changed(clone!(
-            @strong
-            list_view,
-            @strong
-            selected_index,
-            => move |_, _, _, _| {
+                println!("here {:?}", selected_index);
+
                 let index = match selected_index.borrow().clone() {
                     Some(inx) => inx,
                     None => return,
@@ -74,7 +106,7 @@ impl LiveViewerModel {
                 list_view.grab_focus();
 
                 let mut li = list_view.first_child();
-                println!("first child 0 => {:?}", &li.clone().unwrap());
+                println!("first child 0 => {:?}", &li);
 
                 let mut i = 0;
                 loop {
@@ -92,13 +124,12 @@ impl LiveViewerModel {
                 }
 
                 if let Some(list_item) = li{
-                    println!("loop {i} => {:?}", &list_item);
+                    // println!("loop {i}, index {index}, total {} => {:?}", selection_model.n_items(), &list_item);
                     list_item.grab_focus();
                     // list_view.set_focus_child(Some(&list_item));
                 }
 
             }
-
         ));
     }
 }
@@ -107,7 +138,7 @@ impl LiveViewerModel {
 impl SimpleComponent for LiveViewerModel {
     type Input = LiveViewerInput;
     type Output = LiveViewerOutput;
-    type Init = LiveViewerData;
+    type Init = LiveViewerInit;
 
     view! {
         #[root]
@@ -126,58 +157,7 @@ impl SimpleComponent for LiveViewerModel {
 
                 #[wrap(Some)]
                 #[local_ref]
-                set_child = &list_view -> gtk::ListView {
-
-                    #[wrap(Some)]
-                    #[name="single_selection_model"]
-                    set_model = &gtk::SingleSelection {
-                        #[watch]
-                        set_model:Some( &model.list.borrow().clone().into_iter().collect::<gtk::StringList>()),
-
-                        connect_selection_changed[sender, model=model.clone()] => move |selection_model,_,_|{
-                            let pos = selection_model.selected();
-                            let list  = &model.list.borrow();
-                            let txt = match list.get(pos as usize) {
-                                Some(txt) => txt,
-                                None => &String::from(""),
-                            };
-
-                            let payload = dto::Payload{
-                                text: txt.to_string(),
-                                position: pos,
-                                background_image:model.background_image.borrow().clone(),
-                            };
-
-                            let _ = sender.output(LiveViewerOutput::Selected(payload));
-                        }
-                    },
-
-                        #[wrap(Some)]
-                    set_factory= &gtk::SignalListItemFactory{
-                        connect_setup => move |_, list_item|{
-                            let label = gtk::Label::builder()
-                                .ellipsize(gtk::pango::EllipsizeMode::End)
-                                .wrap_mode(gtk::pango::WrapMode::Word)
-                                .lines(2)
-                                .margin_top(12)
-                                .margin_bottom(12)
-                                .halign(gtk::Align::Start)
-                                .justify(gtk::Justification::Fill)
-                                .build();
-
-                            list_item
-                                .downcast_ref::<gtk::ListItem>()
-                                .expect("Must be a list item")
-                                .set_child(Some(&label));
-
-                            list_item
-                                .property_expression("item")
-                                .chain_property::<gtk::StringObject>("string")
-                                .bind(&label, "label", gtk::Widget::NONE);
-                        }
-                    }
-                }
-                // },
+                set_child = &list_view -> gtk::ListView {}
             }
         }
     }
@@ -188,12 +168,11 @@ impl SimpleComponent for LiveViewerModel {
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
         let model = LiveViewerModel::new();
-
-        let list_view = model.clone().list_view;
-
+        let list_view = model.list_view_wrapper.borrow().view.clone();
         let widgets = view_output!();
 
         model.listen_for_items_change();
+        model.listen_for_selection_changed(&sender);
 
         return relm4::ComponentParts { model, widgets };
     }
@@ -201,11 +180,22 @@ impl SimpleComponent for LiveViewerModel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             LiveViewerInput::NewList(list_payload) => {
+                println!("new here {:?}", &list_payload.position);
                 self.selected_index.set(Some(list_payload.position));
+                println!("new here update {:?}", &self.selected_index.borrow());
+
                 self.list.borrow_mut().clear();
                 self.list
                     .borrow_mut()
                     .append(&mut list_payload.list.clone());
+
+                self.list_view_wrapper.borrow_mut().clear();
+
+                let mut list = Vec::new();
+                for item in list_payload.list {
+                    list.push(ActivityListItem { text: item });
+                }
+                self.list_view_wrapper.borrow_mut().extend_from_iter(list);
             }
         };
     }
