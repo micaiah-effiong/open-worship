@@ -1,4 +1,4 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, usize};
 
 use crate::{dto, structs::activity_list_item::ActivityListItem};
 use gtk::{
@@ -16,6 +16,7 @@ pub enum PreviewViewerInput {
     // Activated(u32),
     NewList(dto::ListPayload),
     Background(String),
+    GoLive,
 }
 #[derive(Debug)]
 pub enum PreviewViewerOutput {
@@ -150,7 +151,7 @@ impl SimpleComponent for PreviewViewerModel {
         return relm4::ComponentParts { model, widgets };
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             PreviewViewerInput::NewList(payload) => {
                 self.list.borrow_mut().clear();
@@ -167,6 +168,25 @@ impl SimpleComponent for PreviewViewerModel {
             PreviewViewerInput::Background(img) => {
                 self.background_image.set(Some(img));
                 self.list_view_wrapper.borrow().view.grab_focus();
+            }
+            PreviewViewerInput::GoLive => {
+                let model = self.list_view_wrapper.borrow().selection_model.clone();
+                let index = model.selected();
+                let list = self.list.borrow();
+
+                let text = match list.get(index as usize) {
+                    Some(item) => item,
+                    None => return,
+                };
+
+                let payload = dto::ListPayload {
+                    text: text.clone(),
+                    list: self.list.borrow().clone(),
+                    position: index,
+                    background_image: self.background_image.borrow().clone(),
+                };
+
+                let _ = sender.output(PreviewViewerOutput::Activated(payload));
             }
         };
     }

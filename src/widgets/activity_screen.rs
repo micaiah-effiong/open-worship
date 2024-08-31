@@ -10,12 +10,14 @@ use crate::dto;
 pub enum ActivityScreenInput {
     DisplayUpdate(dto::DisplayPayload),
     DisplayBackground(String),
+    ClearDisplay,
 }
 
 pub struct ActivityScreenModel {
     display_text: String,
     background_image: Rc<RefCell<Option<String>>>,
     bg_style: String,
+    is_cleared: bool,
 }
 
 const MIN_GRID_HEIGHT: i32 = 300;
@@ -69,13 +71,19 @@ impl SimpleComponent for ActivityScreenModel {
                 #[watch]
                 inline_css: &model.bg_style,
 
-                gtk::Label {
-                    #[watch]
-                    set_label: &model.display_text,
-                    set_justify: gtk::Justification::Center,
-                    set_wrap: true,
-                    set_wrap_mode: gtk::pango::WrapMode::Word,
-                    set_css_classes: &["red_box", "white", "yellow_box"]
+                if !&model.is_cleared {
+                    gtk::Label {
+                        #[watch]
+                        set_label: &model.display_text,
+                        set_justify: gtk::Justification::Center,
+                        set_wrap: true,
+                        set_wrap_mode: gtk::pango::WrapMode::Word,
+                        set_css_classes: &["red_box", "white", "yellow_box"]
+                    }
+                }else {
+                    gtk::Label {
+                        set_css_classes: &["red_box", "white", "yellow_box"]
+                    }
                 }
             }
         }
@@ -90,6 +98,7 @@ impl SimpleComponent for ActivityScreenModel {
             display_text: String::from(""),
             background_image: Rc::new(RefCell::new(None)),
             bg_style: ActivityScreenModel::format_bg_style(String::new()),
+            is_cleared: false,
         };
         let widgets = view_output!();
 
@@ -108,6 +117,9 @@ impl SimpleComponent for ActivityScreenModel {
             }
             ActivityScreenInput::DisplayBackground(image_src) => {
                 self.update_display_image(image_src);
+            }
+            ActivityScreenInput::ClearDisplay => {
+                self.is_cleared = !self.is_cleared;
             }
         };
     }

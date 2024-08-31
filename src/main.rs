@@ -22,6 +22,8 @@ enum AppInput {
     PreviewActivityActivated(dto::ListPayload),
     LiveActivitySelected(dto::Payload),
     LiveActivityActivated(String),
+    ClearLiveDisplay,
+    PreviewGoLive,
 
     //
     SearchPreviewBackground(String),
@@ -90,8 +92,29 @@ impl SimpleComponent for AppModel {
 
                 // header box
                 gtk::Box {
-                    set_orientation: gtk::Orientation::Vertical,
+                    set_orientation: gtk::Orientation::Horizontal,
                     set_height_request: 48,
+                    set_margin_all: 12,
+
+                    gtk::Box {
+                        set_hexpand: true,
+                    },
+
+                    gtk::Box {
+                        set_spacing: 5,
+                        gtk::Button {
+                            connect_clicked => AppInput::PreviewGoLive,
+                            gtk::Label {
+                                set_label: "Go live"
+                            }
+                        },
+                        gtk::Button {
+                            connect_clicked => AppInput::ClearLiveDisplay,
+                            gtk::Label {
+                                set_label: "Clear",
+                            },
+                        }
+                    }
                 },
 
                 // body box
@@ -325,6 +348,12 @@ impl SimpleComponent for AppModel {
                 self.preview_activity_viewer
                     .emit(PreviewViewerInput::NewList(list_payload));
             }
+            AppInput::ClearLiveDisplay => self
+                .live_activity_screen
+                .emit(ActivityScreenInput::ClearDisplay),
+            AppInput::PreviewGoLive => self
+                .preview_activity_viewer
+                .emit(PreviewViewerInput::GoLive),
         };
     }
 }
