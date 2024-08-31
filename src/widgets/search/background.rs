@@ -81,6 +81,7 @@ impl SearchBackgroundModel {
 
             let path = sym_path.display().to_string();
             view.append(BackgroundGridListItem::new(path.clone(), None));
+            self.image_src_list.borrow_mut().push(path);
         }
     }
 
