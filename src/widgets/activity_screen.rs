@@ -62,30 +62,48 @@ impl SimpleComponent for ActivityScreenModel {
     view! {
         #[root]
         gtk::Frame {
-            #[wrap(Some)]
-            set_child = &gtk::Box {
-                set_homogeneous: true,
-                set_height_request: MIN_GRID_HEIGHT,
-                set_css_classes: &["brown_box",  "fade-in-image", "black_bg_box" ],
-                set_overflow: gtk::Overflow::Hidden,
-                #[watch]
-                inline_css: &model.bg_style,
+            set_height_request: MIN_GRID_HEIGHT,
+            add_css_class: "gray_bg_box",
+            set_hexpand: true,
+            set_vexpand: true,
 
-                if !&model.is_cleared {
-                    gtk::Label {
-                        #[watch]
-                        set_label: &model.display_text,
-                        set_justify: gtk::Justification::Center,
-                        set_wrap: true,
-                        set_wrap_mode: gtk::pango::WrapMode::Word,
-                        set_css_classes: &["red_box", "white", "yellow_box"]
+            #[wrap(Some)]
+            set_child = &gtk::AspectFrame {
+                add_css_class: "pink_box",
+                // set_homogeneous: true,
+                // set_valign:gtk::Align::Center,
+                // set_halign:gtk::Align::Center,
+                set_ratio: 16.0 / 9.0,
+                set_obey_child:false,
+
+                #[name="screen"]
+                #[wrap(Some)]
+                set_child = &gtk::Box {
+                    set_homogeneous: true,
+                    set_css_classes: &[/* "brown_box", */  "fade-in-image", "black_bg_box" ],
+                    // set_overflow: gtk::Overflow::Hidden,
+
+                    #[watch]
+                    inline_css: &model.bg_style,
+
+                    if !&model.is_cleared {
+                        gtk::Label {
+                            #[watch]
+                            set_label: &model.display_text,
+                            set_justify: gtk::Justification::Center,
+                            set_wrap: true,
+                            set_wrap_mode: gtk::pango::WrapMode::Word,
+                            set_css_classes: &["red_box", "white", "yellow_box"]
+
+                        }
+                    }else {
+                        gtk::Label {
+                            set_css_classes: &["red_box", "white", "yellow_box"]
+                        }
                     }
-                }else {
-                    gtk::Label {
-                        set_css_classes: &["red_box", "white", "yellow_box"]
-                    }
-                }
+                },
             }
+
         }
     }
 

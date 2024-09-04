@@ -38,6 +38,10 @@
   border: 6px double brown;
 }
 
+.gray_bg_box {
+  background-color: gray;
+}
+
 .black_bg_box {
   background-color: black;
 }
@@ -66,10 +70,9 @@ label {
   background-color: grey;
 }
 
-row:focus{
+row:focus {
   background-color: red;
 }
-
 
 editablelabel.schedule-list-item-editable {
   font-style: italic;
@@ -87,7 +90,6 @@ editablelabel.schedule-list-item-editable {
   outline: 1px solid gray;
 }
 
-
 .bg-preview-box {
   background-color: black;
   border: 3px solid white;
@@ -103,10 +105,15 @@ editablelabel.schedule-list-item-editable {
   border-color: black;
 }
 
-
-.fade-in-image { animation: fadeIn 5s; }
+.fade-in-image {
+  /* animation: fadeIn 5s; */
+}
 
 @keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
 }

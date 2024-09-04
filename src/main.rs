@@ -393,6 +393,7 @@ fn log_display_info() {
         println!("|	model {:?}", x_mon.model());
         println!("|	manufacturer {:?}", x_mon.manufacturer());
         println!("|	geometry {:?}", x_mon.geometry());
+        println!("|	scale factor {:?}", x_mon.scale_factor());
         println!(
             "|	ratio {:?}",
             (x_mon.geometry().width() as f32 / x_mon.geometry().height() as f32)
