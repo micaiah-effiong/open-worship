@@ -55,7 +55,7 @@ impl LiveViewerModel {
     fn listen_for_selection_changed(&self, sender: &ComponentSender<LiveViewerModel>) {
         let model = self.clone();
         let selection_model = model.list_view_wrapper.borrow().selection_model.clone();
-        let list = model.list.borrow().clone();
+        let list = model.list.clone();
         let background_image = model.background_image.borrow().clone();
         let selected_index = model.selected_index.borrow().clone();
 
@@ -66,7 +66,7 @@ impl LiveViewerModel {
             @strong selected_index
             => move |selection_model,_,_|{
                 let pos = selection_model.selected();
-                let txt = match list.get(pos as usize) {
+                let txt = match list.borrow().get(pos as usize) {
                     Some(txt) => txt.clone(),
                     None => return,
                 };
