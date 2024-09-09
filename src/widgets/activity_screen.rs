@@ -13,6 +13,7 @@ pub enum ActivityScreenInput {
     ClearDisplay,
 }
 
+#[derive(Debug, Clone)]
 pub struct ActivityScreenModel {
     display_text: String,
     background_image: Rc<RefCell<Option<String>>>,

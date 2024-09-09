@@ -1,7 +1,9 @@
 mod list_item;
+mod edit_modal;
 
 use std::{cell::RefCell, rc::Rc};
 
+use edit_modal::{EditModel, EditModelInputMsg};
 use gtk::{glib::clone, prelude::*, SingleSelection};
 use list_item::SongListItem;
 use relm4::{prelude::*, typed_view::list::TypedListView};
@@ -9,16 +11,19 @@ use relm4::{prelude::*, typed_view::list::TypedListView};
 use crate::dto;
 
 #[derive(Debug)]
-pub enum SearchSongInput {}
+pub enum SearchSongInput {
+    OpenEditModel
+}
 
 #[derive(Debug)]
 pub enum SearchSongOutput {
     SendSongs(dto::ListPayload)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SearchSongModel {
     list_view_wrapper: Rc<RefCell<TypedListView<SongListItem, SingleSelection>>>,
+    edit_song_dialog: relm4::Controller<EditModel>
 }
 
 impl SearchSongModel {
@@ -83,10 +88,21 @@ impl SimpleComponent for SearchSongModel {
             gtk::ScrolledWindow {
                 set_vexpand: true,
 
-                #[wrap(Some)]
                 #[local_ref]
-                set_child = list_view ->gtk::ListView {}
+                list_view -> gtk::ListView {}
+            },
+
+            gtk::Box {
+                gtk::Button {
+                    set_icon_name: "plus",
+                    set_tooltip: "Add song",
+                    connect_clicked => SearchSongInput::OpenEditModel,
+                    // connect_clicked[sender] => move|_|{
+                    //    sender.input(SearchSongInput::OpenEditModel) ;
+                    // }
+                }
             }
+
         }
     }
 
@@ -103,19 +119,27 @@ impl SimpleComponent for SearchSongModel {
         }
         let list_view_wrapper = Rc::new(RefCell::new(list_view_wrapper));
 
-        let model = SearchSongModel { list_view_wrapper };
-        model.register_activate(sender);
+        let edit_song_dialog  = EditModel::builder()
+            .transient_for(&root)
+            .launch(())
+            .forward(sender.input_sender(), |_|unimplemented!());
 
+        let model = SearchSongModel { list_view_wrapper, edit_song_dialog};
         let list_view = &model.list_view_wrapper.borrow().view.clone();
+        model.register_activate(sender.clone());
 
         let widgets = view_output!();
-
 
         return relm4::ComponentParts { model, widgets };
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
-        match message {};
+        match message {
+            SearchSongInput::OpenEditModel => {
+                self.edit_song_dialog.emit(EditModelInputMsg::Show);
+                println!("start opening");
+            }
+        };
     }
 }
 
