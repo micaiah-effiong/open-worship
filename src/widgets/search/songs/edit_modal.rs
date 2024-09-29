@@ -1,18 +1,26 @@
-use gtk::prelude::*;
-use relm4::{prelude::*, SimpleComponent};
+use std::{cell::RefCell, rc::Rc};
 
-use crate::widgets::activity_screen::ActivityScreenModel;
+use gtk::{prelude::*, SingleSelection};
+use relm4::{prelude::*, typed_view::list::TypedListView, SimpleComponent};
+
+use crate::widgets::{
+    activity_screen::ActivityScreenModel,
+    search::songs::edit_modal_list_item::EditSongModalListItem,
+};
 
 #[derive(Debug)]
 pub struct EditModel {
     pub is_active: bool,
     pub screen: Controller<ActivityScreenModel>,
+    pub verse_list: Rc<RefCell<Vec<String>>>,
+    pub list_wrapper: Rc<RefCell<TypedListView<EditSongModalListItem, SingleSelection>>>,
 }
 
 #[derive(Debug)]
 pub enum EditModelInputMsg {
     Show,
     Hide,
+    AddVerse,
 
     #[doc(hidden)]
     Response(gtk::ResponseType),
@@ -57,6 +65,21 @@ impl SimpleComponent for EditModel {
                 gtk::Box{
                     set_height_request: 80,
                     set_css_classes: &["brown_box"],
+
+                    gtk::Box{
+                        set_margin_vertical: 13,
+                        set_margin_horizontal: 6,
+                        gtk::Label{
+                            set_label: "Title",
+                            set_margin_end: 6,
+                        },
+                        gtk::Entry{
+                            set_placeholder_text:Some("Enter song title"),
+                        },
+                    },
+                    gtk::Box{
+                        set_hexpand:true
+                    }
                 },
                 gtk::Box{
                     set_height_request: 60,
@@ -76,7 +99,32 @@ impl SimpleComponent for EditModel {
                             set_hexpand:true,
 
                             gtk::Box{
-                                set_orientation: gtk::Orientation::Vertical
+                                set_orientation: gtk::Orientation::Vertical,
+                                set_hexpand:true,
+
+                                gtk::Box{
+                                    set_vexpand: true,
+                                    set_orientation: gtk::Orientation::Vertical,
+
+
+                                    gtk::ScrolledWindow {
+                                        set_vexpand: true,
+
+                                        #[local_ref]
+                                        list_view -> gtk::ListView {
+                                            set_vexpand: true,
+                                            set_css_classes: &["blue_box"],
+                                        },
+                                    }
+                                },
+                                gtk::Box {
+                                    gtk::Button {
+                                        set_tooltip: "Add side",
+                                        set_icon_name:"plus",
+                                        connect_clicked => EditModelInputMsg::AddVerse
+                                    },
+                                },
+
                             }
                         },
 
@@ -123,10 +171,25 @@ impl SimpleComponent for EditModel {
             .launch(())
             .forward(sender.input_sender(), |_| unimplemented!());
 
+        let mut typed_list_view: TypedListView<EditSongModalListItem, SingleSelection> =
+            TypedListView::new();
+
+        // let verse_list: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
+
+        // for i in 0..=7 {
+        //     typed_list_view.append(EditSongModalListItem {
+        //         text: format!("Verse {i}"),
+        //     })
+        // }
+
         let model = EditModel {
             is_active: true,
             screen,
+            verse_list: Rc::new(RefCell::new(Vec::new())),
+            list_wrapper: Rc::new(RefCell::new(typed_list_view)),
         };
+
+        let list_view = model.list_wrapper.clone().borrow().view.clone();
 
         let widgets = view_output!();
 
@@ -140,14 +203,25 @@ impl SimpleComponent for EditModel {
             EditModelInputMsg::Hide => {
                 self.is_active = false;
             }
+            EditModelInputMsg::AddVerse => {
+                self.list_wrapper
+                    .borrow_mut()
+                    .append(EditSongModalListItem {
+                        text: format!("New Ver"),
+                    });
+            }
             EditModelInputMsg::Response(res) => {
                 let _ = match res {
                     gtk::ResponseType::Ok => {
                         self.is_active = false;
+                        self.list_wrapper.borrow_mut().clear();
+                        self.verse_list.borrow_mut().clear();
                         sender.output(EditModelOutputMsg::Ok)
                     }
                     gtk::ResponseType::Cancel => {
                         self.is_active = false;
+                        self.list_wrapper.borrow_mut().clear();
+                        self.verse_list.borrow_mut().clear();
                         sender.output(EditModelOutputMsg::Cancel)
                     }
                     _ => return,

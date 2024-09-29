@@ -1,4 +1,5 @@
 use relm4::gtk::prelude::*;
+use relm4::RelmWidgetExt;
 use relm4::{gtk, typed_view::list::RelmListItem, view};
 
 #[derive(Debug, Clone)]
@@ -7,12 +8,12 @@ pub struct EditSongModalListItem {
 }
 
 pub struct EditSongModalListItemWidget {
-    label: gtk::TextView,
+    text_buffer: gtk::TextBuffer,
 }
 
 impl Drop for EditSongModalListItemWidget {
     fn drop(&mut self) {
-        self.label.buffer();
+        // self.label.buffer();
     }
 }
 
@@ -21,27 +22,27 @@ impl RelmListItem for EditSongModalListItem {
     type Widgets = EditSongModalListItemWidget;
 
     fn setup(_list_item: &gtk::ListItem) -> (Self::Root, Self::Widgets) {
+        let text_buffer = gtk::TextBuffer::new(Some(&gtk::TextTagTable::new()));
+
         view! {
             list_view = gtk::Box{
-                #[name="list_item_label"]
+                set_margin_all: 8,
                 gtk::TextView {
+                    set_hexpand: true,
                     set_editable: true,
-                    set_hexpand:true,
-                    set_vexpand: true,
-                }
+                    set_height_request: 40,
+
+                    set_buffer = Some(&text_buffer),
+                },
             }
         }
 
-        // list_item_label.set_wra(mode)
-
-        let widgets = EditSongModalListItemWidget {
-            label: list_item_label,
-        };
+        let widgets = EditSongModalListItemWidget { text_buffer };
 
         return (list_view, widgets);
     }
 
     fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-        widgets.label.buffer().set_text(&self.text);
+        widgets.text_buffer.set_text(&self.text);
     }
 }

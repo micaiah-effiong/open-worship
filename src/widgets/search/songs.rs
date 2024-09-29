@@ -1,5 +1,6 @@
 mod list_item;
 mod edit_modal;
+mod edit_modal_list_item;
 
 use std::{cell::RefCell, rc::Rc};
 
