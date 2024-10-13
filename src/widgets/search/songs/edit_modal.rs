@@ -204,10 +204,13 @@ impl SimpleComponent for EditModel {
                 self.is_active = false;
             }
             EditModelInputMsg::AddVerse => {
+                let buffer = gtk::TextBuffer::new(None);
+                buffer.set_text("New verse");
+
                 self.list_wrapper
                     .borrow_mut()
                     .append(EditSongModalListItem {
-                        text: format!("New Ver"),
+                        text_buffer: buffer,
                     });
             }
             EditModelInputMsg::Response(res) => {
