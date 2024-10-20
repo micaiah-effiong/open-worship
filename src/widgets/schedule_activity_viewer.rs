@@ -40,18 +40,17 @@ pub struct ScheduleViewerModel {
 }
 
 impl ScheduleViewerModel {
-    fn new(list_data: Option<Vec<ScheduleData>>)->Self{
+    fn new(list_data: Option<Vec<ScheduleData>>) -> Self {
         let list = match list_data {
-            Some(list)=>list,
-            None=>Vec::new()
+            Some(list) => list,
+            None => Vec::new(),
         };
 
-        return ScheduleViewerModel{
+        return ScheduleViewerModel {
             background_image: Rc::new(RefCell::new(None)),
             list: Rc::new(RefCell::new(list)),
-            title:String::new(),
-
-        }
+            title: String::new(),
+        };
     }
 }
 
@@ -120,7 +119,8 @@ impl SimpleComponent for ScheduleViewerModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let mut list_view: TypedListView<ScheduleListItem, gtk::SingleSelection> = TypedListView::new();
+        let mut list_view: TypedListView<ScheduleListItem, gtk::SingleSelection> =
+            TypedListView::new();
 
         let model = ScheduleViewerModel::new(Some(get_default_data()));
 
@@ -147,7 +147,7 @@ impl SimpleComponent for ScheduleViewerModel {
     }
 }
 
-fn get_default_data ()->Vec<ScheduleData>{
+fn get_default_data() -> Vec<ScheduleData> {
     return Vec::from([
         ScheduleData{
             title: "Echoes of the Soul".to_string(),
@@ -158,7 +158,7 @@ fn get_default_data ()->Vec<ScheduleData>{
                     "With every heartbeat, a rhythm's grace,\nA journey inward, a soulful space.\nThrough shadows and light, the spirit soars,\nDiscovering treasures, unlocking doors.".to_string(),
                     "In harmony's embrace, the soul finds peace,\nA gentle whisper, a sweet release.\nWith hope as a compass, a steady hand,\nWalking the path, through this mortal land.".to_string()
                 ]
-            ) 
+            )
         },
 
         ScheduleData{
@@ -196,6 +196,6 @@ fn get_default_data ()->Vec<ScheduleData>{
                 "In solitude's embrace, the soul finds peace,\nAs ocean's melody, offers release.\nThe vast expanse, a mirror of mind,\nReflecting depths, where answers reside.".to_string(),
                 "With every tide, a chance to renew,\nTo wash away worries, old and new.\nIn ocean's wisdom, find strength to be,\nA harmonious part, of eternity.".to_string()
             ])
-        } 
+        }
     ]);
 }
