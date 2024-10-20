@@ -1,19 +1,20 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::{prelude::*, SingleSelection};
+use gtk::{glib::clone, prelude::*, SingleSelection};
 use relm4::{prelude::*, typed_view::list::TypedListView, SimpleComponent};
 
 use crate::widgets::{
     activity_screen::ActivityScreenModel,
-    search::songs::edit_modal_list_item::EditSongModalListItem,
+    search::songs::{edit_modal_list_item::EditSongModalListItem, list_item::SongListItem},
 };
 
 #[derive(Debug)]
 pub struct EditModel {
+    /// indicates if the edit modal is visible/active
     pub is_active: bool,
     pub screen: Controller<ActivityScreenModel>,
-    pub verse_list: Rc<RefCell<Vec<String>>>,
     pub list_wrapper: Rc<RefCell<TypedListView<EditSongModalListItem, SingleSelection>>>,
+    pub song_title_entry: Rc<RefCell<gtk::Entry>>,
 }
 
 #[derive(Debug)]
@@ -28,8 +29,7 @@ pub enum EditModelInputMsg {
 
 #[derive(Debug)]
 pub enum EditModelOutputMsg {
-    Ok,
-    Cancel,
+    Save(SongListItem),
 }
 
 const WIDTH: i32 = 1200;
@@ -73,8 +73,12 @@ impl SimpleComponent for EditModel {
                             set_label: "Title",
                             set_margin_end: 6,
                         },
-                        gtk::Entry{
+                        #[local_ref]
+                        text_entry -> gtk::Entry{
                             set_placeholder_text:Some("Enter song title"),
+                            connect_insert_text=>move|l,m,n|{
+                                println!("song_title: \n{:?} \n{:?} \n{:?}", l,m,n);
+                            }
                         },
                     },
                     gtk::Box{
@@ -141,9 +145,24 @@ impl SimpleComponent for EditModel {
                     },
                     gtk::Box{
                         set_spacing: 5,
+                        #[name="ok_btn"]
                         gtk::Button{
                             set_label: "Ok",
-                            connect_clicked => EditModelInputMsg::Response(gtk::ResponseType::Ok)
+                            // connect_clicked[sender, text_entry] => move|_|{
+                            //     if text_entry.buffer().text().is_empty() {
+                            //         let win = gtk::Window::builder()
+                            //             .default_width(300)
+                            //             .default_height(100)
+                            //             .modal(true)
+                            //             .focus_visible(true)
+                            //             .build();
+                            //
+                            //         win.show();
+                            //         return;
+                            //     }
+                            //
+                            //     sender.input(EditModelInputMsg::Response(gtk::ResponseType::Ok));
+                            // }
                         },
 
                         gtk::Button{
@@ -171,7 +190,7 @@ impl SimpleComponent for EditModel {
             .launch(())
             .forward(sender.input_sender(), |_| unimplemented!());
 
-        let mut typed_list_view: TypedListView<EditSongModalListItem, SingleSelection> =
+        let typed_list_view: TypedListView<EditSongModalListItem, SingleSelection> =
             TypedListView::new();
 
         // let verse_list: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
@@ -183,15 +202,18 @@ impl SimpleComponent for EditModel {
         // }
 
         let model = EditModel {
-            is_active: true,
+            is_active: false,
             screen,
-            verse_list: Rc::new(RefCell::new(Vec::new())),
             list_wrapper: Rc::new(RefCell::new(typed_list_view)),
+            song_title_entry: Rc::new(RefCell::new(gtk::Entry::default())),
         };
+
+        let text_entry = model.song_title_entry.borrow().clone();
 
         let list_view = model.list_wrapper.clone().borrow().view.clone();
 
         let widgets = view_output!();
+        EditModel::register_ok(&widgets.ok_btn, &text_entry, &sender);
 
         return relm4::ComponentParts { widgets, model };
     }
@@ -216,20 +238,75 @@ impl SimpleComponent for EditModel {
             EditModelInputMsg::Response(res) => {
                 let _ = match res {
                     gtk::ResponseType::Ok => {
+                        let mut verses: Vec<String> = Vec::new();
+
+                        let mut rm_list = self.list_wrapper.borrow_mut();
+                        for song_index in 0..rm_list.len() {
+                            let song = match rm_list.get(song_index) {
+                                Some(song) => song.borrow().clone(),
+                                None => continue,
+                            };
+
+                            let start = song.text_buffer.start_iter();
+                            let end = song.text_buffer.end_iter();
+                            let song_str = song.text_buffer.text(&start, &end, true).to_string();
+
+                            verses.push(song_str);
+                        }
+
+                        let title = self.song_title_entry.borrow_mut().buffer();
+                        let song = SongListItem::new(title.text().to_string(), verses);
+
+                        // TODO:
+                        // save song to database
+                        // invalidate song query
+                        let _ = sender.output(EditModelOutputMsg::Save(song));
+
+                        rm_list.clear();
+                        title.set_text("");
                         self.is_active = false;
-                        self.list_wrapper.borrow_mut().clear();
-                        self.verse_list.borrow_mut().clear();
-                        sender.output(EditModelOutputMsg::Ok)
                     }
                     gtk::ResponseType::Cancel => {
                         self.is_active = false;
                         self.list_wrapper.borrow_mut().clear();
-                        self.verse_list.borrow_mut().clear();
-                        sender.output(EditModelOutputMsg::Cancel)
                     }
                     _ => return,
                 };
             }
         };
+    }
+}
+
+impl EditModel {
+    fn register_ok(
+        button: &gtk::Button,
+        text_entry: &gtk::Entry,
+        sender: &ComponentSender<EditModel>,
+    ) {
+        button.connect_clicked(clone!(
+            @strong button,
+            @strong text_entry,
+            @strong sender,
+            => move |_| {
+                if !text_entry.buffer().text().is_empty() {
+                    sender.input(EditModelInputMsg::Response(gtk::ResponseType::Ok));
+                    return;
+                }
+
+                let label = gtk::Label::builder()
+                    .label("Title cannot be empty")
+                    .build();
+
+                let win = gtk::Window::builder()
+                    .default_width(300)
+                    .default_height(100)
+                    .modal(true)
+                    .focus_visible(true)
+                    .child(&label)
+                    .build();
+
+                win.show();
+            }
+        ));
     }
 }

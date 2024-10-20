@@ -1,10 +1,10 @@
-mod list_item;
 mod edit_modal;
 mod edit_modal_list_item;
+mod list_item;
 
 use std::{cell::RefCell, rc::Rc};
 
-use edit_modal::{EditModel, EditModelInputMsg};
+use edit_modal::{EditModel, EditModelInputMsg, EditModelOutputMsg};
 use gtk::{glib::clone, prelude::*, SingleSelection};
 use list_item::SongListItem;
 use relm4::{prelude::*, typed_view::list::TypedListView};
@@ -13,22 +13,24 @@ use crate::dto;
 
 #[derive(Debug)]
 pub enum SearchSongInput {
-    OpenEditModel
+    OpenEditModel,
+    NewSong(SongListItem),
 }
 
 #[derive(Debug)]
 pub enum SearchSongOutput {
-    SendSongs(dto::ListPayload)
+    SendSongs(dto::ListPayload),
 }
 
 #[derive(Debug)]
 pub struct SearchSongModel {
     list_view_wrapper: Rc<RefCell<TypedListView<SongListItem, SingleSelection>>>,
-    edit_song_dialog: relm4::Controller<EditModel>
+    edit_song_dialog: relm4::Controller<EditModel>,
 }
 
 impl SearchSongModel {
-    fn register_activate(&self,sender: ComponentSender<SearchSongModel>){
+    /// handles list_view activate signal
+    fn register_activate(&self, sender: &ComponentSender<SearchSongModel>) {
         let wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
 
@@ -36,16 +38,24 @@ impl SearchSongModel {
             @strong wrapper,
             @strong sender,
             => move |_,pos|{
+                println!("song clicked");
                 let song_list_item = match wrapper.borrow().get(pos){
                     Some(item)=>item.borrow().clone(),
                     None=>return
                 };
+                println!("song clicked {:?}", song_list_item);
 
                 let verse_list = song_list_item.verses.into_iter().map(|s|s.text).collect::<Vec<String>>();
                 let list_payload = dto::ListPayload::new(song_list_item.title, 0, verse_list, None);
                 let _ = sender.output(SearchSongOutput::SendSongs(list_payload));
             }
         ));
+    }
+
+    fn convert_edit_model_response(res: EditModelOutputMsg) -> SearchSongInput {
+        return match res {
+            EditModelOutputMsg::Save(song) => SearchSongInput::NewSong(song),
+        };
     }
 }
 
@@ -120,14 +130,20 @@ impl SimpleComponent for SearchSongModel {
         }
         let list_view_wrapper = Rc::new(RefCell::new(list_view_wrapper));
 
-        let edit_song_dialog  = EditModel::builder()
+        let edit_song_dialog = EditModel::builder()
             .transient_for(&root)
             .launch(())
-            .forward(sender.input_sender(), |_|unimplemented!());
+            .forward(
+                sender.input_sender(),
+                SearchSongModel::convert_edit_model_response,
+            );
 
-        let model = SearchSongModel { list_view_wrapper, edit_song_dialog};
+        let model = SearchSongModel {
+            list_view_wrapper,
+            edit_song_dialog,
+        };
         let list_view = &model.list_view_wrapper.borrow().view.clone();
-        model.register_activate(sender.clone());
+        model.register_activate(&sender);
 
         let widgets = view_output!();
 
@@ -140,11 +156,14 @@ impl SimpleComponent for SearchSongModel {
                 self.edit_song_dialog.emit(EditModelInputMsg::Show);
                 println!("start opening");
             }
+            SearchSongInput::NewSong(song) => {
+                self.list_view_wrapper.borrow_mut().append(song);
+            }
         };
     }
 }
 
-fn get_default_data () -> Vec<(std::string::String, [std::string::String; 4])>{
+fn get_default_data() -> Vec<(std::string::String, [std::string::String; 4])> {
     return Vec::from([
         (
             "Echoes of the Soul".to_string(),
@@ -190,6 +209,6 @@ fn get_default_data () -> Vec<(std::string::String, [std::string::String; 4])>{
                 "In solitude's embrace, the soul finds peace,\nAs ocean's melody, offers release.\nThe vast expanse, a mirror of mind,\nReflecting depths, where answers reside.".to_string(),
                 "With every tide, a chance to renew,\nTo wash away worries, old and new.\nIn ocean's wisdom, find strength to be,\nA harmonious part, of eternity.".to_string()
             ]
-        ) 
+        )
     ]);
 }
