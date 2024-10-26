@@ -1,11 +1,14 @@
 use std::{cell::RefCell, rc::Rc};
 
 use gtk::{glib::clone, prelude::*, SingleSelection};
-use relm4::{prelude::*, typed_view::list::TypedListView, SimpleComponent};
+use relm4::{prelude::*, typed_view::list::TypedListView};
 
-use crate::widgets::{
-    activity_screen::ActivityScreenModel,
-    search::songs::{edit_modal_list_item::EditSongModalListItem, list_item::SongListItem},
+use crate::{
+    dto::DisplayPayload,
+    widgets::{
+        activity_screen::{ActivityScreenInput, ActivityScreenModel},
+        search::songs::{edit_modal_list_item::EditSongModalListItem, list_item::SongListItem},
+    },
 };
 
 #[derive(Debug)]
@@ -22,6 +25,7 @@ pub enum EditModelInputMsg {
     Show,
     Hide,
     AddVerse,
+    UpdateActivityScreen(DisplayPayload),
 
     #[doc(hidden)]
     Response(gtk::ResponseType),
@@ -193,14 +197,6 @@ impl SimpleComponent for EditModel {
         let typed_list_view: TypedListView<EditSongModalListItem, SingleSelection> =
             TypedListView::new();
 
-        // let verse_list: Rc<RefCell<Vec<String>>> = Rc::new(RefCell::new(Vec::new()));
-
-        // for i in 0..=7 {
-        //     typed_list_view.append(EditSongModalListItem {
-        //         text: format!("Verse {i}"),
-        //     })
-        // }
-
         let model = EditModel {
             is_active: false,
             screen,
@@ -213,7 +209,8 @@ impl SimpleComponent for EditModel {
         let list_view = model.list_wrapper.clone().borrow().view.clone();
 
         let widgets = view_output!();
-        EditModel::register_ok(&widgets.ok_btn, &text_entry, &sender);
+        EditModel::register_response_ok(&widgets.ok_btn, &text_entry, &sender);
+        EditModel::register_list_view_selection_changed(&model, sender.clone());
 
         return relm4::ComponentParts { widgets, model };
     }
@@ -229,11 +226,31 @@ impl SimpleComponent for EditModel {
                 let buffer = gtk::TextBuffer::new(None);
                 buffer.set_text("New verse");
 
+                buffer.connect_changed(clone!(
+                    @strong sender,
+                    => move |m| {
+                        let text = &m.text(&m.start_iter(), &m.end_iter(), true);
+
+                        let payload = DisplayPayload::new(text.to_string());
+                        sender.input(EditModelInputMsg::UpdateActivityScreen(payload))
+                    }
+                ));
+
                 self.list_wrapper
                     .borrow_mut()
                     .append(EditSongModalListItem {
                         text_buffer: buffer,
                     });
+
+                if let Some(model) = self.list_wrapper.borrow().view.model() {
+                    model.select_item(model.n_items() - 1, true);
+                }
+            }
+            EditModelInputMsg::UpdateActivityScreen(payload) => {
+                // payload;
+                println!("buffer changed {:?}", payload);
+                self.screen
+                    .emit(ActivityScreenInput::DisplayUpdate(payload));
             }
             EditModelInputMsg::Response(res) => {
                 let _ = match res {
@@ -278,7 +295,7 @@ impl SimpleComponent for EditModel {
 }
 
 impl EditModel {
-    fn register_ok(
+    fn register_response_ok(
         button: &gtk::Button,
         text_entry: &gtk::Entry,
         sender: &ComponentSender<EditModel>,
@@ -308,5 +325,36 @@ impl EditModel {
                 win.show();
             }
         ));
+    }
+
+    fn register_list_view_selection_changed(&self, sender: ComponentSender<Self>) {
+        let list_wrapper = self.list_wrapper.clone();
+
+        if let Some(view) = self.list_wrapper.borrow().view.model() {
+            view.connect_selection_changed(clone!(
+                @strong list_wrapper,
+                => move |m, _, _| {
+                    let list = list_wrapper.borrow();
+
+                    for index in 0..m.n_items() {
+                        if !m.is_selected(index) {
+                            continue;
+                        }
+
+                        if let Some(item) = list.get(index) {
+                            let item = item.borrow();
+                            let start = &item.text_buffer.start_iter();
+                            let end = &item.text_buffer.end_iter();
+                            let text = &item.text_buffer.text(start, end, true);
+                            let payload = DisplayPayload::new(text.to_string());
+                            println!("move focus: 1. {:?}\n 2. {:?}\n", payload, index);
+                            sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
+                        }
+
+                        break;
+                    }
+                }
+            ));
+        }
     }
 }
