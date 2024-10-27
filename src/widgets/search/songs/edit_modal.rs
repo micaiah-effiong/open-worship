@@ -25,6 +25,7 @@ pub enum EditModelInputMsg {
     Show,
     Hide,
     AddVerse,
+    RemoveVerse,
     UpdateActivityScreen(DisplayPayload),
 
     #[doc(hidden)]
@@ -126,11 +127,19 @@ impl SimpleComponent for EditModel {
                                     }
                                 },
                                 gtk::Box {
+                                    set_orientation: gtk::Orientation::Horizontal,
                                     gtk::Button {
-                                        set_tooltip: "Add side",
+                                        set_tooltip: "Add slide",
                                         set_icon_name:"plus",
                                         connect_clicked => EditModelInputMsg::AddVerse
                                     },
+                                    gtk::Button {
+                                        set_tooltip: "Remove slide",
+                                        set_icon_name:"minus",
+                                        connect_clicked => EditModelInputMsg::RemoveVerse
+                                    },
+                                },
+                                gtk::Box {
                                 },
 
                             }
@@ -244,6 +253,58 @@ impl SimpleComponent for EditModel {
 
                 if let Some(model) = self.list_wrapper.borrow().view.model() {
                     model.select_item(model.n_items() - 1, true);
+                    if let Some(child) = self.list_wrapper.borrow().view.last_child() {
+                        child.grab_focus();
+                    }
+                }
+            }
+            EditModelInputMsg::RemoveVerse => {
+                let selection_model = match self.list_wrapper.borrow().view.model() {
+                    Some(model) => model,
+                    None => return,
+                };
+
+                let size = selection_model.n_items();
+                let mut pos: Option<u32> = None;
+
+                for index in 0..size {
+                    if !selection_model.is_selected(index) {
+                        continue;
+                    }
+
+                    self.list_wrapper.borrow_mut().remove(index);
+                    pos = Some(index);
+                    break;
+                }
+
+                let len = selection_model.n_items();
+                let mut pos = match pos {
+                    Some(pos) => pos,
+                    None => return,
+                };
+
+                if len.eq(&0) {
+                    pos = len; // pos should be None
+                } else if pos.ge(&len) {
+                    pos = len - 1;
+                }
+
+                selection_model.select_item(pos, true);
+
+                let mut list_child = self.list_wrapper.borrow().view.first_child();
+
+                for i in 0..=pos {
+                    if i == pos || list_child.is_none() {
+                        break;
+                    }
+
+                    if let Some(list_item) = list_child {
+                        list_child = list_item.next_sibling();
+                    }
+                }
+
+                if let Some(list_item) = list_child {
+                    list_item.grab_focus();
                 }
             }
             EditModelInputMsg::UpdateActivityScreen(payload) => {
@@ -257,9 +318,9 @@ impl SimpleComponent for EditModel {
                     gtk::ResponseType::Ok => {
                         let mut verses: Vec<String> = Vec::new();
 
-                        let mut rm_list = self.list_wrapper.borrow_mut();
-                        for song_index in 0..rm_list.len() {
-                            let song = match rm_list.get(song_index) {
+                        let mut list_wrapper = self.list_wrapper.borrow_mut();
+                        for song_index in 0..list_wrapper.len() {
+                            let song = match list_wrapper.get(song_index) {
                                 Some(song) => song.borrow().clone(),
                                 None => continue,
                             };
@@ -279,7 +340,10 @@ impl SimpleComponent for EditModel {
                         // invalidate song query
                         let _ = sender.output(EditModelOutputMsg::Save(song));
 
-                        rm_list.clear();
+                        list_wrapper.clear();
+                        // to prevent "already mutably borrowed" error
+                        drop(list_wrapper);
+
                         title.set_text("");
                         self.is_active = false;
                     }

@@ -124,9 +124,7 @@ impl LiveViewerModel {
                 }
 
                 if let Some(list_item) = li{
-                    // println!("loop {i}, index {index}, total {} => {:?}", selection_model.n_items(), &list_item);
                     list_item.grab_focus();
-                    // list_view.set_focus_child(Some(&list_item));
                 }
 
             }
