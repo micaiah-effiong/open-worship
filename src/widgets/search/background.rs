@@ -123,7 +123,12 @@ impl SearchBackgroundModel {
                         continue;
                     }
 
-                    let file = match item.unwrap().downcast::<gtk::gio::File>() {
+                    let item = match item {
+                        Ok(file) => file.downcast::<gtk::gio::File>(),
+                        Err(_) => continue,
+                    };
+
+                    let file = match item {
                         Ok(file) => file,
                         Err(_) => continue,
                     };
