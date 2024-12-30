@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::{glib::clone, prelude::*, SingleSelection};
+use gtk::{glib::clone, pango::ffi::PANGO_WEIGHT_BOLD, prelude::*, SingleSelection};
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::{
@@ -227,37 +227,12 @@ impl SimpleComponent for EditModel {
         match message {
             EditModelInputMsg::Show => {
                 self.is_active = true;
+                self.add_new_verse(&sender)
             }
             EditModelInputMsg::Hide => {
                 self.is_active = false;
             }
-            EditModelInputMsg::AddVerse => {
-                let buffer = gtk::TextBuffer::new(None);
-                buffer.set_text("New verse");
-
-                buffer.connect_changed(clone!(
-                    @strong sender,
-                    => move |m| {
-                        let text = &m.text(&m.start_iter(), &m.end_iter(), true);
-
-                        let payload = DisplayPayload::new(text.to_string());
-                        sender.input(EditModelInputMsg::UpdateActivityScreen(payload))
-                    }
-                ));
-
-                self.list_wrapper
-                    .borrow_mut()
-                    .append(EditSongModalListItem {
-                        text_buffer: buffer,
-                    });
-
-                if let Some(model) = self.list_wrapper.borrow().view.model() {
-                    model.select_item(model.n_items() - 1, true);
-                    if let Some(child) = self.list_wrapper.borrow().view.last_child() {
-                        child.grab_focus();
-                    }
-                }
-            }
+            EditModelInputMsg::AddVerse => self.add_new_verse(&sender),
             EditModelInputMsg::RemoveVerse => {
                 let selection_model = match self.list_wrapper.borrow().view.model() {
                     Some(model) => model,
@@ -419,6 +394,45 @@ impl EditModel {
                     }
                 }
             ));
+        }
+    }
+
+    fn add_new_verse(&self, sender: &ComponentSender<Self>) {
+        let buffer = gtk::TextBuffer::new(None);
+        buffer.set_text("New verse");
+
+        // tag
+        let bold_tag = buffer.create_tag(Some("bold"), &[("weight", &PANGO_WEIGHT_BOLD)]);
+
+        let (start, end) = buffer.bounds(); //.unwrap();
+
+        match bold_tag {
+            Some(b) => buffer.apply_tag(&b, &start, &end),
+            None => (),
+        }
+
+        buffer.connect_changed(clone!(
+            @strong sender,
+            => move |m| {
+                let text = &m.text(&m.start_iter(), &m.end_iter(), true);
+
+                let payload = DisplayPayload::new(text.to_string());
+                sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
+
+            }
+        ));
+
+        self.list_wrapper
+            .borrow_mut()
+            .append(EditSongModalListItem {
+                text_buffer: buffer,
+            });
+
+        if let Some(model) = self.list_wrapper.borrow().view.model() {
+            model.select_item(model.n_items() - 1, true);
+            if let Some(child) = self.list_wrapper.borrow().view.last_child() {
+                child.grab_focus();
+            }
         }
     }
 }
