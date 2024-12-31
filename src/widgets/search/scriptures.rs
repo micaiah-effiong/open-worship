@@ -31,17 +31,18 @@ impl SearchScriptureModel {
         let typed_list = self.list_view_wrapper.clone();
 
         list_view.connect_activate(clone!(
-            @strong typed_list,
-            =>move |lv, _| {
+            #[strong]
+            typed_list,
+            move |lv, _| {
                 //
                 let model = match lv.model() {
-                    Some(model)=>model,
-                    None=>return
+                    Some(model) => model,
+                    None => return,
                 };
 
-                let model = match model.downcast::<gtk::MultiSelection>(){
-                    Ok(model)=>model,
-                    Err(err)=>{
+                let model = match model.downcast::<gtk::MultiSelection>() {
+                    Ok(model) => model,
+                    Err(err) => {
                         println!("error getting model.\n{:?}", err);
                         return;
                     }
@@ -51,22 +52,19 @@ impl SearchScriptureModel {
                 let mut selected_items = Vec::new();
                 for i in 0..model.n_items() {
                     if model.is_selected(i) {
-
                         if let Some(item) = typed_list.get(i) {
                             let a = item.borrow().clone();
                             selected_items.push(a.screen_display());
                         }
-
                     }
                 }
 
                 // list payload
-                let list_payload  = dto::ListPayload::new("title".to_string(), 0, selected_items.clone(), None);
-
+                let list_payload =
+                    dto::ListPayload::new("title".to_string(), 0, selected_items.clone(), None);
 
                 println!("MS selections {:?}", &list_payload);
                 let _ = sender.output(SearchScriptureOutput::SendScriptures(list_payload));
-
             }
         ));
     }

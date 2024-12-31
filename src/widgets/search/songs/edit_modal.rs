@@ -340,18 +340,17 @@ impl EditModel {
         sender: &ComponentSender<EditModel>,
     ) {
         button.connect_clicked(clone!(
-            @strong button,
-            @strong text_entry,
-            @strong sender,
-            => move |_| {
+            #[strong]
+            text_entry,
+            #[strong]
+            sender,
+            move |_| {
                 if !text_entry.buffer().text().is_empty() {
                     sender.input(EditModelInputMsg::Response(gtk::ResponseType::Ok));
                     return;
                 }
 
-                let label = gtk::Label::builder()
-                    .label("Title cannot be empty")
-                    .build();
+                let label = gtk::Label::builder().label("Title cannot be empty").build();
 
                 let win = gtk::Window::builder()
                     .default_width(300)
@@ -371,8 +370,9 @@ impl EditModel {
 
         if let Some(view) = self.list_wrapper.borrow().view.model() {
             view.connect_selection_changed(clone!(
-                @strong list_wrapper,
-                => move |m, _, _| {
+                #[strong]
+                list_wrapper,
+                move |m, _, _| {
                     let list = list_wrapper.borrow();
 
                     for index in 0..m.n_items() {
@@ -412,13 +412,13 @@ impl EditModel {
         }
 
         buffer.connect_changed(clone!(
-            @strong sender,
-            => move |m| {
+            #[strong]
+            sender,
+            move |m| {
                 let text = &m.text(&m.start_iter(), &m.end_iter(), true);
 
                 let payload = DisplayPayload::new(text.to_string());
                 sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
-
             }
         ));
 

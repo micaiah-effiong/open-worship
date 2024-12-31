@@ -30,24 +30,40 @@ pub struct SearchSongModel {
 
 impl SearchSongModel {
     /// handles list_view activate signal
-    fn register_activate(&self, sender: &ComponentSender<SearchSongModel>) {
+    fn register_listview_activate(&self, sender: &ComponentSender<SearchSongModel>) {
         let wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
 
         list_view.connect_activate(clone!(
-            @strong wrapper,
-            @strong sender,
-            => move |_,pos|{
-                println!("song clicked");
-                let song_list_item = match wrapper.borrow().get(pos){
-                    Some(item)=>item.borrow().clone(),
-                    None=>return
+            #[strong]
+            wrapper,
+            #[strong]
+            sender,
+            move |lv, pos| {
+                println!("song clicked {:?}", lv);
+                let song_list_item = match wrapper.borrow().get(pos) {
+                    Some(item) => item.borrow().clone(),
+                    None => return,
                 };
                 println!("song clicked {:?}", song_list_item);
 
-                let verse_list = song_list_item.verses.into_iter().map(|s|s.text).collect::<Vec<String>>();
+                let verse_list = song_list_item
+                    .verses
+                    .into_iter()
+                    .map(|s| s.text)
+                    .collect::<Vec<String>>();
                 let list_payload = dto::ListPayload::new(song_list_item.title, 0, verse_list, None);
                 let _ = sender.output(SearchSongOutput::SendSongs(list_payload));
+
+                let menu = gtk::gio::Menu::new();
+                let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
+
+                popover_menu.set_child(Some(&gtk::Label::new(Some("Add to schedule"))));
+                match lv.focus_child() {
+                    Some(c) => popover_menu.set_parent(&c),
+                    None => (),
+                }
+                popover_menu.show();
             }
         ));
     }
@@ -143,7 +159,7 @@ impl SimpleComponent for SearchSongModel {
             edit_song_dialog,
         };
         let list_view = &model.list_view_wrapper.borrow().view.clone();
-        model.register_activate(&sender);
+        model.register_listview_activate(&sender);
 
         let widgets = view_output!();
 

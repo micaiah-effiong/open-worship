@@ -105,8 +105,9 @@ impl SearchBackgroundModel {
         fc.add_button("Cancel", gtk::ResponseType::Cancel);
 
         fc.connect_response(clone!(
-            @strong sender,
-            => move |f, r| {
+            #[strong]
+            sender,
+            move |f, r| {
                 let list = match r {
                     gtk::ResponseType::Ok => f.files(),
                     gtk::ResponseType::Cancel => {
@@ -116,7 +117,7 @@ impl SearchBackgroundModel {
                     _ => return,
                 };
 
-                let mut new_images:Vec<String> = vec![];
+                let mut new_images: Vec<String> = vec![];
 
                 for item in &list {
                     if item.is_err() {

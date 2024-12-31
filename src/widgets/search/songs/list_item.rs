@@ -1,4 +1,8 @@
-use relm4::{gtk, typed_view::list::RelmListItem, view};
+use relm4::{
+    gtk::{self},
+    typed_view::list::RelmListItem,
+    view,
+};
 
 #[derive(Debug, Clone)]
 pub struct SongData {

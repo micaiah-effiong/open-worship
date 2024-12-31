@@ -45,24 +45,23 @@ impl PreviewViewerModel {
 
     fn register_selection_change(&self, sender: &ComponentSender<Self>) {
         let model = self.list_view_wrapper.borrow().selection_model.clone();
-        let list = self.list.borrow();
+        // let list = self.list.borrow();
         let wrapper = self.list_view_wrapper.clone();
         let bg_image = self.background_image.clone();
         model.connect_selection_changed(clone!(
-            @strong sender,
-            @strong wrapper,
-            @strong list,
-            @strong bg_image,
-            => move |selection_model,_,_|{
-
+            #[strong]
+            sender,
+            #[strong]
+            wrapper,
+            #[strong]
+            bg_image,
+            move |selection_model, _, _| {
                 let pos = selection_model.selected();
                 println!("selec {:?}", &pos,);
 
-
-
                 let txt = match wrapper.borrow().get(pos) {
                     Some(txt) => txt.borrow().text.clone(),
-                    None => return//&String::from("Nothing"),
+                    None => return, //&String::from("Nothing"),
                 };
 
                 let payload = dto::Payload {

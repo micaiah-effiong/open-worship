@@ -60,11 +60,15 @@ impl LiveViewerModel {
         let selected_index = model.selected_index.borrow().clone();
 
         selection_model.connect_selection_changed(clone!(
-            @strong list,
-            @strong sender,
-            @strong background_image,
-            @strong selected_index
-            => move |selection_model,_,_|{
+            #[strong]
+            list,
+            #[strong]
+            sender,
+            #[strong]
+            background_image,
+            #[strong]
+            selected_index,
+            move |selection_model, _, _| {
                 let pos = selection_model.selected();
                 let txt = match list.borrow().get(pos as usize) {
                     Some(txt) => txt.clone(),
@@ -73,10 +77,10 @@ impl LiveViewerModel {
 
                 println!("selection changed {:?}", selected_index);
 
-                let payload = dto::Payload{
+                let payload = dto::Payload {
                     text: txt,
                     position: pos,
-                    background_image:background_image.clone(),
+                    background_image: background_image.clone(),
                 };
 
                 let _ = sender.output(LiveViewerOutput::Selected(payload));
@@ -91,10 +95,11 @@ impl LiveViewerModel {
         let list_view = model.list_view_wrapper.borrow().view.clone();
 
         selection_model.connect_items_changed(clone!(
-            @strong list_view,
-            @strong selected_index,
-            => move |selection_model, _, _, _| {
-
+            #[strong]
+            list_view,
+            #[strong]
+            selected_index,
+            move |selection_model, _, _, _| {
                 println!("here {:?}", selected_index);
 
                 let index = match selected_index.borrow().clone() {
@@ -110,12 +115,11 @@ impl LiveViewerModel {
 
                 let mut i = 0;
                 loop {
-
-                    if i == index || li.is_none(){
+                    if i == index || li.is_none() {
                         break;
                     }
 
-                    if let Some(list_item) = li{
+                    if let Some(list_item) = li {
                         // println!("loop {i} => {:?}", &list_item);
                         li = list_item.next_sibling();
                     }
@@ -123,10 +127,9 @@ impl LiveViewerModel {
                     i += 1;
                 }
 
-                if let Some(list_item) = li{
+                if let Some(list_item) = li {
                     list_item.grab_focus();
                 }
-
             }
         ));
     }

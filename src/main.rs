@@ -374,7 +374,7 @@ fn main() {
     let _ = relm4::gtk::init();
 
     log_display_info();
-    let _ = app.set_global_css_from_file(std::path::Path::new("./src/style.css"));
+    let _ = relm4::set_global_css_from_file(std::path::Path::new("./src/style.css"));
 
     app.run::<AppModel>(None);
 }
