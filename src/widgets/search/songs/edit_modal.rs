@@ -4,10 +4,12 @@ use gtk::{glib::clone, pango::ffi::PANGO_WEIGHT_BOLD, prelude::*, SingleSelectio
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::{
-    dto::DisplayPayload,
+    dto::{DisplayPayload, Song},
     widgets::{
         activity_screen::{ActivityScreenInput, ActivityScreenModel},
-        search::songs::{edit_modal_list_item::EditSongModalListItem, list_item::SongListItem},
+        search::songs::{
+            edit_modal_list_item::EditSongModalListItem, list_item::SongListItemModel,
+        },
     },
 };
 
@@ -22,7 +24,7 @@ pub struct EditModel {
 
 #[derive(Debug)]
 pub enum EditModelInputMsg {
-    Show,
+    Show(Option<Song>),
     Hide,
     AddVerse,
     RemoveVerse,
@@ -34,7 +36,7 @@ pub enum EditModelInputMsg {
 
 #[derive(Debug)]
 pub enum EditModelOutputMsg {
-    Save(SongListItem),
+    Save(Song),
 }
 
 const WIDTH: i32 = 1200;
@@ -225,7 +227,7 @@ impl SimpleComponent for EditModel {
     }
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
-            EditModelInputMsg::Show => {
+            EditModelInputMsg::Show(song) => {
                 self.is_active = true;
                 self.add_new_verse(&sender)
             }
@@ -308,12 +310,13 @@ impl SimpleComponent for EditModel {
                         }
 
                         let title = self.song_title_entry.borrow_mut().buffer();
-                        let song = SongListItem::new(title.text().to_string(), verses);
+                        let song_model =
+                            SongListItemModel::new(Song::new(title.text().to_string(), verses));
 
                         // TODO:
                         // save song to database
                         // invalidate song query
-                        let _ = sender.output(EditModelOutputMsg::Save(song));
+                        let _ = sender.output(EditModelOutputMsg::Save(song_model.song));
 
                         list_wrapper.clear();
                         // to prevent "already mutably borrowed" error
@@ -404,12 +407,17 @@ impl EditModel {
         // tag
         let bold_tag = buffer.create_tag(Some("bold"), &[("weight", &PANGO_WEIGHT_BOLD)]);
 
-        let (start, end) = buffer.bounds(); //.unwrap();
-
+        let (start, end) = buffer.bounds();
         match bold_tag {
             Some(b) => buffer.apply_tag(&b, &start, &end),
             None => (),
         }
+
+        // println!(
+        //     "NEW BUFFER\n {:?}\n{:?}",
+        //     buffer.text(&start, &end, true),
+        //     buffer.tag_table()
+        // );
 
         buffer.connect_changed(clone!(
             #[strong]

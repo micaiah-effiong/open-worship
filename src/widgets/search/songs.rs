@@ -11,15 +11,15 @@ use gtk::{
     prelude::*,
     SingleSelection,
 };
-use list_item::SongListItem;
+use list_item::SongListItemModel;
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
-use crate::dto;
+use crate::dto::{self, Song};
 
 #[derive(Debug)]
 pub enum SearchSongInput {
-    OpenEditModel(Option<SongListItem>),
-    NewSong(SongListItem),
+    OpenEditModel(Option<Song>),
+    NewSong(Song),
 }
 
 #[derive(Debug)]
@@ -29,13 +29,13 @@ pub enum SearchSongOutput {
 
 #[derive(Debug)]
 pub struct SearchSongModel {
-    list_view_wrapper: Rc<RefCell<TypedListView<SongListItem, SingleSelection>>>,
+    list_view_wrapper: Rc<RefCell<TypedListView<SongListItemModel, SingleSelection>>>,
     edit_song_dialog: relm4::Controller<EditModel>,
 }
 
 impl SearchSongModel {
     /// handles list_view activate signal
-    fn register_listview_activate(&self, sender: &ComponentSender<SearchSongModel>) {
+    fn register_context_menu(&self, sender: &ComponentSender<SearchSongModel>) {
         let wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
 
@@ -46,23 +46,20 @@ impl SearchSongModel {
                 list_view,
                 #[strong]
                 wrapper,
+                #[strong]
+                sender,
                 move |_g: &SimpleActionGroup, _sa, _v| {
                     let model = match list_view.model() {
                         Some(m) => m,
                         None => return,
                     };
 
-                    println!(
-                        "SELECTTION \nsize: {:?}, pos: {:?}",
-                        model.selection().size(),
-                        model.selection().nth(0),
-                    );
-
                     let song_list_item = match wrapper.borrow().get(model.selection().nth(0)) {
                         Some(item) => item.borrow().clone(),
                         None => return,
                     };
-                    println!("Edit song {:?}", song_list_item);
+
+                    let _ = sender.input(SearchSongInput::OpenEditModel(Some(song_list_item.song)));
                 }
             ))
             .build();
@@ -107,6 +104,11 @@ impl SearchSongModel {
         ));
 
         list_view.add_controller(gesture_click);
+    }
+
+    fn register_listview_activate(&self, sender: &ComponentSender<SearchSongModel>) {
+        let wrapper = self.list_view_wrapper.clone();
+        let list_view = self.list_view_wrapper.borrow().view.clone();
 
         list_view.connect_activate(clone!(
             #[strong]
@@ -122,12 +124,14 @@ impl SearchSongModel {
                 println!("song clicked {:?}", song_list_item);
 
                 let verse_list = song_list_item
+                    .song
                     .verses
                     .into_iter()
                     .map(|s| s.text)
                     .collect::<Vec<String>>();
-                let list_payload = dto::ListPayload::new(song_list_item.title, 0, verse_list, None);
-                let _ = sender.output(SearchSongOutput::SendSongs(list_payload));
+                let list_payload =
+                    dto::ListPayload::new(song_list_item.song.title, 0, verse_list, None);
+                let _ = sender.output(SearchSongOutput::SendToPreview(list_payload));
             }
         ));
     }
@@ -207,7 +211,7 @@ impl SimpleComponent for SearchSongModel {
         let mut list_view_wrapper = TypedListView::new();
 
         for song in get_default_data() {
-            let song_item = SongListItem::new(song.0, Vec::from(song.1));
+            let song_item = SongListItemModel::new(Song::new(song.0, Vec::from(song.1)));
             list_view_wrapper.append(song_item);
         }
         let list_view_wrapper = Rc::new(RefCell::new(list_view_wrapper));
@@ -227,6 +231,7 @@ impl SimpleComponent for SearchSongModel {
         let list_view = &model.list_view_wrapper.borrow().view.clone();
         // list_view.set_show_separators(true);
         model.register_listview_activate(&sender);
+        model.register_context_menu(&sender);
 
         let widgets = view_output!();
 
@@ -235,12 +240,14 @@ impl SimpleComponent for SearchSongModel {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            SearchSongInput::OpenEditModel(song_option) => {
-                self.edit_song_dialog.emit(EditModelInputMsg::Show);
+            SearchSongInput::OpenEditModel(song) => {
+                self.edit_song_dialog.emit(EditModelInputMsg::Show(song));
                 println!("start opening");
             }
             SearchSongInput::NewSong(song) => {
-                self.list_view_wrapper.borrow_mut().append(song);
+                self.list_view_wrapper
+                    .borrow_mut()
+                    .append(SongListItemModel::new(song));
             }
         };
     }

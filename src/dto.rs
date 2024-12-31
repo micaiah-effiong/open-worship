@@ -46,3 +46,37 @@ impl DisplayPayload {
         };
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct SongVerse {
+    /// song tags are identifiers like
+    /// - chorus
+    /// - verse
+    /// - etc...
+    pub tag: Option<String>,
+    pub text: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct Song {
+    pub title: String,
+    pub verses: Vec<SongVerse>,
+}
+
+impl Song {
+    pub fn new(title: String, verse_list: Vec<String>) -> Self {
+        let mut verses = Vec::new();
+
+        for verse in verse_list {
+            verses.push(SongVerse::new(verse, None));
+        }
+
+        return Song { title, verses };
+    }
+}
+
+impl SongVerse {
+    pub fn new(text: String, tag: Option<String>) -> Self {
+        return SongVerse { tag, text };
+    }
+}

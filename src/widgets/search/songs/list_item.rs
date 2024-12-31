@@ -4,37 +4,17 @@ use relm4::{
     view,
 };
 
+use crate::dto::Song;
+
+/// song search list item
 #[derive(Debug, Clone)]
-pub struct SongData {
-    /// song tags are identifiers like
-    /// - chorus
-    /// - verse
-    /// - etc...
-    pub tag: Option<String>,
-    pub text: String,
+pub struct SongListItemModel {
+    pub song: Song,
 }
 
-impl SongData {
-    fn new(text: String, tag: Option<String>) -> Self {
-        return SongData { tag, text };
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct SongListItem {
-    pub title: String,
-    pub verses: Vec<SongData>,
-}
-
-impl SongListItem {
-    pub fn new(title: String, verse_list: Vec<String>) -> Self {
-        let mut verses = Vec::new();
-
-        for verse in verse_list {
-            verses.push(SongData::new(verse, None));
-        }
-
-        return SongListItem { title, verses };
+impl SongListItemModel {
+    pub fn new(song: Song) -> Self {
+        return SongListItemModel { song };
     }
     // pub fn screen_display(&self) -> String {
     //     let text = format!("{}\n{}", self.tag, self.text);
@@ -52,7 +32,7 @@ impl Drop for SongListItemWidget {
     }
 }
 
-impl RelmListItem for SongListItem {
+impl RelmListItem for SongListItemModel {
     type Root = gtk::Box;
     type Widgets = SongListItemWidget;
 
@@ -72,7 +52,7 @@ impl RelmListItem for SongListItem {
     }
 
     fn bind(&mut self, _widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-        let text = format!("{}", self.title);
+        let text = format!("{}", self.song.title);
         _widgets.text.set_label(&text);
     }
 }
