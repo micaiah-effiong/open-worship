@@ -229,7 +229,9 @@ impl SimpleComponent for EditModel {
         match message {
             EditModelInputMsg::Show(song) => {
                 self.is_active = true;
-                self.add_new_verse(&sender)
+                if let Some(song) = song {
+                    self.load_song(&song, &sender)
+                }
             }
             EditModelInputMsg::Hide => {
                 self.is_active = false;
@@ -397,6 +399,41 @@ impl EditModel {
                     }
                 }
             ));
+        }
+    }
+
+    fn load_song(&self, song: &Song, sender: &ComponentSender<Self>) {
+        for verse in &song.verses {
+            let buffer = gtk::TextBuffer::new(None);
+            buffer.set_text(&verse.text);
+
+            buffer.connect_changed(clone!(
+                #[strong]
+                sender,
+                move |m| {
+                    let text = &m.text(&m.start_iter(), &m.end_iter(), true);
+
+                    let payload = DisplayPayload::new(text.to_string());
+                    sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
+                }
+            ));
+
+            self.list_wrapper
+                .borrow_mut()
+                .append(EditSongModalListItem {
+                    text_buffer: buffer,
+                });
+        }
+
+        self.song_title_entry.borrow().set_text(&song.title);
+        if let Some(model) = self.list_wrapper.borrow().view.model() {
+            if model.n_items() > 0 {
+                model.select_item(0, true);
+            }
+
+            if let Some(child) = self.list_wrapper.borrow().view.first_child() {
+                child.grab_focus();
+            }
         }
     }
 
