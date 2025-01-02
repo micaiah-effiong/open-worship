@@ -47,6 +47,7 @@ impl DisplayPayload {
     }
 }
 
+// SONG VERSE
 #[derive(Debug, Clone)]
 pub struct SongVerse {
     /// song tags are identifiers like
@@ -56,6 +57,14 @@ pub struct SongVerse {
     pub tag: Option<String>,
     pub text: String,
 }
+
+impl SongVerse {
+    pub fn new(text: String, tag: Option<String>) -> Self {
+        return SongVerse { tag, text };
+    }
+}
+
+// SONG
 
 #[derive(Debug, Clone)]
 pub struct Song {
@@ -72,11 +81,5 @@ impl Song {
         }
 
         return Song { title, verses };
-    }
-}
-
-impl SongVerse {
-    pub fn new(text: String, tag: Option<String>) -> Self {
-        return SongVerse { tag, text };
     }
 }
