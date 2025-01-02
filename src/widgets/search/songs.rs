@@ -293,12 +293,16 @@ impl SimpleComponent for SearchSongModel {
                 let list_view = self.list_view_wrapper.borrow().view.clone();
 
                 println!("Delete");
-                if let Some(nx_child) = list_view.focus_child() {
-                    match nx_child.next_sibling() {
+                if let Some(f_child) = list_view.focus_child() {
+                    match f_child.next_sibling() {
                         Some(c) => {
                             c.grab_focus();
                         }
-                        None => (),
+                        None => {
+                            if let Some(p_sibl) = f_child.prev_sibling() {
+                                p_sibl.grab_focus();
+                            }
+                        }
                     }
                 }
                 self.list_view_wrapper.borrow_mut().remove(pos);
