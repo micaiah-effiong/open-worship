@@ -88,7 +88,13 @@ impl SearchSongModel {
                     0,
                     &MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule")),
                 );
-                menu.insert_item(1, &MenuItem::new(Some("Edit song"), Some("song.edit")));
+
+                if let Some(m) = list_view.model() {
+                    if m.n_items() > 0 {
+                        menu.insert_item(1, &MenuItem::new(Some("Edit song"), Some("song.edit")));
+                    }
+                }
+
                 menu.insert_item(2, &MenuItem::new(Some("Delete song"), Some("song.delete")));
                 let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
                 popover_menu.set_has_arrow(false);
