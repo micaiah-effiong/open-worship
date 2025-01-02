@@ -25,7 +25,8 @@ pub enum SearchSongInput {
 
 #[derive(Debug)]
 pub enum SearchSongOutput {
-    SendSongs(dto::ListPayload),
+    SendToPreview(dto::ListPayload),
+    SendToSchedule(dto::ListPayload),
 }
 
 #[derive(Debug)]
@@ -64,10 +65,32 @@ impl SearchSongModel {
                 }
             ))
             .build();
+
         let add_to_schedule_action = ActionEntry::builder("add-to-schedule")
-            .activate(|_g: &SimpleActionGroup, _sa, _v| {
-                println!("Add to schedule");
-            })
+            .activate(clone!(
+                #[strong]
+                sender,
+                #[strong]
+                list_view,
+                #[strong]
+                wrapper,
+                move |_g: &SimpleActionGroup, _sa, _v| {
+                    let model = match list_view.model() {
+                        Some(m) => m,
+                        None => return,
+                    };
+
+                    if let Some(li) = wrapper.borrow().get(model.selection().nth(0)) {
+                        let song = li.borrow().song.clone();
+                        let _ = sender.output(SearchSongOutput::SendToSchedule(dto::ListPayload {
+                            text: song.title,
+                            position: 0,
+                            list: song.verses.iter().map(|elt| elt.text.clone()).collect(),
+                            background_image: None,
+                        }));
+                    }
+                }
+            ))
             .build();
         let delete_action = ActionEntry::builder("delete")
             .activate(clone!(
@@ -96,10 +119,10 @@ impl SearchSongModel {
             list_view,
             move |_, _, _, _| {
                 let menu = gtk::gio::Menu::new();
-                menu.insert_item(
-                    0,
-                    &MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule")),
-                );
+                let add_to_schedule =
+                    MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule"));
+                menu.insert_item(0, &add_to_schedule);
+                menu.insert_item(2, &MenuItem::new(Some("Delete song"), Some("song.delete")));
 
                 if let Some(m) = list_view.model() {
                     if m.n_items() > 0 {
@@ -107,7 +130,6 @@ impl SearchSongModel {
                     }
                 }
 
-                menu.insert_item(2, &MenuItem::new(Some("Delete song"), Some("song.delete")));
                 let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
                 popover_menu.set_has_arrow(false);
                 popover_menu.set_position(gtk::PositionType::Top);
@@ -117,6 +139,7 @@ impl SearchSongModel {
                     None => return,
                 };
 
+                // TODO: use one context menu and position it to the cursor
                 popover_menu.popup();
             }
         ));
@@ -247,7 +270,6 @@ impl SimpleComponent for SearchSongModel {
             edit_song_dialog,
         };
         let list_view = &model.list_view_wrapper.borrow().view.clone();
-        // list_view.set_show_separators(true);
         model.register_listview_activate(&sender);
         model.register_context_menu(&sender);
 

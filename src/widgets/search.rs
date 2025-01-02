@@ -16,10 +16,11 @@ const MIN_GRID_HEIGHT: i32 = 300;
 
 // search area (notebook)
 #[derive(Debug)]
-pub enum SearchInput {
+pub enum SearchModelInput {
     PreviewBackground(String),
     PreviewScriptures(dto::ListPayload),
     PreviewSongs(dto::ListPayload),
+    AddToSchedule(dto::ListPayload),
 }
 
 #[derive(Debug)]
@@ -27,6 +28,7 @@ pub enum SearchOutput {
     PreviewBackground(String),
     PreviewScriptures(dto::ListPayload),
     PreviewSongs(dto::ListPayload),
+    AddToSchedule(dto::ListPayload),
 }
 
 #[derive(Debug)]
@@ -37,25 +39,30 @@ pub struct SearchModel {
 }
 
 impl SearchModel {
-    fn convert_background_msg(msg: SearchBacgroundOutput) -> SearchInput {
+    fn convert_background_msg(msg: SearchBacgroundOutput) -> SearchModelInput {
         return match msg {
             SearchBacgroundOutput::SendPreviewBackground(bg_src) => {
-                SearchInput::PreviewBackground(bg_src)
+                SearchModelInput::PreviewBackground(bg_src)
             }
         };
     }
 
-    fn convert_scripture_msg(msg: SearchScriptureOutput) -> SearchInput {
+    fn convert_scripture_msg(msg: SearchScriptureOutput) -> SearchModelInput {
         return match msg {
             SearchScriptureOutput::SendScriptures(list_payload) => {
-                SearchInput::PreviewScriptures(list_payload)
+                SearchModelInput::PreviewScriptures(list_payload)
             }
         };
     }
 
-    fn convert_song_msg(msg: SearchSongOutput) -> SearchInput {
+    fn convert_song_msg(msg: SearchSongOutput) -> SearchModelInput {
         return match msg {
-            SearchSongOutput::SendSongs(list_payload) => SearchInput::PreviewSongs(list_payload),
+            SearchSongOutput::SendToPreview(list_payload) => {
+                SearchModelInput::PreviewSongs(list_payload)
+            }
+            SearchSongOutput::SendToSchedule(list_payload) => {
+                SearchModelInput::AddToSchedule(list_payload)
+            }
         };
     }
 }
@@ -68,7 +75,7 @@ impl SearchModel {}
 impl SimpleComponent for SearchModel {
     type Init = SearchInit;
     type Output = SearchOutput;
-    type Input = SearchInput;
+    type Input = SearchModelInput;
 
     view! {
         #[root]
@@ -134,14 +141,17 @@ impl SimpleComponent for SearchModel {
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
-            SearchInput::PreviewBackground(bg) => {
+            SearchModelInput::PreviewBackground(bg) => {
                 let _ = sender.output(SearchOutput::PreviewBackground(bg));
             }
-            SearchInput::PreviewScriptures(list) => {
+            SearchModelInput::PreviewScriptures(list) => {
                 let _ = sender.output(SearchOutput::PreviewScriptures(list));
             }
-            SearchInput::PreviewSongs(list) => {
+            SearchModelInput::PreviewSongs(list) => {
                 let _ = sender.output(SearchOutput::PreviewSongs(list));
+            }
+            SearchModelInput::AddToSchedule(list) => {
+                let _ = sender.output(SearchOutput::AddToSchedule(list));
             }
         };
     }

@@ -1,11 +1,11 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::prelude::*;
+use gtk::{glib::clone, prelude::*, SingleSelection};
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::{
     dto::{self, ListPayload},
-    structs::schedule_list_item::ScheduleListItem,
+    structs::schedule_list_item::ScheduleListItemModel,
 };
 
 const MIN_GRID_HEIGHT: i32 = 300;
@@ -26,17 +26,11 @@ pub struct ScheduleData {
     title: String,
 }
 
-pub struct ScheduleViewerData {
-    pub title: String,
-    pub list: Vec<ScheduleData>,
-}
-
 #[derive(Clone)]
 pub struct ScheduleViewerModel {
     title: String,
-    list: Rc<RefCell<Vec<ScheduleData>>>,
     background_image: Rc<RefCell<Option<String>>>,
-    // list_view: gtk::ListView,
+    list_view_wrapper: Rc<RefCell<TypedListView<ScheduleListItemModel, SingleSelection>>>,
 }
 
 impl ScheduleViewerModel {
@@ -46,11 +40,63 @@ impl ScheduleViewerModel {
             None => Vec::new(),
         };
 
+        let mut t_view = TypedListView::new();
+        for item in list.clone() {
+            t_view.append(ScheduleListItemModel::new(item.title, item.list));
+        }
+
         return ScheduleViewerModel {
             background_image: Rc::new(RefCell::new(None)),
-            list: Rc::new(RefCell::new(list)),
+            // list: Rc::new(RefCell::new(list)),
             title: String::new(),
+            list_view_wrapper: Rc::new(RefCell::new(t_view)),
         };
+    }
+
+    fn register_activate(&self, sender: &ComponentSender<Self>) {
+        let list_view_wrapper = self.list_view_wrapper.clone();
+        let list_view = list_view_wrapper.borrow().view.clone();
+        let background_image = self.background_image.clone();
+
+        list_view.connect_activate(clone!(
+            #[strong]
+            list_view_wrapper,
+            #[strong]
+            background_image,
+            #[strong]
+            sender,
+            move |list_view, _| {
+                let selection_model = match list_view.model() {
+                    Some(m) => m,
+                    None => return,
+                };
+
+                let ss_model = match selection_model.downcast_ref::<gtk::SingleSelection>() {
+                    Some(ss) => ss,
+                    None => return,
+                };
+
+                let pos = ss_model.selected();
+                println!("activate-preview {:?}", &pos);
+
+                let schedule_data = list_view_wrapper.borrow();
+
+                let data_list = match schedule_data.get(pos) {
+                    Some(txt) => txt,
+                    None => return,
+                };
+
+                let data_list = data_list.borrow();
+
+                let payload = dto::ListPayload {
+                    text: data_list.title.to_string(),
+                    list: data_list.list.clone(),
+                    position: pos,
+                    background_image: background_image.borrow().clone(),
+                };
+                let _ = sender.output(ScheduleViewerOutput::Activated(payload));
+            }
+        ));
     }
 }
 
@@ -58,7 +104,7 @@ impl ScheduleViewerModel {
 impl SimpleComponent for ScheduleViewerModel {
     type Input = ScheduleViewerInput;
     type Output = ScheduleViewerOutput;
-    type Init = ScheduleViewerData;
+    type Init = ();
 
     view! {
         #[root]
@@ -79,36 +125,6 @@ impl SimpleComponent for ScheduleViewerModel {
                 #[local_ref]
                 set_child = &list_view -> gtk::ListView{
 
-                    connect_activate[sender, model] => move |list_view,_|{
-                        let selection_model = match list_view.model() {
-                            Some(m)=>m,
-                            None=>return,
-                        };
-
-                        let ss_model = match selection_model.downcast_ref::<gtk::SingleSelection>(){
-                            Some(ss)=>ss,
-                            None => return,
-                        };
-
-                        let pos = ss_model.selected();
-                        println!("activate-preview {:?}", &pos);
-
-                        let schedule_data = model.list.borrow();
-
-                        let data_list = match schedule_data.get(pos as usize) {
-                            Some(txt) => txt,
-                            None => return,
-                        };
-
-                        let payload = dto::ListPayload {
-                            text: data_list.title.to_string(),
-                            list: data_list.list.clone(),
-                            position: pos,
-                            background_image: model.background_image.borrow().clone()
-                        };
-                        let _ = sender.output(ScheduleViewerOutput::Activated(payload));
-                    },
-
                 },
             }
         }
@@ -119,16 +135,10 @@ impl SimpleComponent for ScheduleViewerModel {
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let mut list_view: TypedListView<ScheduleListItem, gtk::SingleSelection> =
-            TypedListView::new();
-
         let model = ScheduleViewerModel::new(Some(get_default_data()));
+        let list_view = model.list_view_wrapper.borrow().view.clone();
 
-        for item in model.list.borrow().clone() {
-            list_view.append(ScheduleListItem::new(item.title, item.list))
-        }
-
-        let list_view = list_view.view;
+        model.register_activate(&sender);
 
         let widgets = view_output!();
 
@@ -139,7 +149,9 @@ impl SimpleComponent for ScheduleViewerModel {
         match message {
             ScheduleViewerInput::NewList(payload) => {
                 // self.list.borrow_mut().clear();
-                // self.list.borrow_mut().append(&mut payload.list.clone());
+                self.list_view_wrapper
+                    .borrow_mut()
+                    .append(ScheduleListItemModel::new(payload.text, payload.list));
 
                 println!("schedule new sli pos={}", payload.position);
             }

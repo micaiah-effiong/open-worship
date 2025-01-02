@@ -8,7 +8,7 @@ use widgets::preview_activity_viewer::{
     PreviewViewerInit, PreviewViewerInput, PreviewViewerModel, PreviewViewerOutput,
 };
 use widgets::schedule_activity_viewer::{
-    ScheduleData, ScheduleViewerData, ScheduleViewerModel, ScheduleViewerOutput,
+    ScheduleViewerInput, ScheduleViewerModel, ScheduleViewerOutput,
 };
 use widgets::search::{SearchInit, SearchModel, SearchOutput};
 mod dto;
@@ -18,6 +18,7 @@ mod widgets;
 #[derive(Debug)]
 enum AppInput {
     ScheduleActivityActivated(dto::ListPayload),
+    ScheduleActivityAddNew(dto::ListPayload),
     PreviewActivitySelected(dto::Payload),
     PreviewActivityActivated(dto::ListPayload),
     LiveActivitySelected(dto::Payload),
@@ -70,6 +71,7 @@ impl AppModel {
             }
             SearchOutput::PreviewScriptures(list) => AppInput::SearchPreviewActivity(list),
             SearchOutput::PreviewSongs(list) => AppInput::SearchPreviewActivity(list),
+            SearchOutput::AddToSchedule(list) => AppInput::ScheduleActivityAddNew(list),
         };
     }
 }
@@ -230,15 +232,10 @@ impl SimpleComponent for AppModel {
         window: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let schedule_activity_viewer = ScheduleViewerModel::builder()
-            .launch(ScheduleViewerData {
-                title: String::from("Schedule"),
-                list: Vec::new() as Vec<ScheduleData>,
-            })
-            .forward(
-                sender.input_sender(),
-                AppModel::convert_schedule_activity_response,
-            );
+        let schedule_activity_viewer = ScheduleViewerModel::builder().launch(()).forward(
+            sender.input_sender(),
+            AppModel::convert_schedule_activity_response,
+        );
         let preview_activity_viewer = PreviewViewerModel::builder()
             .launch(PreviewViewerInit {})
             .forward(
@@ -297,6 +294,10 @@ impl SimpleComponent for AppModel {
                         ));
                 }
             }
+            AppInput::ScheduleActivityAddNew(payload) => {
+                self.schedule_activity_viewer
+                    .emit(ScheduleViewerInput::NewList(payload));
+            }
 
             // live
             AppInput::LiveActivityActivated(_) => return,
@@ -332,6 +333,7 @@ impl SimpleComponent for AppModel {
                 }
             }
 
+            // search model
             AppInput::SearchPreviewBackground(image_src) => {
                 self.preview_activity_screen
                     .emit(ActivityScreenInput::DisplayBackground(image_src.clone()));

@@ -2,14 +2,15 @@ use relm4::gtk::prelude::*;
 use relm4::prelude::*;
 use relm4::{gtk, typed_view::list::RelmListItem, view};
 
-pub struct ScheduleListItem {
+#[derive(Debug, Clone)]
+pub struct ScheduleListItemModel {
     pub list: Vec<String>,
     pub title: String,
 }
 
-impl ScheduleListItem {
+impl ScheduleListItemModel {
     pub fn new(title: String, list: Vec<String>) -> Self {
-        return ScheduleListItem { title, list };
+        return ScheduleListItemModel { title, list };
     }
 }
 
@@ -24,7 +25,7 @@ impl Drop for ScheduleListItemWidget {
     }
 }
 
-impl RelmListItem for ScheduleListItem {
+impl RelmListItem for ScheduleListItemModel {
     type Root = gtk::Box;
     type Widgets = ScheduleListItemWidget;
 
