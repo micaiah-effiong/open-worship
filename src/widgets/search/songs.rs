@@ -20,6 +20,7 @@ use crate::dto::{self, Song};
 pub enum SearchSongInput {
     OpenEditModel(Option<Song>),
     NewSong(Song),
+    RemoveSong(u32),
 }
 
 #[derive(Debug)]
@@ -69,9 +70,20 @@ impl SearchSongModel {
             })
             .build();
         let delete_action = ActionEntry::builder("delete")
-            .activate(|_g: &SimpleActionGroup, _sa, _v| {
-                println!("Delete");
-            })
+            .activate(clone!(
+                #[strong]
+                list_view,
+                #[strong]
+                sender,
+                move |_g: &SimpleActionGroup, _sa, _v| {
+                    let model = match list_view.model() {
+                        Some(m) => m,
+                        None => return,
+                    };
+
+                    sender.input(SearchSongInput::RemoveSong(model.selection().nth(0)));
+                }
+            ))
             .build();
 
         menu_action_group.add_action_entries([edit_action, add_to_schedule_action, delete_action]);
@@ -254,6 +266,20 @@ impl SimpleComponent for SearchSongModel {
                 self.list_view_wrapper
                     .borrow_mut()
                     .append(SongListItemModel::new(song));
+            }
+            SearchSongInput::RemoveSong(pos) => {
+                let list_view = self.list_view_wrapper.borrow().view.clone();
+
+                println!("Delete");
+                if let Some(nx_child) = list_view.focus_child() {
+                    match nx_child.next_sibling() {
+                        Some(c) => {
+                            c.grab_focus();
+                        }
+                        None => (),
+                    }
+                }
+                self.list_view_wrapper.borrow_mut().remove(pos);
             }
         };
     }
