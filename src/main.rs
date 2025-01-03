@@ -296,7 +296,7 @@ impl SimpleComponent for AppModel {
             }
             AppInput::ScheduleActivityAddNew(payload) => {
                 self.schedule_activity_viewer
-                    .emit(ScheduleViewerInput::NewList(payload));
+                    .emit(ScheduleViewerInput::NewItem(payload));
             }
 
             // live

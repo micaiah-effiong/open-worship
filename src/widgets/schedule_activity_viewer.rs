@@ -1,6 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::{glib::clone, prelude::*, SingleSelection};
+use gtk::{
+    gio::{ActionEntry, MenuItem, SimpleActionGroup},
+    glib::clone,
+    prelude::*,
+    subclass::popover,
+    SingleSelection,
+};
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::{
@@ -13,7 +19,8 @@ const MIN_GRID_HEIGHT: i32 = 300;
 
 #[derive(Debug)]
 pub enum ScheduleViewerInput {
-    NewList(ListPayload),
+    NewItem(ListPayload),
+    RemoveItem(u32),
 }
 #[derive(Debug)]
 pub enum ScheduleViewerOutput {
@@ -47,10 +54,54 @@ impl ScheduleViewerModel {
 
         return ScheduleViewerModel {
             background_image: Rc::new(RefCell::new(None)),
-            // list: Rc::new(RefCell::new(list)),
-            title: String::new(),
+            title: String::from("Schedule"),
             list_view_wrapper: Rc::new(RefCell::new(t_view)),
         };
+    }
+
+    fn register_context_menu(&self, sender: &ComponentSender<ScheduleViewerModel>) {
+        let list_view = self.list_view_wrapper.borrow().view.clone();
+
+        let remove_action = ActionEntry::builder("remove_item")
+            .activate(clone!(
+                #[strong]
+                list_view,
+                #[strong]
+                sender,
+                move |_g: &SimpleActionGroup, _sa, _v| {
+                    if let Some(m) = list_view.model() {
+                        sender.input(ScheduleViewerInput::RemoveItem(m.selection().nth(0)));
+                    };
+                }
+            ))
+            .build();
+
+        let menu_action_group = SimpleActionGroup::new();
+        menu_action_group.add_action_entries([remove_action]);
+
+        let menu = gtk::gio::Menu::new();
+        let remove_schedule = MenuItem::new(Some("Remove Item"), Some("schedule.remove_item"));
+        menu.insert_item(0, &remove_schedule);
+
+        let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
+        popover_menu.set_has_arrow(false);
+        popover_menu.set_position(gtk::PositionType::Right);
+        popover_menu.set_parent(&list_view);
+
+        let gesture_click = gtk::GestureClick::new();
+        gesture_click.set_button(gtk::gdk::ffi::GDK_BUTTON_SECONDARY as u32);
+        gesture_click.connect_pressed(clone!(
+            #[strong]
+            popover_menu,
+            move |_gc, _n, x, y| {
+                let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 10, 10);
+                popover_menu.set_pointing_to(Some(&rect));
+                popover_menu.popup();
+            }
+        ));
+
+        list_view.add_controller(gesture_click);
+        list_view.insert_action_group("schedule", Some(&menu_action_group));
     }
 
     fn register_activate(&self, sender: &ComponentSender<Self>) {
@@ -111,6 +162,7 @@ impl SimpleComponent for ScheduleViewerModel {
         gtk::Box {
             set_orientation: gtk::Orientation::Vertical,
             set_hexpand: true,
+            set_vexpand: true,
             set_height_request: MIN_GRID_HEIGHT,
             set_css_classes: &["pink_box", "ow-listview"],
 
@@ -121,11 +173,8 @@ impl SimpleComponent for ScheduleViewerModel {
             gtk::ScrolledWindow {
                 set_vexpand: true,
 
-                #[wrap(Some)]
                 #[local_ref]
-                set_child = &list_view -> gtk::ListView{
-
-                },
+                list_view -> gtk::ListView{},
             }
         }
     }
@@ -139,6 +188,7 @@ impl SimpleComponent for ScheduleViewerModel {
         let list_view = model.list_view_wrapper.borrow().view.clone();
 
         model.register_activate(&sender);
+        model.register_context_menu(&sender);
 
         let widgets = view_output!();
 
@@ -147,13 +197,14 @@ impl SimpleComponent for ScheduleViewerModel {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            ScheduleViewerInput::NewList(payload) => {
-                // self.list.borrow_mut().clear();
+            ScheduleViewerInput::RemoveItem(position) => {
+                self.list_view_wrapper.borrow_mut().remove(position);
+            }
+            ScheduleViewerInput::NewItem(payload) => {
                 self.list_view_wrapper
                     .borrow_mut()
                     .append(ScheduleListItemModel::new(payload.text, payload.list));
-
-                println!("schedule new sli pos={}", payload.position);
+                self.list_view_wrapper.borrow().view.clone().grab_focus();
             }
         };
     }

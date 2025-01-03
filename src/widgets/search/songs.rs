@@ -12,7 +12,7 @@ use gtk::{
     SingleSelection,
 };
 use list_item::SongListItemModel;
-use relm4::{prelude::*, typed_view::list::TypedListView};
+use relm4::{factory::Position, prelude::*, typed_view::list::TypedListView};
 
 use crate::dto::{self, Song};
 
@@ -36,25 +36,27 @@ pub struct SearchSongModel {
 }
 
 impl SearchSongModel {
-    /// handles list_view activate signal
+    /// handles list_view right click gesture
     fn register_context_menu(&self, sender: &ComponentSender<SearchSongModel>) {
         let wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
+        let model = match list_view.model() {
+            Some(m) => m,
+            None => return,
+        };
 
-        let menu_action_group = SimpleActionGroup::new();
         let edit_action = ActionEntry::builder("edit")
             .activate(clone!(
                 #[strong]
-                list_view,
-                #[strong]
                 wrapper,
+                #[strong]
+                model,
                 #[strong]
                 sender,
                 move |_g: &SimpleActionGroup, _sa, _v| {
-                    let model = match list_view.model() {
-                        Some(m) => m,
-                        None => return,
-                    };
+                    if model.n_items() == 0 {
+                        return;
+                    }
 
                     let song_list_item = match wrapper.borrow().get(model.selection().nth(0)) {
                         Some(item) => item.borrow().clone(),
@@ -71,15 +73,10 @@ impl SearchSongModel {
                 #[strong]
                 sender,
                 #[strong]
-                list_view,
+                model,
                 #[strong]
                 wrapper,
                 move |_g: &SimpleActionGroup, _sa, _v| {
-                    let model = match list_view.model() {
-                        Some(m) => m,
-                        None => return,
-                    };
-
                     if let Some(li) = wrapper.borrow().get(model.selection().nth(0)) {
                         let song = li.borrow().song.clone();
                         let _ = sender.output(SearchSongOutput::SendToSchedule(dto::ListPayload {
@@ -92,61 +89,50 @@ impl SearchSongModel {
                 }
             ))
             .build();
+
         let delete_action = ActionEntry::builder("delete")
             .activate(clone!(
                 #[strong]
-                list_view,
+                model,
                 #[strong]
                 sender,
                 move |_g: &SimpleActionGroup, _sa, _v| {
-                    let model = match list_view.model() {
-                        Some(m) => m,
-                        None => return,
-                    };
-
                     sender.input(SearchSongInput::RemoveSong(model.selection().nth(0)));
                 }
             ))
             .build();
 
+        let menu_action_group = SimpleActionGroup::new();
         menu_action_group.add_action_entries([edit_action, add_to_schedule_action, delete_action]);
-        list_view.insert_action_group("song", Some(&menu_action_group));
+
+        let menu = gtk::gio::Menu::new();
+        let add_to_schedule = MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule"));
+        menu.insert_item(0, &add_to_schedule);
+        menu.insert_item(2, &MenuItem::new(Some("Delete song"), Some("song.delete")));
+        menu.insert_item(1, &MenuItem::new(Some("Edit song"), Some("song.edit")));
+
+        let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
+        popover_menu.set_has_arrow(false);
+        popover_menu.set_position(gtk::PositionType::Top);
+        popover_menu.set_parent(&list_view);
 
         let gesture_click = gtk::GestureClick::new();
         gesture_click.set_button(gtk::gdk::ffi::GDK_BUTTON_SECONDARY as u32);
         gesture_click.connect_pressed(clone!(
             #[strong]
-            list_view,
-            move |_, _, _, _| {
-                let menu = gtk::gio::Menu::new();
-                let add_to_schedule =
-                    MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule"));
-                menu.insert_item(0, &add_to_schedule);
-                menu.insert_item(2, &MenuItem::new(Some("Delete song"), Some("song.delete")));
-
-                if let Some(m) = list_view.model() {
-                    if m.n_items() > 0 {
-                        menu.insert_item(1, &MenuItem::new(Some("Edit song"), Some("song.edit")));
-                    }
-                }
-
-                let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
-                popover_menu.set_has_arrow(false);
-                popover_menu.set_position(gtk::PositionType::Top);
-
-                match list_view.focus_child() {
-                    Some(fc) => popover_menu.set_parent(&fc),
-                    None => return,
-                };
-
-                // TODO: use one context menu and position it to the cursor
+            popover_menu,
+            move |_, _, x, y| {
+                let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 10, 10);
+                popover_menu.set_pointing_to(Some(&rect));
                 popover_menu.popup();
             }
         ));
 
+        list_view.insert_action_group("song", Some(&menu_action_group));
         list_view.add_controller(gesture_click);
     }
 
+    /// handles list_view activate signal
     fn register_listview_activate(&self, sender: &ComponentSender<SearchSongModel>) {
         let wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
@@ -292,20 +278,8 @@ impl SimpleComponent for SearchSongModel {
             SearchSongInput::RemoveSong(pos) => {
                 let list_view = self.list_view_wrapper.borrow().view.clone();
 
-                println!("Delete");
-                if let Some(f_child) = list_view.focus_child() {
-                    match f_child.next_sibling() {
-                        Some(c) => {
-                            c.grab_focus();
-                        }
-                        None => {
-                            if let Some(p_sibl) = f_child.prev_sibling() {
-                                p_sibl.grab_focus();
-                            }
-                        }
-                    }
-                }
                 self.list_view_wrapper.borrow_mut().remove(pos);
+                list_view.grab_focus();
             }
         };
     }
