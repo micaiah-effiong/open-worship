@@ -163,33 +163,17 @@ impl SimpleComponent for EditModel {
                         #[name="ok_btn"]
                         gtk::Button{
                             set_label: "Ok",
-                            // connect_clicked[sender, text_entry] => move|_|{
-                            //     if text_entry.buffer().text().is_empty() {
-                            //         let win = gtk::Window::builder()
-                            //             .default_width(300)
-                            //             .default_height(100)
-                            //             .modal(true)
-                            //             .focus_visible(true)
-                            //             .build();
-                            //
-                            //         win.show();
-                            //         return;
-                            //     }
-                            //
-                            //     sender.input(EditModelInputMsg::Response(gtk::ResponseType::Ok));
-                            // }
                         },
 
+                        #[name="cancel_btn"]
                         gtk::Button{
                             set_label: "Cancel",
-                            connect_clicked => EditModelInputMsg::Response(gtk::ResponseType::Cancel)
                         }
                     }
                 },
             },
 
-            connect_close_request[sender] => move |m| {
-                println!("destroy {:?}", m);
+            connect_close_request[sender] => move |_m| {
                 sender.input(EditModelInputMsg::Hide);
                 return gtk::glib::Propagation::Stop;
             }
@@ -221,7 +205,8 @@ impl SimpleComponent for EditModel {
 
         let widgets = view_output!();
         EditModel::register_response_ok(&widgets.ok_btn, &text_entry, &sender);
-        EditModel::register_list_view_selection_changed(&model, sender.clone());
+        EditModel::register_response_cancel(&widgets.cancel_btn, &sender);
+        EditModel::register_list_view_selection_changed(&model, &sender);
 
         return relm4::ComponentParts { widgets, model };
     }
@@ -238,53 +223,24 @@ impl SimpleComponent for EditModel {
             }
             EditModelInputMsg::AddVerse => self.add_new_verse(&sender),
             EditModelInputMsg::RemoveVerse => {
-                let selection_model = match self.list_wrapper.borrow().view.model() {
+                let mut list = self.list_wrapper.borrow_mut();
+                let list_view = list.view.clone();
+                let model = match list_view.model() {
                     Some(model) => model,
                     None => return,
                 };
 
-                let size = selection_model.n_items();
-                let mut pos: Option<u32> = None;
+                let s = model.selection().nth(0);
+                list.remove(s);
 
-                for index in 0..size {
-                    if !selection_model.is_selected(index) {
-                        continue;
-                    }
-
-                    self.list_wrapper.borrow_mut().remove(index);
-                    pos = Some(index);
-                    break;
+                if model.n_items().eq(&0) {
+                    sender.input(EditModelInputMsg::UpdateActivityScreen(
+                        DisplayPayload::new(String::new()),
+                    ));
+                    return;
                 }
 
-                let len = selection_model.n_items();
-                let mut pos = match pos {
-                    Some(pos) => pos,
-                    None => return,
-                };
-
-                if len.eq(&0) {
-                    pos = len; // pos should be None
-                } else if pos.ge(&len) {
-                    pos = len - 1;
-                }
-
-                selection_model.select_item(pos, true);
-
-                let mut list_child = self.list_wrapper.borrow().view.first_child();
-
-                for i in 0..=pos {
-                    if i == pos || list_child.is_none() {
-                        break;
-                    }
-
-                    if let Some(list_item) = list_child {
-                        list_child = list_item.next_sibling();
-                    }
-                }
-
-                if let Some(list_item) = list_child {
-                    list_item.grab_focus();
-                }
+                list_view.grab_focus();
             }
             EditModelInputMsg::UpdateActivityScreen(payload) => {
                 // payload;
@@ -339,6 +295,20 @@ impl SimpleComponent for EditModel {
 }
 
 impl EditModel {
+    fn register_response_cancel(button: &gtk::Button, sender: &ComponentSender<EditModel>) {
+        button.connect_clicked(clone!(
+            #[strong]
+            sender,
+            move |_| {
+                sender.input(EditModelInputMsg::Response(gtk::ResponseType::Cancel));
+
+                sender.input(EditModelInputMsg::UpdateActivityScreen(
+                    DisplayPayload::new(String::new()),
+                ));
+            }
+        ));
+    }
+
     fn register_response_ok(
         button: &gtk::Button,
         text_entry: &gtk::Entry,
@@ -351,6 +321,10 @@ impl EditModel {
             sender,
             move |_| {
                 if !text_entry.buffer().text().is_empty() {
+                    sender.input(EditModelInputMsg::UpdateActivityScreen(
+                        DisplayPayload::new(String::new()),
+                    ));
+
                     sender.input(EditModelInputMsg::Response(gtk::ResponseType::Ok));
                     return;
                 }
@@ -370,32 +344,25 @@ impl EditModel {
         ));
     }
 
-    fn register_list_view_selection_changed(&self, sender: ComponentSender<Self>) {
+    fn register_list_view_selection_changed(&self, sender: &ComponentSender<Self>) {
         let list_wrapper = self.list_wrapper.clone();
 
         if let Some(view) = self.list_wrapper.borrow().view.model() {
             view.connect_selection_changed(clone!(
                 #[strong]
                 list_wrapper,
+                #[strong]
+                sender,
                 move |m, _, _| {
                     let list = list_wrapper.borrow();
 
-                    for index in 0..m.n_items() {
-                        if !m.is_selected(index) {
-                            continue;
-                        }
-
-                        if let Some(item) = list.get(index) {
-                            let item = item.borrow();
-                            let start = &item.text_buffer.start_iter();
-                            let end = &item.text_buffer.end_iter();
-                            let text = &item.text_buffer.text(start, end, true);
-                            let payload = DisplayPayload::new(text.to_string());
-                            println!("move focus: 1. {:?}\n 2. {:?}\n", payload, index);
-                            sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
-                        }
-
-                        break;
+                    let s = m.selection().nth(0);
+                    if let Some(item) = list.get(s) {
+                        let text_buffer = &item.borrow().text_buffer;
+                        let (start, end) = text_buffer.bounds();
+                        sender.input(EditModelInputMsg::UpdateActivityScreen(
+                            DisplayPayload::new(String::from(text_buffer.text(&start, &end, true))),
+                        ));
                     }
                 }
             ));
@@ -442,19 +409,10 @@ impl EditModel {
         buffer.set_text("New verse");
 
         // tag
-        let bold_tag = buffer.create_tag(Some("bold"), &[("weight", &PANGO_WEIGHT_BOLD)]);
+        buffer.create_tag(Some("bold"), &[("weight", &PANGO_WEIGHT_BOLD)]);
 
         let (start, end) = buffer.bounds();
-        match bold_tag {
-            Some(b) => buffer.apply_tag(&b, &start, &end),
-            None => (),
-        }
-
-        // println!(
-        //     "NEW BUFFER\n {:?}\n{:?}",
-        //     buffer.text(&start, &end, true),
-        //     buffer.tag_table()
-        // );
+        buffer.apply_tag_by_name("bold", &start, &end);
 
         buffer.connect_changed(clone!(
             #[strong]
@@ -470,12 +428,21 @@ impl EditModel {
         self.list_wrapper
             .borrow_mut()
             .append(EditSongModalListItem {
-                text_buffer: buffer,
+                text_buffer: buffer.clone(),
             });
+        let wrapper = self.list_wrapper.borrow();
 
-        if let Some(model) = self.list_wrapper.borrow().view.model() {
-            model.select_item(model.n_items() - 1, true);
-            if let Some(child) = self.list_wrapper.borrow().view.last_child() {
+        let list_view = &wrapper.view;
+        if let Some(model) = list_view.model() {
+            if wrapper.len().eq(&1) {
+                model.select_item(0, true);
+                let text = &buffer.text(&buffer.start_iter(), &buffer.end_iter(), true);
+                let payload = DisplayPayload::new(text.to_string());
+                sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
+            } else {
+                model.select_item(model.n_items() - 1, true);
+            }
+            if let Some(child) = list_view.last_child() {
                 child.grab_focus();
             }
         }
