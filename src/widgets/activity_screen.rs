@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::{glib::property::PropertySet, prelude::*};
+use gtk::{glib::property::PropertySet, prelude::*, TextBuffer};
 use relm4::prelude::*;
 
 use crate::dto;
@@ -19,6 +19,7 @@ pub struct ActivityScreenModel {
     background_image: Rc<RefCell<Option<String>>>,
     bg_style: String,
     is_cleared: bool,
+    text_buffer: TextBuffer,
 }
 
 const MIN_GRID_HEIGHT: i32 = 300;
@@ -42,15 +43,22 @@ impl ActivityScreenModel {
             return;
         }
 
-        println!("display bg {image_src}");
         self.background_image.set(Some(image_src));
         {
             let bg = self.background_image.borrow().clone();
             if let Some(img) = bg {
                 self.bg_style = ActivityScreenModel::format_bg_style(img);
-                println!("bg-style {}", self.bg_style);
             }
         }
+    }
+
+    fn register_buffer_tags(&self) {
+        self.text_buffer
+            .create_tag(Some("bold"), &[("weight", &700.to_value())]);
+        self.text_buffer
+            .create_tag(Some("color"), &[("foreground", &"white".to_value())]);
+        self.text_buffer
+            .create_tag(Some("size"), &[("size", &(40 * 1000).to_value())]);
     }
 }
 
@@ -87,20 +95,15 @@ impl SimpleComponent for ActivityScreenModel {
                     #[watch]
                     inline_css: &model.bg_style,
 
-                    if !&model.is_cleared {
-                        gtk::Label {
-                            #[watch]
-                            set_label: &model.display_text,
-                            set_justify: gtk::Justification::Center,
-                            set_wrap: true,
-                            set_wrap_mode: gtk::pango::WrapMode::Word,
-                            set_css_classes: &["red_box", "white", "yellow_box"]
-
-                        }
-                    }else {
-                        gtk::Label {
-                            set_css_classes: &["red_box", "white", "yellow_box"]
-                        }
+                    #[name="text_view"]
+                    gtk::TextView {
+                        set_hexpand: true,
+                        set_vexpand: true,
+                        // set_can_target: false,
+                        #[watch]
+                        set_visible : !model.is_cleared,
+                        set_css_classes: &["red_box", "white", "yellow_box"],
+                        set_buffer: Some(&model.text_buffer)
                     }
                 },
             }
@@ -118,10 +121,16 @@ impl SimpleComponent for ActivityScreenModel {
             background_image: Rc::new(RefCell::new(None)),
             bg_style: ActivityScreenModel::format_bg_style(String::new()),
             is_cleared: false,
+            text_buffer: TextBuffer::new(None),
         };
-        let widgets = view_output!();
 
-        println!("cwd => {:?}", std::env::current_dir());
+        let widgets = view_output!();
+        model.register_buffer_tags();
+
+        widgets
+            .text_view
+            .set_justification(gtk::Justification::Center);
+        widgets.text_view.set_valign(gtk::Align::Center);
 
         return relm4::ComponentParts { model, widgets };
     }
@@ -129,7 +138,14 @@ impl SimpleComponent for ActivityScreenModel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             ActivityScreenInput::DisplayUpdate(display_data) => {
-                self.display_text = display_data.text;
+                self.display_text = display_data.text.clone();
+                self.text_buffer.set_text(&display_data.text);
+
+                let (start, end) = self.text_buffer.bounds();
+                self.text_buffer.apply_tag_by_name("bold", &start, &end);
+                self.text_buffer.apply_tag_by_name("color", &start, &end);
+                self.text_buffer.apply_tag_by_name("size", &start, &end);
+
                 if let Some(img) = display_data.background_image {
                     self.update_display_image(img);
                 }
