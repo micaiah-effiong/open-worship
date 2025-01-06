@@ -12,7 +12,7 @@ use gtk::{
     SingleSelection,
 };
 use list_item::SongListItemModel;
-use relm4::{factory::Position, prelude::*, typed_view::list::TypedListView};
+use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::dto::{self, Song};
 
@@ -44,6 +44,16 @@ impl SearchSongModel {
             Some(m) => m,
             None => return,
         };
+
+        let add_song_action = ActionEntry::builder("add-song")
+            .activate(clone!(
+                #[strong]
+                sender,
+                move |_g: &SimpleActionGroup, _sa, _v| {
+                    sender.input(SearchSongInput::OpenEditModel(None));
+                }
+            ))
+            .build();
 
         let edit_action = ActionEntry::builder("edit")
             .activate(clone!(
@@ -103,13 +113,19 @@ impl SearchSongModel {
             .build();
 
         let menu_action_group = SimpleActionGroup::new();
-        menu_action_group.add_action_entries([edit_action, add_to_schedule_action, delete_action]);
+        menu_action_group.add_action_entries([
+            add_song_action,
+            edit_action,
+            add_to_schedule_action,
+            delete_action,
+        ]);
 
         let menu = gtk::gio::Menu::new();
         let add_to_schedule = MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule"));
-        menu.insert_item(0, &add_to_schedule);
-        menu.insert_item(2, &MenuItem::new(Some("Delete song"), Some("song.delete")));
-        menu.insert_item(1, &MenuItem::new(Some("Edit song"), Some("song.edit")));
+        menu.insert_item(1, &add_to_schedule);
+        menu.insert_item(2, &MenuItem::new(Some("Add song"), Some("song.add-song")));
+        menu.insert_item(3, &MenuItem::new(Some("Edit song"), Some("song.edit")));
+        menu.insert_item(4, &MenuItem::new(Some("Delete song"), Some("song.delete")));
 
         let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
         popover_menu.set_has_arrow(false);
@@ -142,13 +158,11 @@ impl SearchSongModel {
             wrapper,
             #[strong]
             sender,
-            move |lv, pos| {
-                println!("song clicked {:?}", lv);
+            move |_lv, pos| {
                 let song_list_item = match wrapper.borrow().get(pos) {
                     Some(item) => item.borrow().clone(),
                     None => return,
                 };
-                println!("song clicked {:?}", song_list_item);
 
                 let verse_list = song_list_item
                     .song
@@ -217,14 +231,7 @@ impl SimpleComponent for SearchSongModel {
             },
 
             gtk::Box {
-                gtk::Button {
-                    set_icon_name: "plus",
-                    set_tooltip: "Add song",
-                    connect_clicked => SearchSongInput::OpenEditModel(None),
-                    // connect_clicked[sender] => move|_|{
-                    //    sender.input(SearchSongInput::OpenEditModel) ;
-                    // }
-                }
+                //
             }
 
         }
@@ -268,7 +275,6 @@ impl SimpleComponent for SearchSongModel {
         match message {
             SearchSongInput::OpenEditModel(song) => {
                 self.edit_song_dialog.emit(EditModelInputMsg::Show(song));
-                println!("start opening");
             }
             SearchSongInput::NewSong(song) => {
                 self.list_view_wrapper
