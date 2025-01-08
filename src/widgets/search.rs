@@ -4,7 +4,7 @@ mod songs;
 
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::prelude::*;
+use gtk::{glib::property::PropertySet, prelude::*};
 use relm4::prelude::*;
 
 use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundModel};
@@ -146,7 +146,7 @@ impl SimpleComponent for SearchModel {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             SearchModelInput::PreviewBackground(bg) => {
-                *self.background_image.borrow_mut() = Some(bg.clone());
+                self.background_image.set(Some(bg.clone()));
                 let _ = sender.output(SearchOutput::PreviewBackground(bg));
             }
             SearchModelInput::PreviewScriptures(list) => {
