@@ -30,11 +30,12 @@ pub struct LiveViewerInit {
 
 #[derive(Clone)]
 pub struct LiveViewerModel {
-    title: String,
-    list: Rc<RefCell<Vec<String>>>,
+    // title: String,
+    // list: Rc<RefCell<Vec<String>>>,
+    // background_image: Rc<RefCell<Option<String>>>,
     selected_index: Rc<RefCell<Option<u32>>>,
-    background_image: Rc<RefCell<Option<String>>>,
     list_view_wrapper: Rc<RefCell<TypedListView<ActivityListItem, gtk::SingleSelection>>>,
+    slide: Rc<RefCell<Option<dto::ListPayload>>>,
 }
 
 impl LiveViewerModel {
@@ -42,10 +43,11 @@ impl LiveViewerModel {
         let list_view_wrapper = Rc::new(RefCell::new(TypedListView::new()));
 
         return LiveViewerModel {
-            title: String::from(""),
-            list: Rc::new(RefCell::new(Vec::new())),
+            // title: String::from(""),
+            // list: Rc::new(RefCell::new(Vec::new())),
+            // background_image: Rc::new(RefCell::new(None)),
             selected_index: Rc::new(RefCell::new(None)),
-            background_image: Rc::new(RefCell::new(None)),
+            slide: Rc::new(RefCell::new(None)),
             list_view_wrapper,
         };
     }
@@ -55,32 +57,34 @@ impl LiveViewerModel {
     fn listen_for_selection_changed(&self, sender: &ComponentSender<LiveViewerModel>) {
         let model = self.clone();
         let selection_model = model.list_view_wrapper.borrow().selection_model.clone();
-        let list = model.list.clone();
-        let background_image = model.background_image.borrow().clone();
-        let selected_index = model.selected_index.borrow().clone();
+        let slide = model.slide;
+        // let list = model.list.clone();
+        // let background_image = model.background_image.borrow().clone();
+        let selected_index = model.selected_index; //.borrow().clone();
 
         selection_model.connect_selection_changed(clone!(
             #[strong]
-            list,
+            slide,
             #[strong]
             sender,
             #[strong]
-            background_image,
-            #[strong]
             selected_index,
-            move |selection_model, _, _| {
+            move |selection_model, _pos, _| {
+                let slide = match slide.borrow().clone() {
+                    Some(s) => s,
+                    None => return,
+                };
+
                 let pos = selection_model.selected();
-                let txt = match list.borrow().get(pos as usize) {
+                let txt = match slide.list.get(pos as usize) {
                     Some(txt) => txt.clone(),
                     None => return,
                 };
 
-                println!("selection changed {:?}", selected_index);
-
                 let payload = dto::Payload {
                     text: txt,
                     position: pos,
-                    background_image: background_image.clone(),
+                    background_image: slide.background_image.clone(),
                 };
 
                 let _ = sender.output(LiveViewerOutput::Selected(payload));
@@ -100,8 +104,6 @@ impl LiveViewerModel {
             #[strong]
             selected_index,
             move |selection_model, _, _, _| {
-                println!("here {:?}", selected_index);
-
                 let index = match selected_index.borrow().clone() {
                     Some(inx) => inx,
                     None => return,
@@ -111,7 +113,6 @@ impl LiveViewerModel {
                 list_view.grab_focus();
 
                 let mut li = list_view.first_child();
-                println!("first child 0 => {:?}", &li);
 
                 let mut i = 0;
                 loop {
@@ -150,7 +151,7 @@ impl SimpleComponent for LiveViewerModel {
             set_css_classes: &["pink_box", "ow-listview"],
 
             gtk::Label {
-                set_label: &model.title
+                set_label: &title
             },
 
             gtk::ScrolledWindow {
@@ -170,6 +171,11 @@ impl SimpleComponent for LiveViewerModel {
     ) -> relm4::ComponentParts<Self> {
         let model = LiveViewerModel::new();
         let list_view = model.list_view_wrapper.borrow().view.clone();
+        let title = match model.slide.borrow().clone() {
+            Some(item) => item.text,
+            None => String::new(),
+        };
+
         let widgets = view_output!();
 
         model.listen_for_items_change();
@@ -181,15 +187,18 @@ impl SimpleComponent for LiveViewerModel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             LiveViewerInput::NewList(list_payload) => {
-                println!("new here {:?}", &list_payload.position);
+                println!("===NEW==== {:?}", self.slide);
+                // println!("new here {:?}", &list_payload.position);
                 self.selected_index.set(Some(list_payload.position));
-                println!("new here update {:?}", &self.selected_index.borrow());
+                // println!("new here update {:?}", &self.selected_index.borrow());
 
-                self.list.borrow_mut().clear();
-                self.list
-                    .borrow_mut()
-                    .append(&mut list_payload.list.clone());
+                // self.list.borrow_mut().clear();
+                // self.list
+                //     .borrow_mut()
+                //     .append(&mut list_payload.list.clone());
+                self.slide.set(Some(list_payload.clone()));
 
+                println!("NEW==== {:?}", self.slide);
                 self.list_view_wrapper.borrow_mut().clear();
 
                 let mut list = Vec::new();
