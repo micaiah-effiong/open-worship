@@ -2,6 +2,8 @@ mod background;
 mod scriptures;
 mod songs;
 
+use std::{cell::RefCell, rc::Rc};
+
 use gtk::prelude::*;
 use relm4::prelude::*;
 
@@ -36,6 +38,7 @@ pub struct SearchModel {
     background_page: relm4::Controller<SearchBackgroundModel>,
     scripture_page: relm4::Controller<SearchScriptureModel>,
     song_page: relm4::Controller<SearchSongModel>,
+    background_image: Rc<RefCell<Option<String>>>,
 }
 
 impl SearchModel {
@@ -128,6 +131,7 @@ impl SimpleComponent for SearchModel {
             song_page,
             background_page,
             scripture_page,
+            background_image: Rc::new(RefCell::new(None)),
         };
 
         let background_page_widget = model.background_page.widget();
@@ -142,16 +146,44 @@ impl SimpleComponent for SearchModel {
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             SearchModelInput::PreviewBackground(bg) => {
+                *self.background_image.borrow_mut() = Some(bg.clone());
                 let _ = sender.output(SearchOutput::PreviewBackground(bg));
             }
             SearchModelInput::PreviewScriptures(list) => {
-                let _ = sender.output(SearchOutput::PreviewScriptures(list));
+                let item = dto::ListPayload::new(
+                    list.text,
+                    list.position,
+                    list.list,
+                    match list.background_image {
+                        Some(bg) => Some(bg),
+                        None => self.background_image.borrow().clone(),
+                    },
+                );
+                let _ = sender.output(SearchOutput::PreviewScriptures(item));
             }
             SearchModelInput::PreviewSongs(list) => {
-                let _ = sender.output(SearchOutput::PreviewSongs(list));
+                let item = dto::ListPayload::new(
+                    list.text,
+                    list.position,
+                    list.list,
+                    match list.background_image {
+                        Some(bg) => Some(bg),
+                        None => self.background_image.borrow().clone(),
+                    },
+                );
+                let _ = sender.output(SearchOutput::PreviewSongs(item));
             }
             SearchModelInput::AddToSchedule(list) => {
-                let _ = sender.output(SearchOutput::AddToSchedule(list));
+                let item = dto::ListPayload::new(
+                    list.text,
+                    list.position,
+                    list.list,
+                    match list.background_image {
+                        Some(bg) => Some(bg),
+                        None => self.background_image.borrow().clone(),
+                    },
+                );
+                let _ = sender.output(SearchOutput::AddToSchedule(item));
             }
         };
     }
