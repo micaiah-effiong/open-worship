@@ -1,3 +1,4 @@
+use config::{AppConfig, AppConfigDir};
 use gtk::prelude::*;
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
@@ -11,6 +12,7 @@ use widgets::schedule_activity_viewer::{
     ScheduleViewerInput, ScheduleViewerModel, ScheduleViewerOutput,
 };
 use widgets::search::{SearchInit, SearchModel, SearchOutput};
+mod config;
 mod dto;
 mod structs;
 mod widgets;
@@ -377,6 +379,9 @@ fn main() {
 
     log_display_info();
     let _ = relm4::set_global_css_from_file(std::path::Path::new("./src/style.css"));
+
+    // setup app
+    AppConfig::init();
 
     app.run::<AppModel>(None);
 }

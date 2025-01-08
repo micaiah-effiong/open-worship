@@ -1,9 +1,9 @@
-use std::{cell::RefCell, os, path, rc::Rc, usize};
+use std::{cell::RefCell, rc::Rc, usize};
 
 use gtk::{glib::clone, prelude::*};
 use relm4::{prelude::*, typed_view::grid::TypedGridView};
 
-use crate::structs::background_grid_list_item::BackgroundGridListItem;
+use crate::{config::AppConfigDir, structs::background_grid_list_item::BackgroundGridListItem};
 
 // search area (notebook)
 #[derive(Debug)]
@@ -26,27 +26,32 @@ pub struct SearchBackgroundModel {
 pub struct SearchBackgroundInit {}
 
 impl SearchBackgroundModel {
-    fn join_path(path: std::path::PathBuf) -> std::path::PathBuf {
-        return path.join("data").join("background");
-    }
-
     fn load_backgrounds() -> Vec<String> {
-        let cwd = match std::env::current_dir() {
-            Ok(cw) => SearchBackgroundModel::join_path(cw),
+        let dir = match AppConfigDir::dir_path(AppConfigDir::BACKGROUNDS).read_dir() {
+            Ok(d) => d,
             Err(_) => {
-                panic!("Could not get current working directory");
+                println!(
+                    "ERROR: could not read {:?}",
+                    AppConfigDir::to(AppConfigDir::BACKGROUNDS)
+                );
+                return [].to_vec();
             }
         };
 
-        let dir = cwd.read_dir().expect("read_dir call failed");
-        println!("dir {:?}", dir);
-
         let mut path_list = Vec::new();
         for entry in dir {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                path_list.push(path.display().to_string());
+            let entry = match entry {
+                Ok(f) => f,
+                Err(_) => continue,
+            };
+
+            if let Ok(entry) = entry.metadata() {
+                if !entry.is_file() {
+                    continue;
+                }
             }
+
+            path_list.push(entry.path().display().to_string());
         }
 
         println!("load dir {:?}", &path_list);
@@ -62,16 +67,11 @@ impl SearchBackgroundModel {
                 Some(f_path) => f_path,
                 None => continue,
             };
-            let cwd = match std::env::current_dir() {
-                Ok(cwd) => cwd.display().to_string(),
-                Err(_) => continue,
-            };
 
-            let f = std::path::Path::new(&cwd);
-            let sym_path = SearchBackgroundModel::join_path(f.to_path_buf()).join(filename);
-            println!("sym_path -> {:?}", sym_path);
+            let symlink_path = AppConfigDir::dir_path(AppConfigDir::BACKGROUNDS).join(filename);
+            println!("sym_path -> {:?}", symlink_path);
 
-            match std::fs::hard_link(path, &sym_path) {
+            match std::fs::hard_link(path, &symlink_path) {
                 Ok(path) => path,
                 Err(err) => {
                     eprintln!("Error creating sysmlink. {}", err);
@@ -79,7 +79,7 @@ impl SearchBackgroundModel {
                 }
             };
 
-            let path = sym_path.display().to_string();
+            let path = symlink_path.display().to_string();
             view.append(BackgroundGridListItem::new(path.clone(), None));
             self.image_src_list.borrow_mut().push(path);
         }
