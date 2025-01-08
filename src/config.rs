@@ -23,8 +23,12 @@ impl AppConfig {
         }
 
         for dir in APP_DATA_DIRS {
-            let err_msg = format!("ERROR: Could not create {:?}", app_config_path.join(dir));
+            if AppConfigDir::from(dir.to_string()).is_none() {
+                println!("ERROR: Invalid File/Dir, name: {}", &dir);
+                continue;
+            }
 
+            let err_msg = format!("ERROR: Could not create {:?}", app_config_path.join(dir));
             if !app_config_path.join(dir).exists() {
                 fs::create_dir_all(app_config_path.join(dir)).expect(&err_msg);
             }
