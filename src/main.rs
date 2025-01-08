@@ -289,11 +289,13 @@ impl SimpleComponent for AppModel {
             AppInput::ScheduleActivityActivated(payload) => {
                 self.preview_activity_viewer
                     .emit(PreviewViewerInput::NewList(payload.clone()));
-                if let Some(txt) = payload.list.get(0) {
+                if let Some(text) = payload.list.get(0) {
+                    let slide = dto::DisplayPayload {
+                        background_image: payload.background_image,
+                        text: text.to_string(),
+                    };
                     self.preview_activity_screen
-                        .emit(ActivityScreenInput::DisplayUpdate(
-                            dto::DisplayPayload::new(txt.to_string()),
-                        ));
+                        .emit(ActivityScreenInput::DisplayUpdate(slide));
                 }
             }
             AppInput::ScheduleActivityAddNew(payload) => {
