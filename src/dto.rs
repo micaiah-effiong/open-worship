@@ -83,3 +83,23 @@ impl Song {
         return Song { title, verses };
     }
 }
+
+// SCRIPTURE
+
+#[derive(Debug, Clone)]
+pub struct Scripture {
+    pub book: String,
+    pub chapter: u32,
+    pub verse: u32,
+    pub text: String,
+}
+
+impl Scripture {
+    pub fn screen_display(&self) -> String {
+        let text = format!(
+            "{}\n{} {}:{}",
+            self.text, self.book, self.chapter, self.verse,
+        );
+        return text;
+    }
+}

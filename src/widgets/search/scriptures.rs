@@ -9,7 +9,7 @@ use gtk::{
     prelude::*,
     MultiSelection,
 };
-use list_item::ScriptureListItem;
+use list_item::{ScriptureListItem, ScripturePayload};
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::dto;
@@ -135,9 +135,9 @@ impl SearchScriptureModel {
             if model.is_selected(i) {
                 if let Some(item) = typed_list.get(i) {
                     let a = item.borrow().clone();
-                    selected_items.push(a.screen_display());
-                    verse_vec.push(a.verse);
-                    book = a.book;
+                    selected_items.push(a.data.screen_display());
+                    verse_vec.push(a.data.verse);
+                    book = a.data.book;
                 }
             }
         }
@@ -215,10 +215,12 @@ impl SimpleComponent for SearchScriptureModel {
 
         for i in 0..=150 {
             typed_list_view.append(ScriptureListItem {
-                book: "Genesis".to_string(),
-                chapter: 1,
-                verse: i,
-                text: LIST_VEC[0].to_string(),
+                data: ScripturePayload {
+                    book: "Genesis".to_string(),
+                    chapter: 1,
+                    verse: i,
+                    text: LIST_VEC[0].to_string(),
+                },
             })
         }
 

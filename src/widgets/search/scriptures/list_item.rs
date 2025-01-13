@@ -1,21 +1,10 @@
 use relm4::{gtk, typed_view::list::RelmListItem, view};
 
+use crate::dto::Scripture;
+
 #[derive(Debug, Clone)]
 pub struct ScriptureListItem {
-    pub book: String,
-    pub chapter: u32,
-    pub verse: u32,
-    pub text: String,
-}
-
-impl ScriptureListItem {
-    pub fn screen_display(&self) -> String {
-        let text = format!(
-            "{}\n{} {}:{}",
-            self.text, self.book, self.chapter, self.verse,
-        );
-        return text;
-    }
+    pub data: Scripture,
 }
 
 pub struct ScriptureListItemWidget {
@@ -36,7 +25,6 @@ impl RelmListItem for ScriptureListItem {
                 #[name="text"]
                 gtk::Label {
                     set_ellipsize: gtk::pango::EllipsizeMode::End,
-
                 }
             }
         }
@@ -47,7 +35,10 @@ impl RelmListItem for ScriptureListItem {
     }
 
     fn bind(&mut self, _widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-        let text = format!("{}:{} \t{}", self.chapter, self.verse, self.text);
+        let text = format!(
+            "{}:{} \t{}",
+            self.data.chapter, self.data.verse, self.data.text
+        );
         _widgets.text.set_label(&text);
     }
 }
