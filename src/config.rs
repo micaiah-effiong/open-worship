@@ -24,7 +24,7 @@ impl AppConfig {
 
         for dir in APP_DATA_DIRS {
             if AppConfigDir::from(dir.to_string()).is_none() {
-                println!("ERROR: Invalid File/Dir, name: {}", &dir);
+                eprintln!("ERROR: Invalid File/Dir, name: {}", &dir);
                 continue;
             }
 
