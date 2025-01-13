@@ -74,7 +74,6 @@ impl SearchScriptureModel {
         let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
         popover_menu.set_parent(&list_view);
         popover_menu.set_has_arrow(false);
-        popover_menu.set_position(gtk::PositionType::Right);
         popover_menu.set_align(gtk::Align::Start);
 
         let gesture = gtk::GestureClick::new();
