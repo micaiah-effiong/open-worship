@@ -55,6 +55,9 @@ impl SearchModel {
             SearchScriptureOutput::SendScriptures(list_payload) => {
                 SearchModelInput::PreviewScriptures(list_payload)
             }
+            SearchScriptureOutput::SendToSchedule(list_payload) => {
+                SearchModelInput::AddToSchedule(list_payload)
+            }
         };
     }
 

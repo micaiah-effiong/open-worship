@@ -130,6 +130,7 @@ impl SearchSongModel {
         let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
         popover_menu.set_has_arrow(false);
         popover_menu.set_position(gtk::PositionType::Top);
+        popover_menu.set_align(gtk::Align::Start);
         popover_menu.set_parent(&list_view);
 
         let gesture_click = gtk::GestureClick::new();
