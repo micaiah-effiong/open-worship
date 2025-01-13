@@ -1,4 +1,4 @@
-use config::{AppConfig, AppConfigDir};
+use config::AppConfig;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
@@ -24,7 +24,7 @@ enum AppInput {
     PreviewActivitySelected(dto::Payload),
     PreviewActivityActivated(dto::ListPayload),
     LiveActivitySelected(dto::Payload),
-    LiveActivityActivated(String),
+    // LiveActivityActivated(String),
     ClearLiveDisplay,
     PreviewGoLive,
 
@@ -304,7 +304,7 @@ impl SimpleComponent for AppModel {
             }
 
             // live
-            AppInput::LiveActivityActivated(_) => return,
+            // AppInput::LiveActivityActivated(_) => return,
             AppInput::LiveActivitySelected(payload) => {
                 self.live_activity_screen
                     .emit(ActivityScreenInput::DisplayUpdate(
