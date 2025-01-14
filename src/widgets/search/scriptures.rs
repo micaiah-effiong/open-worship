@@ -9,7 +9,7 @@ use gtk::{
     prelude::*,
     MultiSelection,
 };
-use list_item::{ScriptureListItem, ScripturePayload};
+use list_item::ScriptureListItem;
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::dto;
@@ -215,7 +215,7 @@ impl SimpleComponent for SearchScriptureModel {
 
         for i in 0..=150 {
             typed_list_view.append(ScriptureListItem {
-                data: ScripturePayload {
+                data: dto::Scripture {
                     book: "Genesis".to_string(),
                     chapter: 1,
                     verse: i,
