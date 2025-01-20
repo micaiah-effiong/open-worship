@@ -187,7 +187,6 @@ impl SimpleComponent for LiveViewerModel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             LiveViewerInput::NewList(list_payload) => {
-                println!("===NEW==== {:?}", self.slide);
                 // println!("new here {:?}", &list_payload.position);
                 self.selected_index.set(Some(list_payload.position));
                 // println!("new here update {:?}", &self.selected_index.borrow());
@@ -198,7 +197,6 @@ impl SimpleComponent for LiveViewerModel {
                 //     .append(&mut list_payload.list.clone());
                 self.slide.set(Some(list_payload.clone()));
 
-                println!("NEW==== {:?}", self.slide);
                 self.list_view_wrapper.borrow_mut().clear();
 
                 let mut list = Vec::new();
