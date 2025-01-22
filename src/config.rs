@@ -1,5 +1,7 @@
 use std::{fs, path::PathBuf};
 
+use crate::db;
+
 const APP_DIR_NAME: &str = "open-worship";
 const APP_DATA_DIRS: [&str; 4] = ["backgrounds", "database", "media", "downloads"];
 
@@ -10,9 +12,10 @@ pub struct AppConfig {
 impl AppConfig {
     pub fn init() {
         AppConfig::setup_config_dir();
+        AppConfig::setup_database();
     }
     ///  setup directories
-    pub fn setup_config_dir() {
+    fn setup_config_dir() {
         let sys_config_dir = dirs::config_dir().expect("Could not get config directory");
 
         // create app data dir if not exist
@@ -33,6 +36,20 @@ impl AppConfig {
                 fs::create_dir_all(app_config_path.join(dir)).expect(&err_msg);
             }
         }
+    }
+
+    fn setup_database() {
+        let _ = db::connection::load_db(AppConfig::get_db_path()); //.expect("Error setting up database");
+    }
+
+    pub fn get_db_path() -> String {
+        let db_path = AppConfigDir::dir_path(AppConfigDir::DATABASE)
+            .join("KJV.db")
+            // .join("db.sqlite")
+            .display()
+            .to_string();
+
+        return db_path;
     }
 }
 
