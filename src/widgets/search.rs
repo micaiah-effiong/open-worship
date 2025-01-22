@@ -11,7 +11,10 @@ use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundMo
 use scriptures::{SearchScriptureInit, SearchScriptureModel, SearchScriptureOutput};
 use songs::{SearchSongInit, SearchSongModel, SearchSongOutput};
 
-use crate::dto;
+use crate::{
+    db::{self, connection::DatabaseConnection},
+    dto,
+};
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -39,6 +42,7 @@ pub struct SearchModel {
     scripture_page: relm4::Controller<SearchScriptureModel>,
     song_page: relm4::Controller<SearchSongModel>,
     background_image: Rc<RefCell<Option<String>>>,
+    db_connection: Rc<RefCell<DatabaseConnection>>,
 }
 
 impl SearchModel {
@@ -73,7 +77,9 @@ impl SearchModel {
     }
 }
 
-pub struct SearchInit {}
+pub struct SearchInit {
+    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+}
 
 impl SearchModel {}
 
@@ -135,7 +141,21 @@ impl SimpleComponent for SearchModel {
             background_page,
             scripture_page,
             background_image: Rc::new(RefCell::new(None)),
+            db_connection: _init.db_connection,
         };
+
+        println!(
+            r#"
+            ===
+            {:?}
+            ===
+            "#,
+            db::query::Query::new(&model.db_connection.borrow()).get_chapter_query(
+                "KJV".to_string(),
+                1,
+                1
+            )
+        );
 
         let background_page_widget = model.background_page.widget();
         let scripture_page_widget = model.scripture_page.widget();

@@ -1,4 +1,8 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use config::AppConfig;
+use db::connection::DatabaseConnection;
 use gtk::prelude::*;
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
@@ -13,6 +17,7 @@ use widgets::schedule_activity_viewer::{
 };
 use widgets::search::{SearchInit, SearchModel, SearchOutput};
 mod config;
+mod db;
 mod dto;
 mod structs;
 mod widgets;
@@ -32,6 +37,7 @@ enum AppInput {
     SearchPreviewBackground(String),
     SearchPreviewActivity(dto::ListPayload),
 }
+
 struct AppModel {
     schedule_activity_viewer: relm4::Controller<ScheduleViewerModel>,
     preview_activity_viewer: relm4::Controller<PreviewViewerModel>,
@@ -40,6 +46,8 @@ struct AppModel {
     preview_activity_screen: relm4::Controller<ActivityScreenModel>,
     live_activity_screen: relm4::Controller<ActivityScreenModel>,
     search_viewer: relm4::Controller<SearchModel>,
+
+    db_connection: Rc<RefCell<DatabaseConnection>>,
 }
 
 impl AppModel {
@@ -234,6 +242,11 @@ impl SimpleComponent for AppModel {
         window: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
+        // db
+        let db_connection = Rc::new(RefCell::new(db::connection::DatabaseConnection::open(
+            AppConfig::get_db_path(),
+        )));
+
         let schedule_activity_viewer = ScheduleViewerModel::builder().launch(()).forward(
             sender.input_sender(),
             AppModel::convert_schedule_activity_response,
@@ -255,7 +268,9 @@ impl SimpleComponent for AppModel {
                 AppModel::convert_live_activity_response,
             );
         let search_viewer = SearchModel::builder()
-            .launch(SearchInit {})
+            .launch(SearchInit {
+                db_connection: db_connection.clone(),
+            })
             .forward(sender.input_sender(), AppModel::convert_search_response);
 
         let preview_activity_screen = ActivityScreenModel::builder()
@@ -272,6 +287,7 @@ impl SimpleComponent for AppModel {
             search_viewer,
             preview_activity_screen,
             live_activity_screen,
+            db_connection,
         };
         let widgets = view_output!();
 
