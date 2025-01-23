@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc, usize};
 
-use gtk::{glib::clone, prelude::*, subclass::window};
+use gtk::prelude::*;
 use relm4::{prelude::*, typed_view::grid::TypedGridView};
 
 use crate::{config::AppConfigDir, structs::background_grid_list_item::BackgroundGridListItem};
