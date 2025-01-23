@@ -28,9 +28,9 @@ impl<'a> Query<'a> {
     ) -> RuResult<Vec<BibleVerse>> {
         let sql = format!(
             r#"
-            SELECT book_id, chapter, verse, text, kb.name AS book 
+            SELECT book_id, chapter, verse, text, books.name AS book 
             FROM {translation}_verses
-            JOIN {translation}_books as kb
+            JOIN {translation}_books AS books ON books.id = KJV_verses.book_id
             WHERE {translation}_verses.book_id = ?1 
                 AND {translation}_verses.chapter = ?2 
             "#
