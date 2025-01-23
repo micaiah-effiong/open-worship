@@ -12,10 +12,18 @@ use gtk::{
 use list_item::ScriptureListItem;
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
-use crate::dto;
+use crate::{
+    db::{
+        connection::{BibleVerse, DatabaseConnection},
+        query::Query,
+    },
+    dto,
+};
 
 #[derive(Debug)]
-pub enum SearchScriptureInput {}
+pub enum SearchScriptureInput {
+    Selected(u32, Option<u32>),
+}
 
 #[derive(Debug)]
 pub enum SearchScriptureOutput {
@@ -26,13 +34,45 @@ pub enum SearchScriptureOutput {
 #[derive(Debug, Clone)]
 pub struct SearchScriptureModel {
     list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
+    search_text: String,
 }
 
 impl SearchScriptureModel {}
 
-pub struct SearchScriptureInit {}
+pub struct SearchScriptureInit {
+    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+}
 
 impl SearchScriptureModel {
+    fn get_search_text(&self, pos: u32, end: Option<u32>) -> String {
+        let list = self.list_view_wrapper.borrow();
+
+        let bible_verse = match list.get(pos) {
+            Some(v) => v.borrow().clone().data,
+            None => return String::new(),
+        };
+
+        let book = bible_verse.book;
+        let chapter = bible_verse.chapter;
+        let verse = bible_verse.verse;
+        let default = format!("{book} {chapter}:{verse}").to_string();
+
+        match end {
+            Some(end) => {
+                if let Some(end_verse) = list.get(end) {
+                    let end_verse_data = end_verse.borrow().clone().data;
+                    let e_verse = end_verse_data.verse;
+                    return format!("{book} {chapter}:{verse}-{e_verse}").to_string();
+                };
+
+                return default;
+            }
+            None => {
+                return default;
+            }
+        }
+    }
+
     fn register_context_menu(&mut self, sender: &ComponentSender<Self>) {
         let list_view_wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
@@ -89,6 +129,26 @@ impl SearchScriptureModel {
     }
 
     fn register_selected(&mut self, sender: &ComponentSender<Self>) {
+        let list_view = self.list_view_wrapper.borrow().selection_model.clone();
+        // let model = self.clone();
+
+        list_view.connect_selection_changed(clone!(
+            #[strong]
+            sender,
+            move |selection_model, _, _| {
+                let pos = selection_model.selection().nth(0);
+                let end_val = selection_model
+                    .selection()
+                    .nth((selection_model.selection().size() - 1) as u32);
+
+                let end = if end_val > pos { Some(end_val) } else { None };
+
+                sender.input(SearchScriptureInput::Selected(pos, end));
+            }
+        ));
+    }
+
+    fn register_activate_selected(&mut self, sender: &ComponentSender<Self>) {
         let list_view = self.list_view_wrapper.borrow().view.clone();
         let typed_list = self.list_view_wrapper.clone();
 
@@ -104,11 +164,14 @@ impl SearchScriptureModel {
                 );
 
                 if let Some(payload) = payload {
-                    println!("MS selections {:?}", &payload);
                     let _ = sender.output(SearchScriptureOutput::SendScriptures(payload));
                 }
             }
         ));
+    }
+
+    fn get_initial_scriptures(db: &DatabaseConnection) -> Result<Vec<BibleVerse>, rusqlite::Error> {
+        return Query::new(db).get_chapter_query(String::from("KJV"), 1, 1);
     }
 
     fn get_payload_for_selected_scriptures(
@@ -167,6 +230,31 @@ impl SearchScriptureModel {
             None,
         ));
     }
+
+    fn load_initial_verses(&self, db_connection: &DatabaseConnection) {
+        let list_view_wrapper = self.list_view_wrapper.clone();
+
+        let verses = match SearchScriptureModel::get_initial_scriptures(db_connection) {
+            Ok(r) => r,
+            Err(_) => Vec::new(),
+        };
+
+        for verse in verses {
+            list_view_wrapper.borrow_mut().append(ScriptureListItem {
+                data: dto::Scripture {
+                    book: verse.book,
+                    chapter: verse.chapter,
+                    verse: verse.verse,
+                    text: verse.text,
+                },
+            })
+        }
+
+        list_view_wrapper
+            .borrow()
+            .selection_model
+            .select_item(0, true);
+    }
 }
 
 #[relm4::component(pub)]
@@ -190,7 +278,10 @@ impl SimpleComponent for SearchScriptureModel {
                 add_css_class: "green_double_box",
 
                 gtk::SearchEntry {
-                    set_placeholder_text: Some("Genesis 1:1"),
+                    #[watch]
+                    set_placeholder_text: Some(&model.search_text),
+                    #[watch]
+                    set_text: &model.search_text,
                     set_hexpand: true
                 }
             },
@@ -206,41 +297,36 @@ impl SimpleComponent for SearchScriptureModel {
     }
 
     fn init(
-        _init: Self::Init,
+        init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        let mut typed_list_view: TypedListView<ScriptureListItem, MultiSelection> =
+        let typed_list_view: TypedListView<ScriptureListItem, MultiSelection> =
             TypedListView::new();
-
-        for i in 0..=150 {
-            typed_list_view.append(ScriptureListItem {
-                data: dto::Scripture {
-                    book: "Genesis".to_string(),
-                    chapter: 1,
-                    verse: i,
-                    text: LIST_VEC[0].to_string(),
-                },
-            })
-        }
 
         let list_view_wrapper = Rc::new(RefCell::new(typed_list_view));
 
-        let mut model = SearchScriptureModel { list_view_wrapper };
-        model.register_selected(&sender);
-        model.register_context_menu(&sender);
-        let list_view = model.list_view_wrapper.borrow().view.clone();
+        let mut model = SearchScriptureModel {
+            list_view_wrapper: list_view_wrapper.clone(),
+            search_text: String::new(),
+        };
 
+        model.register_selected(&sender);
+        model.register_activate_selected(&sender);
+        model.register_context_menu(&sender);
+        model.load_initial_verses(&init.db_connection.borrow());
+
+        let list_view = model.list_view_wrapper.borrow().view.clone();
         let widgets = view_output!();
 
         return relm4::ComponentParts { model, widgets };
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
-        match message {};
+        match message {
+            SearchScriptureInput::Selected(pos, end) => {
+                self.search_text = self.get_search_text(pos, end);
+            }
+        };
     }
 }
-
-const LIST_VEC: [&str; 1] = [
-    "Golden sun, a radiant masterpiece, paints the canvas of the morning sky. With hues of pink and softest blue, a breathtaking, ethereal sight,",
-];
