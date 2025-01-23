@@ -1,6 +1,6 @@
 use std::{cell::RefCell, rc::Rc, usize};
 
-use gtk::{glib::clone, prelude::*};
+use gtk::{glib::clone, prelude::*, subclass::window};
 use relm4::{prelude::*, typed_view::grid::TypedGridView};
 
 use crate::{config::AppConfigDir, structs::background_grid_list_item::BackgroundGridListItem};
@@ -86,65 +86,48 @@ impl SearchBackgroundModel {
     }
 
     fn register_backgroud_chooser(
+        window: &gtk::Window,
         sender: ComponentSender<SearchBackgroundModel>,
-    ) -> gtk::FileChooserDialog {
+    ) -> gtk::FileDialog {
         let file_filter = gtk::FileFilter::new();
-        file_filter.add_mime_type("image/png");
-        file_filter.add_mime_type("image/jpeg");
+        file_filter.add_mime_type("image/*");
 
-        let fc = gtk::FileChooserDialog::builder()
-            .select_multiple(true)
-            .maximized(false)
+        let list_store = gtk::gio::ListStore::new::<gtk::FileFilter>();
+        list_store.append(&file_filter);
+        let filter_model = gtk::FilterListModel::new(Some(list_store), Some(file_filter));
+
+        let fc = gtk::FileDialog::builder()
             .modal(true)
+            .filters(&filter_model)
             .title("Import background")
-            .action(gtk::FileChooserAction::Open)
-            .filter(&file_filter)
             .build();
 
-        fc.add_button("Open", gtk::ResponseType::Ok);
-        fc.add_button("Cancel", gtk::ResponseType::Cancel);
+        fc.open_multiple(Some(window), gtk::gio::Cancellable::NONE, move |files| {
+            println!("OPENING FILES");
 
-        fc.connect_response(clone!(
-            #[strong]
-            sender,
-            move |f, r| {
-                let list = match r {
-                    gtk::ResponseType::Ok => f.files(),
-                    gtk::ResponseType::Cancel => {
-                        f.close();
-                        return;
-                    }
-                    _ => return,
-                };
+            if files.is_err() {
+                // TODO: log or inform user about error
+                eprintln!("ERROR: Could not open files\n{:?}", files);
+                return;
+            }
 
-                let mut new_images: Vec<String> = vec![];
+            let files = files.unwrap();
+            let mut new_images: Vec<String> = vec![];
 
-                for item in &list {
-                    if item.is_err() {
-                        continue;
-                    }
-
-                    let item = match item {
-                        Ok(file) => file.downcast::<gtk::gio::File>(),
-                        Err(_) => continue,
-                    };
-
-                    let file = match item {
-                        Ok(file) => file,
-                        Err(_) => continue,
-                    };
-
-                    println!("file -> {:?}", &file.path());
-                    if let Some(path) = file.path() {
-                        new_images.push(path.display().to_string());
+            for file in files.iter::<gtk::gio::File>() {
+                if let Ok(file) = file {
+                    match file.path() {
+                        Some(path) => {
+                            let filename = path.display().to_string();
+                            new_images.push(filename);
+                        }
+                        None => (),
                     }
                 }
-
-                sender.input(SearchBackgroundInput::NewBackgroundImages(new_images));
-
-                f.close();
             }
-        ));
+
+            sender.input(SearchBackgroundInput::NewBackgroundImages(new_images));
+        });
 
         return fc;
     }
@@ -222,9 +205,9 @@ impl SimpleComponent for SearchBackgroundModel {
                             None=>return
                         };
 
-                        let file_chooser = SearchBackgroundModel::register_backgroud_chooser(sender.clone());
-                        file_chooser.set_transient_for(Some(&window));
-                        file_chooser.show();
+                        let file_chooser = SearchBackgroundModel::register_backgroud_chooser(&window,sender.clone());
+                        // file_chooser.set_transient_for(Some(&window));
+                        // file_chooser.show();
                     }
                 },
                 gtk::Button {
