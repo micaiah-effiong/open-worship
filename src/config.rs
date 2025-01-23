@@ -44,8 +44,8 @@ impl AppConfig {
 
     pub fn get_db_path() -> String {
         let db_path = AppConfigDir::dir_path(AppConfigDir::DATABASE)
-            .join("KJV.db")
-            // .join("db.sqlite")
+            // .join("KJV.db")
+            .join("db.sqlite")
             .display()
             .to_string();
 
