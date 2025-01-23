@@ -105,8 +105,10 @@ impl SimpleComponent for AppModel {
                 // header box
                 gtk::Box {
                     set_orientation: gtk::Orientation::Horizontal,
-                    set_height_request: 48,
-                    set_margin_all: 12,
+                    // set_height_request: 48,
+                    // set_margin_all:3 ,
+                    set_margin_horizontal: 12,
+                    set_margin_vertical: 3,
 
                     gtk::Box {
                         set_hexpand: true,
@@ -131,7 +133,8 @@ impl SimpleComponent for AppModel {
 
                 // body box
                 gtk::Box {
-                    set_margin_all: 12,
+                    set_margin_horizontal: 12,
+                    set_margin_vertical: 3,
                     set_orientation: gtk::Orientation::Vertical,
 
                     gtk::Box {
