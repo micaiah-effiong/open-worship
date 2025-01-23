@@ -122,7 +122,7 @@ impl SimpleComponent for SearchModel {
     }
 
     fn init(
-        _init: Self::Init,
+        init: Self::Init,
         root: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
@@ -130,7 +130,9 @@ impl SimpleComponent for SearchModel {
             .launch(SearchSongInit {})
             .forward(sender.input_sender(), SearchModel::convert_song_msg);
         let scripture_page = SearchScriptureModel::builder()
-            .launch(SearchScriptureInit {})
+            .launch(SearchScriptureInit {
+                db_connection: init.db_connection.clone(),
+            })
             .forward(sender.input_sender(), SearchModel::convert_scripture_msg);
         let background_page = SearchBackgroundModel::builder()
             .launch(SearchBackgroundInit {})
@@ -141,21 +143,8 @@ impl SimpleComponent for SearchModel {
             background_page,
             scripture_page,
             background_image: Rc::new(RefCell::new(None)),
-            db_connection: _init.db_connection,
+            db_connection: init.db_connection,
         };
-
-        println!(
-            r#"
-            ===
-            {:?}
-            ===
-            "#,
-            db::query::Query::new(&model.db_connection.borrow()).get_chapter_query(
-                "KJV".to_string(),
-                1,
-                1
-            )
-        );
 
         let background_page_widget = model.background_page.widget();
         let scripture_page_widget = model.scripture_page.widget();
