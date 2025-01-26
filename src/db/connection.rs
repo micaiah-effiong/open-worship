@@ -2,8 +2,6 @@ use core::panic;
 
 use rusqlite::Connection;
 
-use crate::db::query;
-
 #[derive(Debug)]
 pub struct DatabaseConnection {
     pub connection: Connection,
@@ -28,14 +26,16 @@ pub fn load_db(path: String) {
 
     create_songs_table(&conn);
     create_song_verses_table(&conn);
+    create_bible_books_table(&conn);
+    insert_bible_books(&conn);
 
     let _ = conn.pragma_update(None, "journal_mode", &"WAL");
     let _ = conn.close();
 }
 
-pub fn create_books_table(conn: Connection, translation: String) {
+pub fn create_bible_books_table(conn: &Connection) {
     let sql = format!(
-        "CREATE TABLE IF NOT EXISTS {translation}_books (
+        "CREATE TABLE IF NOT EXISTS bible_books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL
         )"
@@ -43,7 +43,7 @@ pub fn create_books_table(conn: Connection, translation: String) {
 
     let ex = conn.execute(&sql, ());
     if ex.is_err() {
-        panic!("Could not create {translation}_books table {:?}", ex);
+        panic!("Could not create bible_books table {:?}", ex);
     }
 }
 
@@ -107,6 +107,16 @@ pub fn create_song_verses_table(conn: &Connection) {
     );
 
     let ex = conn.execute(&sql, ());
+    if ex.is_err() {
+        panic!("Could not create song verses table {:?}", ex);
+    }
+}
+
+fn insert_bible_books(conn: &Connection) {
+    let bible_books_sql = include_str!("sql/bible_books.sql");
+    let sql = format!("{bible_books_sql}");
+
+    let ex = conn.execute_batch(&sql);
     if ex.is_err() {
         panic!("Could not create song verses table {:?}", ex);
     }
