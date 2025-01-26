@@ -30,7 +30,7 @@ impl<'a> Query<'a> {
             r#"
             SELECT book_id, chapter, verse, text, books.name AS book 
             FROM {translation}_verses
-            JOIN {translation}_books AS books ON books.id = KJV_verses.book_id
+            JOIN bible_books AS books ON books.id = KJV_verses.book_id
             WHERE {translation}_verses.book_id = ?1 
                 AND {translation}_verses.chapter = ?2 
             "#
