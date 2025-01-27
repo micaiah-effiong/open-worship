@@ -19,6 +19,7 @@ use widgets::search::{SearchInit, SearchModel, SearchOutput};
 mod config;
 mod db;
 mod dto;
+mod parser;
 mod structs;
 mod widgets;
 
