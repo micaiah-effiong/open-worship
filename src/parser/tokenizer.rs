@@ -19,6 +19,12 @@ pub struct Token {
     pub value: String,
 }
 
+impl Token {
+    pub fn inspect(&self) -> String {
+        return self.value.clone();
+    }
+}
+
 pub struct Tokenizer {
     pub char: char,
     pub position: u32,
