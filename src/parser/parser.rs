@@ -475,7 +475,9 @@ fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
                     verses.push(id);
                 } else if let Some(range) = v.get::<RangeLiteral>() {
                     let range_literal = range.clone();
-                    let gap = range_literal.start.value..=range_literal.end.value;
+                    let min = u32::min(range_literal.start.value, range_literal.end.value);
+                    let max = u32::max(range_literal.start.value, range_literal.end.value);
+                    let gap = min..=max;
 
                     for value in gap {
                         verses.push(NumberLiteral::new(value));
