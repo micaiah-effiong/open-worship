@@ -4,9 +4,9 @@ use super::tokenizer::{Token, TokenEnum, Tokenizer};
 
 #[derive(Debug)]
 pub struct BibleReference {
-    book: String,
-    chapter: u32,
-    verses: Vec<u32>,
+    pub book: String,
+    pub chapter: u32,
+    pub verses: Vec<u32>,
 }
 
 struct PageReference {
