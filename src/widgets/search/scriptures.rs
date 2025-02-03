@@ -5,7 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 use gtk::{
     gdk,
     gio::{ActionEntry, MenuItem, SimpleActionGroup},
-    glib::clone,
+    glib::{clone, subclass::SignalId},
     prelude::*,
     MultiSelection,
 };
@@ -18,6 +18,7 @@ use crate::{
         query::Query,
     },
     dto,
+    parser::parser,
 };
 
 #[derive(Debug)]
@@ -44,6 +45,46 @@ pub struct SearchScriptureInit {
 }
 
 impl SearchScriptureModel {
+    fn register_search_change(&mut self, search_field: &gtk::SearchEntry) {
+        let list_model = self.list_view_wrapper.borrow().selection_model.clone();
+        let list_view = self.list_view_wrapper.borrow().view.clone();
+
+        search_field.connect_search_changed(clone!(
+            #[strong]
+            list_model,
+            move |se| {
+                let p = parser::Parser::parser(String::from(se.text()));
+                if let Some(p) = p {
+                    println!("CONNECT_SEARCH_CHANGED {:?}", p.eval());
+                    let evaluated = p.eval();
+                    let pos = evaluated.verses.get(0).unwrap_or(&0).clone();
+                    list_model.select_item(pos.saturating_sub(1), true);
+
+                    for index in evaluated.verses {
+                        list_model.select_item(index.saturating_sub(1), false);
+                    }
+                }
+            }
+        ));
+
+        search_field.connect_changed(|se| {
+            println!("CONNECT_CHANGED {:?}", se.text());
+        });
+
+        search_field.connect_activate(clone!(
+            #[strong]
+            list_model,
+            #[strong]
+            list_view,
+            move |se| {
+                list_view.emit_by_name_with_values(
+                    "activate",
+                    &[list_model.selection().nth(0).to_value()],
+                );
+            }
+        ));
+    }
+
     fn get_search_text(&self, pos: u32, end: Option<u32>) -> String {
         let list = self.list_view_wrapper.borrow();
 
@@ -132,20 +173,20 @@ impl SearchScriptureModel {
         let list_view = self.list_view_wrapper.borrow().selection_model.clone();
         // let model = self.clone();
 
-        list_view.connect_selection_changed(clone!(
-            #[strong]
-            sender,
-            move |selection_model, _, _| {
-                let pos = selection_model.selection().nth(0);
-                let end_val = selection_model
-                    .selection()
-                    .nth((selection_model.selection().size() - 1) as u32);
-
-                let end = if end_val > pos { Some(end_val) } else { None };
-
-                sender.input(SearchScriptureInput::Selected(pos, end));
-            }
-        ));
+        // list_view.connect_selection_changed(clone!(
+        //     #[strong]
+        //     sender,
+        //     move |selection_model, _, _| {
+        //         let pos = selection_model.selection().nth(0);
+        //         let end_val = selection_model
+        //             .selection()
+        //             .nth((selection_model.selection().size() - 1) as u32);
+        //
+        //         let end = if end_val > pos { Some(end_val) } else { None };
+        //
+        //         sender.input(SearchScriptureInput::Selected(pos, end));
+        //     }
+        // ));
     }
 
     fn register_activate_selected(&mut self, sender: &ComponentSender<Self>) {
@@ -270,13 +311,13 @@ impl SimpleComponent for SearchScriptureModel {
             set_vexpand: true,
             add_css_class: "blue_box",
 
-            // #[name="search_field"]
             gtk::Box {
                 set_orientation: gtk::Orientation::Horizontal,
                 set_spacing: 2,
                 set_height_request: 48,
                 add_css_class: "green_double_box",
 
+            #[name="search_field"]
                 gtk::SearchEntry {
                     #[watch]
                     set_placeholder_text: Some(&model.search_text),
@@ -318,6 +359,7 @@ impl SimpleComponent for SearchScriptureModel {
 
         let list_view = model.list_view_wrapper.borrow().view.clone();
         let widgets = view_output!();
+        model.register_search_change(&widgets.search_field);
 
         return relm4::ComponentParts { model, widgets };
     }
