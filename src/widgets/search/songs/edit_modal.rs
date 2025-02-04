@@ -372,34 +372,27 @@ impl EditModel {
 
     fn register_list_view_selection_changed(&self, sender: ComponentSender<Self>) {
         let list_wrapper = self.list_wrapper.clone();
+        let list_model = list_wrapper.borrow().selection_model.clone();
 
-        if let Some(view) = self.list_wrapper.borrow().view.model() {
-            view.connect_selection_changed(clone!(
-                #[strong]
-                list_wrapper,
-                move |m, _, _| {
-                    let list = list_wrapper.borrow();
+        list_model.connect_selection_changed(clone!(
+            #[strong]
+            list_wrapper,
+            move |m, _, _| {
+                let list = list_wrapper.borrow();
 
-                    for index in 0..m.n_items() {
-                        if !m.is_selected(index) {
-                            continue;
-                        }
+                let index = m.selection().nth(0);
 
-                        if let Some(item) = list.get(index) {
-                            let item = item.borrow();
-                            let start = &item.text_buffer.start_iter();
-                            let end = &item.text_buffer.end_iter();
-                            let text = &item.text_buffer.text(start, end, true);
-                            let payload = DisplayPayload::new(text.to_string());
-                            println!("move focus: 1. {:?}\n 2. {:?}\n", payload, index);
-                            sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
-                        }
-
-                        break;
-                    }
+                if let Some(item) = list.get(index) {
+                    let item = item.borrow();
+                    let start = &item.text_buffer.start_iter();
+                    let end = &item.text_buffer.end_iter();
+                    let text = &item.text_buffer.text(start, end, true);
+                    let payload = DisplayPayload::new(text.to_string());
+                    println!("move focus: 1. {:?}\n 2. {:?}\n", payload, index);
+                    sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
                 }
-            ));
-        }
+            }
+        ));
     }
 
     fn load_song(&self, song: &Song, sender: &ComponentSender<Self>) {
