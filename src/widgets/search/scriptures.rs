@@ -5,7 +5,7 @@ use std::{cell::RefCell, rc::Rc};
 use gtk::{
     gdk,
     gio::{ActionEntry, MenuItem, SimpleActionGroup},
-    glib::{clone, subclass::SignalId},
+    glib::clone,
     prelude::*,
     MultiSelection,
 };
@@ -19,12 +19,11 @@ use crate::{
     },
     dto,
     parser::parser,
+    widgets::util,
 };
 
 #[derive(Debug)]
-pub enum SearchScriptureInput {
-    Selected(u32, Option<u32>),
-}
+pub enum SearchScriptureInput {}
 
 #[derive(Debug)]
 pub enum SearchScriptureOutput {
@@ -35,7 +34,7 @@ pub enum SearchScriptureOutput {
 #[derive(Debug, Clone)]
 pub struct SearchScriptureModel {
     list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
-    search_text: String,
+    search_text: gtk::SearchEntry,
 }
 
 impl SearchScriptureModel {}
@@ -45,31 +44,82 @@ pub struct SearchScriptureInit {
 }
 
 impl SearchScriptureModel {
-    fn register_search_change(&mut self, search_field: &gtk::SearchEntry) {
+    fn register_search_change(&mut self, db: Rc<RefCell<DatabaseConnection>>) {
         let list_model = self.list_view_wrapper.borrow().selection_model.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
+        let search_field = self.search_text.clone();
+        let list_view_wrapper = self.list_view_wrapper.clone();
 
         search_field.connect_search_changed(clone!(
             #[strong]
+            db,
+            #[strong]
+            list_view,
+            #[strong]
             list_model,
+            #[strong]
+            list_view_wrapper,
             move |se| {
                 let p = parser::Parser::parser(String::from(se.text()));
-                if let Some(p) = p {
-                    println!("CONNECT_SEARCH_CHANGED {:?}", p.eval());
-                    let evaluated = p.eval();
-                    let pos = evaluated.verses.get(0).unwrap_or(&0).clone();
-                    list_model.select_item(pos.saturating_sub(1), true);
+                let p = match p {
+                    Some(p) => p,
+                    None => return,
+                };
 
-                    for index in evaluated.verses {
-                        list_model.select_item(index.saturating_sub(1), false);
+                println!("CONNECT_SEARCH_CHANGED {:?}", p.eval());
+                let evaluated = p.eval();
+
+                let verses = match Query::new(&db.borrow()).get_chapter_query(
+                    String::from("KJV"),
+                    evaluated.book,
+                    evaluated.chapter,
+                ) {
+                    Ok(vs) => vs,
+                    Err(x) => {
+                        println!("SQL ERROR: \n{:?}", x);
+                        return;
+                    }
+                };
+
+                list_view_wrapper.borrow_mut().clear();
+                for verse in verses {
+                    list_view_wrapper.borrow_mut().append(ScriptureListItem {
+                        data: dto::Scripture {
+                            book: verse.book.clone(),
+                            chapter: verse.chapter,
+                            verse: verse.verse,
+                            text: verse.text.clone(),
+                        },
+                    });
+                }
+
+                let pos = evaluated.verses.get(0).unwrap_or(&0).clone();
+                list_model.select_item(pos.saturating_sub(1), true);
+
+                for index in evaluated.verses.clone() {
+                    list_model.select_item(index.saturating_sub(1), false);
+                }
+
+                let list = match list_view.first_child() {
+                    Some(li) => util::widget_to_vec(&li),
+                    None => return (),
+                };
+
+                for (i, li) in list.iter().enumerate() {
+                    let vli = match evaluated.verses.first() {
+                        Some(vli) => vli,
+                        None => continue,
+                    };
+
+                    if vli.saturating_sub(1).eq(&(i as u32)) {
+                        li.grab_focus();
+                        break;
                     }
                 }
+
+                se.grab_focus();
             }
         ));
-
-        search_field.connect_changed(|se| {
-            println!("CONNECT_CHANGED {:?}", se.text());
-        });
 
         search_field.connect_activate(clone!(
             #[strong]
@@ -83,35 +133,6 @@ impl SearchScriptureModel {
                 );
             }
         ));
-    }
-
-    fn get_search_text(&self, pos: u32, end: Option<u32>) -> String {
-        let list = self.list_view_wrapper.borrow();
-
-        let bible_verse = match list.get(pos) {
-            Some(v) => v.borrow().clone().data,
-            None => return String::new(),
-        };
-
-        let book = bible_verse.book;
-        let chapter = bible_verse.chapter;
-        let verse = bible_verse.verse;
-        let default = format!("{book} {chapter}:{verse}").to_string();
-
-        match end {
-            Some(end) => {
-                if let Some(end_verse) = list.get(end) {
-                    let end_verse_data = end_verse.borrow().clone().data;
-                    let e_verse = end_verse_data.verse;
-                    return format!("{book} {chapter}:{verse}-{e_verse}").to_string();
-                };
-
-                return default;
-            }
-            None => {
-                return default;
-            }
-        }
     }
 
     fn register_context_menu(&mut self, sender: &ComponentSender<Self>) {
@@ -212,7 +233,7 @@ impl SearchScriptureModel {
     }
 
     fn get_initial_scriptures(db: &DatabaseConnection) -> Result<Vec<BibleVerse>, rusqlite::Error> {
-        return Query::new(db).get_chapter_query(String::from("KJV"), 1, 1);
+        return Query::new(db).get_chapter_query(String::from("KJV"), "Genesis".to_string(), 1);
     }
 
     fn get_payload_for_selected_scriptures(
@@ -272,7 +293,7 @@ impl SearchScriptureModel {
         ));
     }
 
-    fn load_initial_verses(&self, db_connection: &DatabaseConnection) {
+    fn load_initial_verses(&mut self, db_connection: &DatabaseConnection) {
         let list_view_wrapper = self.list_view_wrapper.clone();
 
         let verses = match SearchScriptureModel::get_initial_scriptures(db_connection) {
@@ -280,21 +301,27 @@ impl SearchScriptureModel {
             Err(_) => Vec::new(),
         };
 
-        for verse in verses {
+        println!("VERSES {:?}", verses);
+        list_view_wrapper.borrow_mut().clear();
+        for (i, verse) in verses.iter().enumerate() {
             list_view_wrapper.borrow_mut().append(ScriptureListItem {
                 data: dto::Scripture {
-                    book: verse.book,
+                    book: verse.book.clone(),
                     chapter: verse.chapter,
                     verse: verse.verse,
-                    text: verse.text,
+                    text: verse.text.clone(),
                 },
-            })
-        }
+            });
 
-        list_view_wrapper
-            .borrow()
-            .selection_model
-            .select_item(0, true);
+            if i == 0 {
+                self.search_text.set_text(&format!(
+                    "{} {}:{}",
+                    verse.book.clone(),
+                    verse.chapter,
+                    verse.verse
+                ));
+            }
+        }
     }
 }
 
@@ -317,12 +344,8 @@ impl SimpleComponent for SearchScriptureModel {
                 set_height_request: 48,
                 add_css_class: "green_double_box",
 
-            #[name="search_field"]
-                gtk::SearchEntry {
-                    #[watch]
-                    set_placeholder_text: Some(&model.search_text),
-                    #[watch]
-                    set_text: &model.search_text,
+                #[local_ref]
+                append = &search_text -> gtk::SearchEntry {
                     set_hexpand: true
                 }
             },
@@ -349,26 +372,25 @@ impl SimpleComponent for SearchScriptureModel {
 
         let mut model = SearchScriptureModel {
             list_view_wrapper: list_view_wrapper.clone(),
-            search_text: String::new(),
+            search_text: gtk::SearchEntry::new(),
         };
+
+        let list_view = model.list_view_wrapper.borrow().view.clone();
+        let search_text = model.search_text.clone();
+        let widgets = view_output!();
+
+        let db = init.db_connection.clone();
 
         model.register_selected(&sender);
         model.register_activate_selected(&sender);
         model.register_context_menu(&sender);
         model.load_initial_verses(&init.db_connection.borrow());
-
-        let list_view = model.list_view_wrapper.borrow().view.clone();
-        let widgets = view_output!();
-        model.register_search_change(&widgets.search_field);
+        model.register_search_change(db);
 
         return relm4::ComponentParts { model, widgets };
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
-        match message {
-            SearchScriptureInput::Selected(pos, end) => {
-                self.search_text = self.get_search_text(pos, end);
-            }
-        };
+        match message {};
     }
 }
