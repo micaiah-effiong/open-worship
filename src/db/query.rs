@@ -23,21 +23,22 @@ impl<'a> Query<'a> {
     pub fn get_chapter_query(
         &self,
         translation: String,
-        book_id: u32,
+        book: String,
         chapter: u32,
     ) -> RuResult<Vec<BibleVerse>> {
         let sql = format!(
             r#"
             SELECT book_id, chapter, verse, text, books.name AS book 
             FROM {translation}_verses
-            JOIN bible_books AS books ON books.id = KJV_verses.book_id
-            WHERE {translation}_verses.book_id = ?1 
+            JOIN bible_books AS books ON books.id = {translation}_verses.book_id
+            WHERE {translation}_verses.book_id =(SELECT id FROM bible_books WHERE name LIKE ?1) 
                 AND {translation}_verses.chapter = ?2 
             "#
         );
 
-        let mut stmt = self.get_connection().prepare(&sql)?;
-        let rows = stmt.query_map([book_id, chapter], |r| {
+        let mut stmt = self.get_connection().prepare(&sql).expect("SQL ERROR");
+        let params = [format!("{book}%"), chapter.to_string()];
+        let rows = stmt.query_map(params, |r| {
             Ok(BibleVerse {
                 book_id: r.get::<_, u32>(0)?,
                 chapter: r.get::<_, u32>(1)?,
