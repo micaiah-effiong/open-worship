@@ -18,26 +18,23 @@ impl Drop for EditSongModalListItemWidget {
 }
 
 impl RelmListItem for EditSongModalListItem {
-    type Root = gtk::Box;
+    type Root = gtk::TextView;
     type Widgets = EditSongModalListItemWidget;
 
     fn setup(_list_item: &gtk::ListItem) -> (Self::Root, Self::Widgets) {
         view! {
-            list_view = gtk::Box{
+            list_view = gtk::TextView{
                 set_margin_all: 8,
-
-                #[name="text_view"]
-                gtk::TextView {
-                    set_hexpand: true,
-                    set_editable: true,
-                    set_height_request: 40,
-                },
-            }
+                set_hexpand: true,
+                set_editable: true,
+                set_height_request: 40,
+            },
         }
 
-        let widgets = EditSongModalListItemWidget { text_view };
+        let widgets = EditSongModalListItemWidget {
+            text_view: list_view.clone(),
+        };
 
-        println!("setUp");
         return (list_view, widgets);
     }
 
