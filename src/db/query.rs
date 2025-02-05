@@ -1,27 +1,19 @@
-use rusqlite::{Connection, Result as RuResult};
+use std::collections::HashMap;
 
-use crate::db::connection::BibleVerse;
+use relm4::factory::Position;
+use rusqlite::{params, Connection, Result as RuResult};
 
-use super::connection::DatabaseConnection;
+use crate::{
+    db::connection::BibleVerse,
+    dto::{Song, SongVerse},
+};
 
 /// Query
-pub struct Query<'a> {
-    pub database: &'a DatabaseConnection,
-}
+pub struct Query {}
 
-impl<'a> Query<'a> {
-    pub fn new(database: &'a DatabaseConnection) -> Query<'a> {
-        return Query {
-            database: &database,
-        };
-    }
-
-    fn get_connection(&self) -> &Connection {
-        return &self.database.connection;
-    }
-
+impl Query {
     pub fn get_chapter_query(
-        &self,
+        conn: &Connection,
         translation: String,
         book_id: u32,
         chapter: u32,
@@ -36,7 +28,7 @@ impl<'a> Query<'a> {
             "#
         );
 
-        let mut stmt = self.get_connection().prepare(&sql)?;
+        let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map([book_id, chapter], |r| {
             Ok(BibleVerse {
                 book_id: r.get::<_, u32>(0)?,
@@ -53,5 +45,100 @@ impl<'a> Query<'a> {
         }
 
         return Ok(verses_vec);
+    }
+
+    pub fn insert_song(conn: &mut Connection, song: Song) -> RuResult<()> {
+        let song_sql = r#"
+            INSERT INTO songs(title) VALUES(?1)
+        "#;
+
+        let song_verse_sql = r#"
+            INSERT INTO song_verses(song_id,verse,text,tag) VALUES(?1,?2,?3,?4)
+        "#;
+
+        let tx = conn.transaction()?;
+
+        tx.execute(song_sql, [song.title])?;
+        let song_id = tx.query_row("SELECT id from songs ORDER BY id ASC LIMIT 1", [], |r| {
+            r.get::<_, u32>(0)
+        })?;
+
+        for (i, verse) in song.verses.iter().enumerate() {
+            tx.execute(
+                song_verse_sql,
+                params![song_id, i.saturating_add(1), verse.text, verse.tag],
+            )?;
+        }
+
+        return tx.commit();
+    }
+
+    pub fn update_song(conn: &mut Connection, song: Song) -> RuResult<()> {
+        let song_sql = "UPDATE songs SET title=?1 WHERE id = ?2";
+        let clear_song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
+
+        let song_verse_sql = r#"
+            INSERT INTO song_verses(song_id,verse,text,tag) VALUES(?1,?2,?3,?4)
+        "#;
+
+        println!("SONG_ID {:?}", song.song_id);
+        let tx = conn.transaction()?;
+        tx.execute(song_sql, (&song.title, &song.song_id))?;
+        tx.execute(clear_song_verses_sql, [&song.song_id])?;
+
+        for (i, verse) in song.verses.iter().enumerate() {
+            println!(
+                "VERSES UPDATE {:?}",
+                tx.execute(
+                    song_verse_sql,
+                    (&song.song_id, &i.saturating_add(1), &verse.text, &verse.tag),
+                )
+            );
+        }
+
+        return tx.commit();
+    }
+
+    pub fn delete_song(conn: &mut Connection, song: Song) -> RuResult<()> {
+        let song_sql = "DELETE FROM songs WHERE id = ?1";
+        let song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
+
+        let tx = conn.transaction()?;
+        tx.execute(song_verses_sql, [&song.song_id])?;
+        tx.execute(song_sql, [&song.song_id])?;
+
+        return tx.commit();
+    }
+
+    pub fn get_songs(conn: &Connection, search_text: String) -> RuResult<Vec<Song>> {
+        let mut songs_sql =
+            conn.prepare("SELECT id, title FROM songs WHERE title like ?1 ORDER BY title ASC")?;
+        let mut songs_verses_sql =
+            conn.prepare("SELECT verse, text, tag FROM song_verses WHERE song_id = ?1")?;
+
+        let songs_query = songs_sql.query_map([format!("%{search_text}%")], |r| {
+            Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?))
+        })?;
+        let db_songs = songs_query
+            .map(|i| i.unwrap())
+            .collect::<Vec<(u32, String)>>();
+
+        let mut songs = Vec::new();
+        for song in db_songs {
+            let verses_query = songs_verses_sql.query_map([&song.0], |r| {
+                let t = r.get::<_, String>(1)?;
+                let tag = match t.is_empty() {
+                    true => None,
+                    false => Some(t),
+                };
+
+                Ok(SongVerse::new(r.get::<_, String>(1)?, tag))
+            })?;
+
+            let verses = verses_query.map(|v| v.unwrap()).collect::<Vec<SongVerse>>();
+            songs.push(Song::from_verses(song.0, song.1, verses))
+        }
+
+        return Ok(songs);
     }
 }
