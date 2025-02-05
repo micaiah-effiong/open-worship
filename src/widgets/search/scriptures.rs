@@ -69,7 +69,8 @@ impl SearchScriptureModel {
                 println!("CONNECT_SEARCH_CHANGED {:?}", p.eval());
                 let evaluated = p.eval();
 
-                let verses = match Query::new(&db.borrow()).get_chapter_query(
+                let verses = match Query::get_chapter_query(
+                    &db.borrow().connection,
                     String::from("KJV"),
                     evaluated.book,
                     evaluated.chapter,
