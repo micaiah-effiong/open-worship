@@ -212,7 +212,12 @@ impl SearchScriptureModel {
     }
 
     fn get_initial_scriptures(db: &DatabaseConnection) -> Result<Vec<BibleVerse>, rusqlite::Error> {
-        return Query::get_chapter_query(&db.connection, String::from("KJV"), 1, 1);
+        return Query::get_chapter_query(
+            &db.connection,
+            String::from("KJV"),
+            String::from("Genesis"),
+            1,
+        );
     }
 
     fn get_payload_for_selected_scriptures(
