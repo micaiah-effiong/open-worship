@@ -4,7 +4,8 @@ use gtk::{glib::clone, pango::ffi::PANGO_WEIGHT_BOLD, prelude::*, SingleSelectio
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::{
-    dto::{DisplayPayload, Song},
+    db::{connection::DatabaseConnection, query::Query},
+    dto::{self, DisplayPayload, Song},
     widgets::{
         activity_screen::{ActivityScreenInput, ActivityScreenModel},
         search::songs::{
@@ -17,9 +18,12 @@ use crate::{
 pub struct EditModel {
     /// indicates if the edit modal is visible/active
     pub is_active: bool,
+    pub is_new_song: bool,
+    pub song: Option<Song>,
     pub screen: Controller<ActivityScreenModel>,
     pub list_wrapper: Rc<RefCell<TypedListView<EditSongModalListItem, SingleSelection>>>,
     pub song_title_entry: Rc<RefCell<gtk::Entry>>,
+    pub db_connection: Rc<RefCell<DatabaseConnection>>,
 }
 
 #[derive(Debug)]
@@ -39,11 +43,25 @@ pub enum EditModelOutputMsg {
     Save(Song),
 }
 
+/// Help determine how to store date in datebase
+/// Insert or Update
+#[derive(Debug)]
+pub enum EditModelOpeningState {
+    /// INSERT
+    New,
+    /// Update(id)
+    Edit(u32),
+}
+
+pub struct EditModelInit {
+    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+}
+
 const WIDTH: i32 = 1200;
 
 #[relm4::component(pub)]
 impl SimpleComponent for EditModel {
-    type Init = ();
+    type Init = EditModelInit;
     type Output = EditModelOutputMsg;
     type Input = EditModelInputMsg;
 
@@ -197,7 +215,7 @@ impl SimpleComponent for EditModel {
     }
 
     fn init(
-        _init: Self::Init,
+        init: Self::Init,
         root: Self::Root,
         sender: relm4::prelude::ComponentSender<Self>,
     ) -> relm4::prelude::ComponentParts<Self> {
@@ -213,6 +231,9 @@ impl SimpleComponent for EditModel {
             screen,
             list_wrapper: Rc::new(RefCell::new(typed_list_view)),
             song_title_entry: Rc::new(RefCell::new(gtk::Entry::default())),
+            db_connection: init.db_connection.clone(),
+            is_new_song: true,
+            song: None,
         };
 
         let text_entry = model.song_title_entry.borrow().clone();
@@ -220,7 +241,7 @@ impl SimpleComponent for EditModel {
         let list_view = model.list_wrapper.clone().borrow().view.clone();
 
         let widgets = view_output!();
-        EditModel::register_response_ok(&widgets.ok_btn, &text_entry, &sender);
+        model.register_response_ok(&widgets.ok_btn, &text_entry, &sender);
         EditModel::register_list_view_selection_changed(&model, sender.clone());
 
         return relm4::ComponentParts { widgets, model };
@@ -229,9 +250,14 @@ impl SimpleComponent for EditModel {
         match message {
             EditModelInputMsg::Show(song) => {
                 self.is_active = true;
+                self.song = song.clone();
                 if let Some(song) = song {
-                    self.load_song(&song, &sender)
+                    self.load_song(&song, &sender);
+                    self.is_new_song = false
+                } else {
+                    self.is_new_song = true
                 }
+                // TODO: check for insert or update
             }
             EditModelInputMsg::Hide => {
                 self.is_active = false;
@@ -312,12 +338,33 @@ impl SimpleComponent for EditModel {
                         }
 
                         let title = self.song_title_entry.borrow_mut().buffer();
-                        let song_model =
-                            SongListItemModel::new(Song::new(title.text().to_string(), verses));
+                        let song = Song::new(
+                            title.text().to_string(),
+                            verses,
+                            match self.song.clone() {
+                                Some(s) => s.song_id,
+                                None => 0,
+                            },
+                        );
+                        let song_model = SongListItemModel::new(song.clone());
 
                         // TODO:
                         // save song to database
-                        // invalidate song query
+
+                        let mut conn = self.db_connection.borrow_mut();
+                        if self.is_new_song {
+                            match Query::insert_song(&mut conn.connection, song) {
+                                Ok(()) => (),
+                                Err(x) => println!("SQL ERROR: {:?}", x),
+                            };
+                        } else {
+                            match Query::update_song(&mut conn.connection, song) {
+                                Ok(()) => (),
+                                Err(x) => println!("SQL ERROR: {:?}", x),
+                            };
+                        }
+
+                        // TODO: invalidate song query
                         let _ = sender.output(EditModelOutputMsg::Save(song_model.song));
 
                         list_wrapper.clear();
@@ -333,6 +380,10 @@ impl SimpleComponent for EditModel {
                     }
                     _ => return,
                 };
+
+                self.screen.emit(ActivityScreenInput::DisplayUpdate(
+                    dto::DisplayPayload::new("".to_string()),
+                ));
             }
         };
     }
@@ -340,32 +391,38 @@ impl SimpleComponent for EditModel {
 
 impl EditModel {
     fn register_response_ok(
+        &self,
         button: &gtk::Button,
         text_entry: &gtk::Entry,
         sender: &ComponentSender<EditModel>,
     ) {
+        let list = self.list_wrapper.clone();
+        let db = self.db_connection.clone();
+
         button.connect_clicked(clone!(
             #[strong]
             text_entry,
             #[strong]
             sender,
+            #[strong]
+            list,
+            #[strong]
+            db,
             move |_| {
-                if !text_entry.buffer().text().is_empty() {
-                    sender.input(EditModelInputMsg::Response(gtk::ResponseType::Ok));
+                if text_entry.buffer().text().is_empty() {
+                    let label = gtk::Label::builder().label("Title cannot be empty").build();
+                    let win = gtk::Window::builder()
+                        .default_width(300)
+                        .default_height(100)
+                        .modal(true)
+                        .focus_visible(true)
+                        .child(&label)
+                        .build();
+                    win.set_visible(true);
                     return;
                 }
 
-                let label = gtk::Label::builder().label("Title cannot be empty").build();
-
-                let win = gtk::Window::builder()
-                    .default_width(300)
-                    .default_height(100)
-                    .modal(true)
-                    .focus_visible(true)
-                    .child(&label)
-                    .build();
-
-                win.show();
+                sender.input(EditModelInputMsg::Response(gtk::ResponseType::Ok));
             }
         ));
     }

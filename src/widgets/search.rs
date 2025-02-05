@@ -11,10 +11,7 @@ use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundMo
 use scriptures::{SearchScriptureInit, SearchScriptureModel, SearchScriptureOutput};
 use songs::{SearchSongInit, SearchSongModel, SearchSongOutput};
 
-use crate::{
-    db::{self, connection::DatabaseConnection},
-    dto,
-};
+use crate::{db::connection::DatabaseConnection, dto};
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -127,7 +124,9 @@ impl SimpleComponent for SearchModel {
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
         let song_page = SearchSongModel::builder()
-            .launch(SearchSongInit {})
+            .launch(SearchSongInit {
+                db_connection: init.db_connection.clone(),
+            })
             .forward(sender.input_sender(), SearchModel::convert_song_msg);
         let scripture_page = SearchScriptureModel::builder()
             .launch(SearchScriptureInit {
