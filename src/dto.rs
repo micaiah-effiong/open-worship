@@ -87,6 +87,14 @@ impl Song {
             song_id,
         };
     }
+
+    pub fn from_verses(song_id: u32, title: String, verses: Vec<SongVerse>) -> Self {
+        return Song {
+            title,
+            verses,
+            song_id,
+        };
+    }
 }
 
 // SCRIPTURE
