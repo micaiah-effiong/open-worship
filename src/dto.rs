@@ -68,19 +68,24 @@ impl SongVerse {
 
 #[derive(Debug, Clone)]
 pub struct Song {
+    pub song_id: u32,
     pub title: String,
     pub verses: Vec<SongVerse>,
 }
 
 impl Song {
-    pub fn new(title: String, verse_list: Vec<String>) -> Self {
+    pub fn new(title: String, verse_list: Vec<String>, song_id: u32) -> Self {
         let mut verses = Vec::new();
 
         for verse in verse_list {
             verses.push(SongVerse::new(verse, None));
         }
 
-        return Song { title, verses };
+        return Song {
+            title,
+            verses,
+            song_id,
+        };
     }
 }
 
