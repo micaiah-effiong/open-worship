@@ -300,6 +300,8 @@ impl SimpleComponent for AppModel {
             window.set_default_height(display_geometry.height() / 2);
         }
 
+        widgets.main_window.present();
+
         return relm4::ComponentParts { model, widgets };
     }
 
