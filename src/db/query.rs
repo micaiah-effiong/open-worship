@@ -112,7 +112,7 @@ impl Query {
 
     pub fn get_songs(conn: &Connection, search_text: String) -> RuResult<Vec<Song>> {
         let mut songs_sql =
-            conn.prepare("SELECT id, title FROM songs WHERE title like ?1 ORDER BY title ASC")?;
+            conn.prepare("SELECT id, title FROM songs WHERE title LIKE ?1 ORDER BY title ASC")?;
         let mut songs_verses_sql =
             conn.prepare("SELECT verse, text, tag FROM song_verses WHERE song_id = ?1")?;
 

@@ -35,11 +35,60 @@ pub enum SearchSongOutput {
 #[derive(Debug)]
 pub struct SearchSongModel {
     list_view_wrapper: Rc<RefCell<TypedListView<SongListItemModel, SingleSelection>>>,
+    search_field: gtk::SearchEntry,
     edit_song_dialog: relm4::Controller<EditModel>,
     db_connection: Rc<RefCell<DatabaseConnection>>,
 }
 
 impl SearchSongModel {
+    fn register_search_field_events(&self) {
+        let search = self.search_field.clone();
+        let list = self.list_view_wrapper.clone();
+        let db = self.db_connection.clone();
+
+        search.connect_search_changed(clone!(
+            #[strong]
+            db,
+            #[strong]
+            list,
+            move |se| {
+                //
+                let songs =
+                    match Query::get_songs(&db.borrow_mut().connection, se.text().to_string()) {
+                        Ok(q) => q,
+                        Err(e) => {
+                            eprintln!("SQL ERROR: {:?}", e);
+                            return ();
+                        }
+                    };
+
+                let mut lw = list.borrow_mut();
+                lw.clear();
+                songs.iter().for_each(|s| {
+                    lw.append(SongListItemModel::new(s.clone()));
+                });
+            }
+        ));
+
+        search.connect_activate(clone!(
+            #[strong]
+            list,
+            move |_se| {
+                println!("S ACTIVATE");
+                let t_list = list.borrow();
+                let model = &t_list.selection_model;
+                let view = &t_list.view;
+
+                let selected = model.selected().to_value();
+                view.emit_by_name_with_values("activate", &[selected]);
+            }
+        ));
+
+        search.connect_next_match(|m| {
+            println!("N_MATCH <C-g> {:?}", m);
+        });
+    }
+
     /// handles list_view right click gesture
     fn register_context_menu(&self, sender: &ComponentSender<SearchSongModel>) {
         let wrapper = self.list_view_wrapper.clone();
@@ -163,6 +212,7 @@ impl SearchSongModel {
             #[strong]
             sender,
             move |_lv, pos| {
+                println!("P ACTIVATE");
                 let song_list_item = match wrapper.borrow().get(pos) {
                     Some(item) => item.borrow().clone(),
                     None => return,
@@ -209,20 +259,21 @@ impl SimpleComponent for SearchSongModel {
             set_vexpand: true,
             add_css_class: "blue_box",
 
-            #[name="search_field"]
             gtk::Box {
                 set_orientation: gtk::Orientation::Horizontal,
                 set_spacing: 2,
                 set_height_request: 48,
                 add_css_class: "green_double_box",
 
-                gtk::Label {
-                    set_label: "Title",
-                    set_margin_horizontal: 5,
-                },
+                // gtk::Label {
+                //     set_label: "Title",
+                //     set_margin_horizontal: 5,
+                // },
 
-                gtk::SearchEntry {
-                    set_placeholder_text: Some("Search..."),
+                #[local_ref]
+                append = &search_field -> gtk::SearchEntry {
+
+                    set_placeholder_text: Some("Search title..."),
                     set_hexpand: true
                 }
             },
@@ -250,7 +301,6 @@ impl SimpleComponent for SearchSongModel {
     ) -> relm4::ComponentParts<Self> {
         let mut list_view_wrapper = TypedListView::new();
 
-        // let conn = ;
         let initial_songs =
             Query::get_songs(&init.db_connection.borrow().connection, "".to_string());
         match initial_songs {
@@ -274,15 +324,18 @@ impl SimpleComponent for SearchSongModel {
                 SearchSongModel::convert_edit_model_response,
             );
 
+        let search_field = gtk::SearchEntry::new();
+
         let model = SearchSongModel {
             list_view_wrapper,
+            search_field: search_field.clone(),
             edit_song_dialog,
             db_connection: init.db_connection.clone(),
         };
         let list_view = &model.list_view_wrapper.borrow().view.clone();
         model.register_listview_activate(&sender);
         model.register_context_menu(&sender);
-
+        model.register_search_field_events();
         let widgets = view_output!();
 
         return relm4::ComponentParts { model, widgets };
