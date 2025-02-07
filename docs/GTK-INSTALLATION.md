@@ -55,7 +55,7 @@ gvsbuild build gtk4
   #install gtk4
   brew install gtk4
 
-  #install gtk4
+  #install librsvg and libadwaita
   brew install librsvg libadwaita
   ```
 
