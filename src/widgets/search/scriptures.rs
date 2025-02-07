@@ -307,7 +307,6 @@ impl SearchScriptureModel {
             Err(_) => Vec::new(),
         };
 
-        println!("VERSES {:?}", verses);
         list_view_wrapper.borrow_mut().clear();
         for (i, verse) in verses.iter().enumerate() {
             list_view_wrapper.borrow_mut().append(ScriptureListItem {

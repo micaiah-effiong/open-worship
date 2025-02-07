@@ -58,8 +58,8 @@ impl Query {
 
         let tx = conn.transaction()?;
 
-        tx.execute(song_sql, [song.title])?;
-        let song_id = tx.query_row("SELECT id from songs ORDER BY id DESC LIMIT 1", [], |r| {
+        tx.execute(song_sql, [&song.title])?;
+        let song_id = tx.query_row("SELECT id from songs WHERE title = ?1", [song.title], |r| {
             r.get::<_, u32>(0)
         })?;
 
