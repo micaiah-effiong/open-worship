@@ -59,14 +59,14 @@ impl Query {
         let tx = conn.transaction()?;
 
         tx.execute(song_sql, [song.title])?;
-        let song_id = tx.query_row("SELECT id from songs ORDER BY id ASC LIMIT 1", [], |r| {
+        let song_id = tx.query_row("SELECT id from songs ORDER BY id DESC LIMIT 1", [], |r| {
             r.get::<_, u32>(0)
         })?;
 
         for (i, verse) in song.verses.iter().enumerate() {
             tx.execute(
                 song_verse_sql,
-                params![song_id, i.saturating_add(1), verse.text, verse.tag],
+                (&song_id, &i.saturating_add(1), &verse.text, &verse.tag),
             )?;
         }
 
@@ -81,19 +81,15 @@ impl Query {
             INSERT INTO song_verses(song_id,verse,text,tag) VALUES(?1,?2,?3,?4)
         "#;
 
-        println!("SONG_ID {:?}", song.song_id);
         let tx = conn.transaction()?;
         tx.execute(song_sql, (&song.title, &song.song_id))?;
         tx.execute(clear_song_verses_sql, [&song.song_id])?;
 
         for (i, verse) in song.verses.iter().enumerate() {
-            println!(
-                "VERSES UPDATE {:?}",
-                tx.execute(
-                    song_verse_sql,
-                    (&song.song_id, &i.saturating_add(1), &verse.text, &verse.tag),
-                )
-            );
+            tx.execute(
+                song_verse_sql,
+                (&song.song_id, &i.saturating_add(1), &verse.text, &verse.tag),
+            )?;
         }
 
         return tx.commit();
