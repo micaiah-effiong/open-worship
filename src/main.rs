@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use config::AppConfig;
 use db::connection::DatabaseConnection;
-use gtk::prelude::*;
+use gtk::{prelude::*, ApplicationWindow};
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
 use widgets::live_activity_viewer::{
@@ -97,7 +97,7 @@ impl SimpleComponent for AppModel {
 
     view! {
         #[root]
-        main_window = gtk::Window{
+        main_window = gtk::ApplicationWindow{
             // layout box
             #[wrap(Some)]
             set_child = &gtk::Box {
@@ -300,6 +300,10 @@ impl SimpleComponent for AppModel {
             window.set_default_height(display_geometry.height() / 2);
         }
 
+        let app = relm4::main_application();
+        add_app_menu(&app);
+        add_app_actions(&window);
+
         widgets.main_window.present();
 
         return relm4::ComponentParts { model, widgets };
@@ -393,6 +397,7 @@ const RESOURECE_PATH: &str = "/com/open-worship/app";
 const MIN_GRID_WIDTH: i32 = 300;
 
 fn main() {
+    gtk::glib::set_application_name("Open worship");
     let app = relm4::main_application();
     app.set_application_id(Some(APP_ID));
     app.set_resource_base_path(Some(RESOURECE_PATH));
@@ -452,6 +457,31 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
     };
 
     return Some(geometry);
+}
+
+fn add_app_menu(app: &gtk::Application) {
+    let menubar = gtk::gdk::gio::Menu::new();
+
+    let file_menu = gtk::gio::Menu::new();
+    menubar.append_submenu(Some("File"), &file_menu);
+
+    let edit_menu = gtk::gio::Menu::new();
+    menubar.append_submenu(Some("Edit"), &edit_menu);
+
+    app.set_menubar(Some(&menubar));
+}
+
+fn add_app_actions(window: &gtk::ApplicationWindow) {
+    let close_action = gtk::gio::ActionEntry::builder("close")
+        .activate(|window: &gtk::ApplicationWindow, _, _| {
+            println!("CLOSE");
+            window.close();
+        })
+        .build();
+    window.add_action_entries([close_action]);
+
+    let app = relm4::main_application();
+    app.set_accels_for_action("win.close", &["<Ctrl>w"]);
 }
 
 // fn load_css() {
