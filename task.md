@@ -2,3 +2,7 @@
 
 - Refactor and clean up parser code
 - Add dev installation instructions for different OS
+- Setup build
+  - [ ] MacOS
+  - [ ] Linux
+  - [ ] Window
