@@ -22,3 +22,5 @@ Cargo.lock
 
 data/*
 *.nvim
+
+linuxdeploy*

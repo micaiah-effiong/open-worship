@@ -1,0 +1,25 @@
+{
+  "title": "Open worship",
+  "background": "background.png",
+  "icon-size": 100,
+  "window": {
+    "size": {
+      "width": 500,
+      "height": 300
+    }
+  },
+  "contents": [
+    {
+      "x": 150,
+      "y": 130,
+      "type": "file",
+      "path": "../../target/aarch64-apple-darwin/debug/bundle/osx/Open Worship.app"
+    },
+    {
+      "x": 350,
+      "y": 130,
+      "type": "link",
+      "path": "/Applications"
+    }
+  ]
+}
