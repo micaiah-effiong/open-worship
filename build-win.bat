@@ -1,5 +1,5 @@
-
-$target="x86_64-pc-windows-msvc"
+SETLOCAL
+SET "target=x86_64-pc-windows-msvc"
 
 cargo build --release
 
@@ -22,6 +22,8 @@ Copy-Item -Path C:\gtk-build\gtk\x64\release\share\glib-2.0\schemas\gschemas.com
 # TODO: Ideally something like this would have worked and we wouldn't need to hardcode stuff in `open-worship.wxs`: https://github.com/volks73/cargo-wix/issues/271
 # & "C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir target\wix\gtk4 -gg -sfrag -template:fragment -out target\wix\gtk4.wxs -cg GTK -dr GTK
 
-cargo wix --target $traget --no-build --nocapture
+cargo wix --target x86_64-pc-windows-msvc --no-build --nocapture
 
 Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
+
+ENDLOCAL
