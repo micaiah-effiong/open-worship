@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use config::AppConfig;
 use db::connection::DatabaseConnection;
-use gtk::{prelude::*, ApplicationWindow};
+use gtk::{prelude::*, PopoverMenuBar};
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
 use widgets::live_activity_viewer::{
@@ -100,6 +100,7 @@ impl SimpleComponent for AppModel {
         main_window = gtk::ApplicationWindow{
             // layout box
             #[wrap(Some)]
+            #[name="window_box"]
             set_child = &gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
 
@@ -301,8 +302,8 @@ impl SimpleComponent for AppModel {
         }
 
         let app = relm4::main_application();
-        add_app_menu(&app);
-        add_app_actions(&window);
+        add_app_menu(Some(&app), Some(&widgets.window_box));
+        add_app_actions(&window, &app);
 
         widgets.main_window.present();
 
@@ -459,7 +460,34 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
     return Some(geometry);
 }
 
-fn add_app_menu(app: &gtk::Application) {
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn add_app_menu(_app: Option<&gtk::Application>, window_box: Option<&gtk::Box>) {
+    let window_box = match window_box {
+        Some(w) => w,
+        None => return,
+    };
+
+    let menu = gtk::gdk::gio::Menu::new();
+
+    let file_menu = gtk::gio::Menu::new();
+    menu.append_submenu(Some("File"), &file_menu);
+
+    let edit_menu = gtk::gio::Menu::new();
+    menu.append_submenu(Some("Edit"), &edit_menu);
+
+    let menu_model: gtk::gio::MenuModel = menu.into();
+    let menubar = PopoverMenuBar::from_model(Some(&menu_model));
+
+    window_box.prepend(&menubar);
+}
+
+#[cfg(target_os = "macos")]
+fn add_app_menu(app: Option<&gtk::Application>, _window_box: Option<&gtk::Box>) {
+    let app = match app {
+        Some(a) => a,
+        None => return,
+    };
+
     let menubar = gtk::gdk::gio::Menu::new();
 
     let file_menu = gtk::gio::Menu::new();
@@ -471,7 +499,9 @@ fn add_app_menu(app: &gtk::Application) {
     app.set_menubar(Some(&menubar));
 }
 
-fn add_app_actions(window: &gtk::ApplicationWindow) {
+fn add_app_actions(window: &gtk::ApplicationWindow, app: &gtk::Application) {
+    app.set_accels_for_action("win.close", &["<Ctrl>w"]);
+
     let close_action = gtk::gio::ActionEntry::builder("close")
         .activate(|window: &gtk::ApplicationWindow, _, _| {
             println!("CLOSE");
@@ -479,9 +509,6 @@ fn add_app_actions(window: &gtk::ApplicationWindow) {
         })
         .build();
     window.add_action_entries([close_action]);
-
-    let app = relm4::main_application();
-    app.set_accels_for_action("win.close", &["<Ctrl>w"]);
 }
 
 // fn load_css() {
