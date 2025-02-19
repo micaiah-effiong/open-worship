@@ -399,10 +399,10 @@ fn main() {
     relm4_icons::initialize_icons();
 
     let app = relm4::RelmApp::from_app(app);
-    let _ = relm4::gtk::init();
+    relm4::gtk::init().expect("Could not init gtk");
+    app_init();
 
     log_display_info();
-    let _ = relm4::set_global_css_from_file(std::path::Path::new("./src/style.css"));
 
     // setup app
     AppConfig::init();
@@ -464,3 +464,21 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
 //         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
 //     );
 // }
+
+fn app_init() {
+    gtk::glib::set_application_name("Open worship");
+    gtk::gio::resources_register_include!("resources.gresource")
+        .expect("could not find app resources");
+
+    let provider = gtk::CssProvider::new();
+    provider.load_from_resource("/com/open-worship/app/style.css");
+
+    if let Some(display) = gtk::gdk::Display::default() {
+        gtk::style_context_add_provider_for_display(
+            &display,
+            &provider,
+            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        );
+    }
+    // gtk::Window::set_default_icon_name("");
+}
