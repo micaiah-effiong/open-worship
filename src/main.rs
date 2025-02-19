@@ -460,20 +460,14 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
     return Some(geometry);
 }
 
-#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[cfg(not(target_os = "macos"))]
 fn add_app_menu(_app: Option<&gtk::Application>, window_box: Option<&gtk::Box>) {
     let window_box = match window_box {
         Some(w) => w,
         None => return,
     };
 
-    let menu = gtk::gdk::gio::Menu::new();
-
-    let file_menu = gtk::gio::Menu::new();
-    menu.append_submenu(Some("File"), &file_menu);
-
-    let edit_menu = gtk::gio::Menu::new();
-    menu.append_submenu(Some("Edit"), &edit_menu);
+    let menu = build_app_menu();
 
     let menu_model: gtk::gio::MenuModel = menu.into();
     let menubar = PopoverMenuBar::from_model(Some(&menu_model));
@@ -488,19 +482,24 @@ fn add_app_menu(app: Option<&gtk::Application>, _window_box: Option<&gtk::Box>) 
         None => return,
     };
 
-    let menubar = gtk::gdk::gio::Menu::new();
+    let menu = build_app_menu();
+    app.set_menubar(Some(&menu));
+}
+
+fn build_app_menu() -> gtk::gio::Menu {
+    let menu = gtk::gdk::gio::Menu::new();
 
     let file_menu = gtk::gio::Menu::new();
-    menubar.append_submenu(Some("File"), &file_menu);
+    menu.append_submenu(Some("File"), &file_menu);
 
     let edit_menu = gtk::gio::Menu::new();
-    menubar.append_submenu(Some("Edit"), &edit_menu);
+    menu.append_submenu(Some("Edit"), &edit_menu);
 
-    app.set_menubar(Some(&menubar));
+    return menu;
 }
 
 fn add_app_actions(window: &gtk::ApplicationWindow, app: &gtk::Application) {
-    app.set_accels_for_action("win.close", &["<Ctrl>w"]);
+    app.set_accels_for_action("win.close", &["<Primary>w"]);
 
     let close_action = gtk::gio::ActionEntry::builder("close")
         .activate(|window: &gtk::ApplicationWindow, _, _| {
