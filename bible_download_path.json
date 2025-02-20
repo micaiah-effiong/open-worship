@@ -1,0 +1,566 @@
+[
+  {
+    "name": "ACV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ACV.db"
+  },
+  {
+    "name": "AKJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/AKJV.db"
+  },
+  {
+    "name": "ASV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ASV.db"
+  },
+  {
+    "name": "Alb.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Alb.db"
+  },
+  {
+    "name": "Anderson.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Anderson.db"
+  },
+  {
+    "name": "ArmEastern.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ArmEastern.db"
+  },
+  {
+    "name": "BBE.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/BBE.db"
+  },
+  {
+    "name": "BSB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/BSB.db"
+  },
+  {
+    "name": "BeaMRK.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/BeaMRK.db"
+  },
+  {
+    "name": "BurJudson.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/BurJudson.db"
+  },
+  {
+    "name": "Byz.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Byz.db"
+  },
+  {
+    "name": "CPDV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/CPDV.db"
+  },
+  {
+    "name": "CSlElizabeth.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/CSlElizabeth.db"
+  },
+  {
+    "name": "CebPinadayag.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/CebPinadayag.db"
+  },
+  {
+    "name": "Che1860.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Che1860.db"
+  },
+  {
+    "name": "ChiSB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ChiSB.db"
+  },
+  {
+    "name": "ChiUn.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ChiUn.db"
+  },
+  {
+    "name": "ChiUnL.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ChiUnL.db"
+  },
+  {
+    "name": "CopSahBible2.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/CopSahBible2.db"
+  },
+  {
+    "name": "CroSaric.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/CroSaric.db"
+  },
+  {
+    "name": "CzeBKR.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/CzeBKR.db"
+  },
+  {
+    "name": "CzeCSP.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/CzeCSP.db"
+  },
+  {
+    "name": "DRC.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/DRC.db"
+  },
+  {
+    "name": "DaOT1871NT1907.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/DaOT1871NT1907.db"
+  },
+  {
+    "name": "Darby.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Darby.db"
+  },
+  {
+    "name": "DutSVV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/DutSVV.db"
+  },
+  {
+    "name": "DutSVVA.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/DutSVVA.db"
+  },
+  {
+    "name": "Esperanto.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Esperanto.db"
+  },
+  {
+    "name": "Est.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Est.db"
+  },
+  {
+    "name": "FinBiblia.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FinBiblia.db"
+  },
+  {
+    "name": "FinPR.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FinPR.db"
+  },
+  {
+    "name": "FinSTLK2017.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FinSTLK2017.db"
+  },
+  {
+    "name": "FreBBB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreBBB.db"
+  },
+  {
+    "name": "FreBDM1744.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreBDM1744.db"
+  },
+  {
+    "name": "FreCrampon.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreCrampon.db"
+  },
+  {
+    "name": "FreGeneve1669.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreGeneve1669.db"
+  },
+  {
+    "name": "FreJND.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreJND.db"
+  },
+  {
+    "name": "FreLXX.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreLXX.db"
+  },
+  {
+    "name": "FreLXXGiguet.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreLXXGiguet.db"
+  },
+  {
+    "name": "FreOltramare1874.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreOltramare1874.db"
+  },
+  {
+    "name": "FrePGR.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FrePGR.db"
+  },
+  {
+    "name": "FreStapfer1889.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreStapfer1889.db"
+  },
+  {
+    "name": "FreSynodale1921.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/FreSynodale1921.db"
+  },
+  {
+    "name": "Geneva1599.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Geneva1599.db"
+  },
+  {
+    "name": "GerAlbrecht.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerAlbrecht.db"
+  },
+  {
+    "name": "GerBoLut.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerBoLut.db"
+  },
+  {
+    "name": "GerElb1871.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerElb1871.db"
+  },
+  {
+    "name": "GerElb1905.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerElb1905.db"
+  },
+  {
+    "name": "GerGruenewald.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerGruenewald.db"
+  },
+  {
+    "name": "GerLeoNA28.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerLeoNA28.db"
+  },
+  {
+    "name": "GerMenge.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerMenge.db"
+  },
+  {
+    "name": "GerOffBiSt.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerOffBiSt.db"
+  },
+  {
+    "name": "GerSch.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerSch.db"
+  },
+  {
+    "name": "GerTafel.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerTafel.db"
+  },
+  {
+    "name": "GerTextbibel.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerTextbibel.db"
+  },
+  {
+    "name": "GerZurcher.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GerZurcher.db"
+  },
+  {
+    "name": "GreVamvas.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/GreVamvas.db"
+  },
+  {
+    "name": "Haitian.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Haitian.db"
+  },
+  {
+    "name": "Haweis.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Haweis.db"
+  },
+  {
+    "name": "HebModern.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/HebModern.db"
+  },
+  {
+    "name": "HunKar.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/HunKar.db"
+  },
+  {
+    "name": "JPS.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/JPS.db"
+  },
+  {
+    "name": "JapBungo.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/JapBungo.db"
+  },
+  {
+    "name": "JapDenmo.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/JapDenmo.db"
+  },
+  {
+    "name": "JapKougo.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/JapKougo.db"
+  },
+  {
+    "name": "Jubilee2000.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Jubilee2000.db"
+  },
+  {
+    "name": "KJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KJV.db"
+  },
+  {
+    "name": "KJVA.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KJVA.db"
+  },
+  {
+    "name": "KJVPCE.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KJVPCE.db"
+  },
+  {
+    "name": "KLV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KLV.db"
+  },
+  {
+    "name": "KorHKJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KorHKJV.db"
+  },
+  {
+    "name": "KorRV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KorRV.db"
+  },
+  {
+    "name": "LEB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/LEB.db"
+  },
+  {
+    "name": "LITV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/LITV.db"
+  },
+  {
+    "name": "LvGluck8.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/LvGluck8.db"
+  },
+  {
+    "name": "MKJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/MKJV.db"
+  },
+  {
+    "name": "Mal1910.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Mal1910.db"
+  },
+  {
+    "name": "ManxGaelic.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ManxGaelic.db"
+  },
+  {
+    "name": "Maori.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Maori.db"
+  },
+  {
+    "name": "MapM.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/MapM.db"
+  },
+  {
+    "name": "Mg1865.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Mg1865.db"
+  },
+  {
+    "name": "NHEB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/NHEB.db"
+  },
+  {
+    "name": "NHEBJE.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/NHEBJE.db"
+  },
+  {
+    "name": "NHEBME.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/NHEBME.db"
+  },
+  {
+    "name": "NlCanisius1939.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/NlCanisius1939.db"
+  },
+  {
+    "name": "NorSMB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/NorSMB.db"
+  },
+  {
+    "name": "Norsk.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Norsk.db"
+  },
+  {
+    "name": "Noyes.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Noyes.db"
+  },
+  {
+    "name": "OEB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/OEB.db"
+  },
+  {
+    "name": "OEBcth.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/OEBcth.db"
+  },
+  {
+    "name": "Peshitta.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Peshitta.db"
+  },
+  {
+    "name": "PohnOld.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/PohnOld.db"
+  },
+  {
+    "name": "PolGdanska.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/PolGdanska.db"
+  },
+  {
+    "name": "PolUGdanska.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/PolUGdanska.db"
+  },
+  {
+    "name": "PorBLivre.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/PorBLivre.db"
+  },
+  {
+    "name": "PorBLivreTR.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/PorBLivreTR.db"
+  },
+  {
+    "name": "PorNVA.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/PorNVA.db"
+  },
+  {
+    "name": "RLT.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/RLT.db"
+  },
+  {
+    "name": "RNKJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/RNKJV.db"
+  },
+  {
+    "name": "RWebster.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/RWebster.db"
+  },
+  {
+    "name": "Rotherham.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Rotherham.db"
+  },
+  {
+    "name": "RusMakarij.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/RusMakarij.db"
+  },
+  {
+    "name": "RusSynodal.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/RusSynodal.db"
+  },
+  {
+    "name": "SP.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SP.db"
+  },
+  {
+    "name": "SloChraska.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SloChraska.db"
+  },
+  {
+    "name": "SloKJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SloKJV.db"
+  },
+  {
+    "name": "SloOjacano.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SloOjacano.db"
+  },
+  {
+    "name": "SloStritar.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SloStritar.db"
+  },
+  {
+    "name": "SpaPlatense.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SpaPlatense.db"
+  },
+  {
+    "name": "SpaRV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SpaRV.db"
+  },
+  {
+    "name": "SpaRV1865.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SpaRV1865.db"
+  },
+  {
+    "name": "SpaRVG.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SpaRVG.db"
+  },
+  {
+    "name": "SrKDEkavski.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SrKDEkavski.db"
+  },
+  {
+    "name": "SrKDIjekav.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SrKDIjekav.db"
+  },
+  {
+    "name": "StatResGNT.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/StatResGNT.db"
+  },
+  {
+    "name": "Swe1917.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Swe1917.db"
+  },
+  {
+    "name": "SweKarlXII.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SweKarlXII.db"
+  },
+  {
+    "name": "SweKarlXII1873.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/SweKarlXII1873.db"
+  },
+  {
+    "name": "TR.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/TR.db"
+  },
+  {
+    "name": "TagAngBiblia.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/TagAngBiblia.db"
+  },
+  {
+    "name": "Tausug.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Tausug.db"
+  },
+  {
+    "name": "ThaiKJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ThaiKJV.db"
+  },
+  {
+    "name": "TpiKJPB.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/TpiKJPB.db"
+  },
+  {
+    "name": "Twenty.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Twenty.db"
+  },
+  {
+    "name": "Tyndale.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Tyndale.db"
+  },
+  {
+    "name": "UKJV.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/UKJV.db"
+  },
+  {
+    "name": "UkrOgienko.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/UkrOgienko.db"
+  },
+  {
+    "name": "Viet.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Viet.db"
+  },
+  {
+    "name": "VulgClementine.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/VulgClementine.db"
+  },
+  {
+    "name": "VulgConte.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/VulgConte.db"
+  },
+  {
+    "name": "VulgHetzenauer.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/VulgHetzenauer.db"
+  },
+  {
+    "name": "VulgSistine.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/VulgSistine.db"
+  },
+  {
+    "name": "Vulgate.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Vulgate.db"
+  },
+  {
+    "name": "WLC.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/WLC.db"
+  },
+  {
+    "name": "Webster.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Webster.db"
+  },
+  {
+    "name": "Wulfila.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Wulfila.db"
+  },
+  {
+    "name": "Wycliffe.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/Wycliffe.db"
+  },
+  {
+    "name": "YLT.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/YLT.db"
+  },
+  {
+    "name": "extras",
+    "download_url": null
+  },
+  {
+    "name": "sml_BL_2008.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/sml_BL_2008.db"
+  },
+  {
+    "name": "vlsJoNT.db",
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/vlsJoNT.db"
+  }
+]

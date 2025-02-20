@@ -141,6 +141,7 @@ pub struct BibleTranslation {
     /// KJV AMP NIV
     pub translation: String,
     pub title: String,
+    pub license: String,
 }
 
 // search book

@@ -1,12 +1,11 @@
-use std::collections::HashMap;
-
-use relm4::factory::Position;
 use rusqlite::{params, Connection, Result as RuResult};
 
 use crate::{
     db::connection::BibleVerse,
     dto::{Song, SongVerse},
 };
+
+use super::connection::BibleTranslation;
 
 /// Query
 pub struct Query {}
@@ -27,6 +26,8 @@ impl Query {
                 AND {translation}_verses.chapter = ?2 
             "#
         );
+
+        println!("SEARCH \nbook: {book}, chapter: {chapter}, transaction: {translation}");
 
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(params![format!("%{book}%"), chapter], |r| {
@@ -136,5 +137,83 @@ impl Query {
         }
 
         return Ok(songs);
+    }
+
+    pub fn insert_verse(
+        conn: &mut Connection,
+        bible_translation: BibleTranslation,
+        bible_verse: Vec<(u32, BibleVerse)>,
+    ) -> RuResult<()> {
+        println!("INSERTING VERESES");
+        let translations_sql =
+            "INSERT OR IGNORE INTO `translations` (`translation`, `title`, `license`) VALUES (?1, ?2, ?3);";
+
+        let table_sql = format!(
+            r#"
+            CREATE TABLE IF NOT EXISTS `{}_verses` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `book_id` INT,
+                `chapter` INT,
+                `verse` INT,
+                `text` TEXT,
+                FOREIGN KEY (book_id) REFERENCES `bible_books`(id)
+            );
+        "#,
+            bible_translation.translation, //bible_translation.translation
+        );
+
+        let mut vec_sql_verse = Vec::new();
+        for item in bible_verse {
+            let (id, book) = item;
+            let verse_sql = format!("INSERT OR IGNORE INTO `{}_verses` (`id`, `book_id`, `chapter`, `verse`, `text`) VALUES (?1, ?2, ?3, ?4, ?5);", bible_translation.translation);
+
+            // println!("INSERTING VERESES id:{id}");
+            vec_sql_verse.push((verse_sql, id, book));
+        }
+
+        let tx = conn.transaction()?;
+
+        tx.execute(&table_sql, [])?;
+        tx.execute(
+            translations_sql,
+            [
+                &bible_translation.translation,
+                &bible_translation.title,
+                &bible_translation.license,
+            ],
+        )?;
+
+        for verse in vec_sql_verse.iter() {
+            let (sql, id, book) = verse;
+            match tx.execute(
+                &sql,
+                (id, book.book_id, book.chapter, book.verse, &book.text),
+            ) {
+                Ok(s) => s,
+                Err(e) => {
+                    println!(">>INSERTING VERESES ERROR: {:?}", verse);
+                    return Err(e);
+                }
+            };
+        }
+
+        return tx.commit();
+    }
+
+    pub fn get_translations(conn: &Connection) -> RuResult<Vec<String>> {
+        let sql = "SELECT translation FROM translations";
+        let mut stmt = conn.prepare(sql)?;
+
+        let query_result = stmt.query_map([], |r| Ok(r.get::<_, String>(0)?))?;
+
+        let mut translation_list = Vec::new();
+        for i in query_result.into_iter() {
+            match i {
+                Ok(i) => translation_list.push(i),
+                Err(e) => eprintln!("SQL ERROR: {:?}", e),
+            }
+        }
+
+        Ok(translation_list)
     }
 }
