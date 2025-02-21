@@ -26,8 +26,7 @@ impl Query {
                 AND {translation}_verses.chapter = ?2 
             "#
         );
-
-        println!("SEARCH \nbook: {book}, chapter: {chapter}, transaction: {translation}");
+        // println!("SEARCH \nbook: {book}, chapter: {chapter}, transaction: {translation}");
 
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt.query_map(params![format!("%{book}%"), chapter], |r| {
@@ -215,5 +214,16 @@ impl Query {
         }
 
         Ok(translation_list)
+    }
+
+    pub fn delete_bible_translation(conn: &mut Connection, translation: String) -> RuResult<()> {
+        let delete_translations_sql = "DELETE FROM translations WHERE translation = ?1";
+        let drop_translation_table_sql = format!("DROP TABLE IF EXISTS {translation}_verses"); // <name>_verses
+
+        let trx = conn.transaction()?;
+        trx.execute(&delete_translations_sql, [&translation])?;
+        trx.execute(&drop_translation_table_sql, [])?;
+
+        return trx.commit();
     }
 }

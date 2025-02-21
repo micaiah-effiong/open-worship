@@ -149,7 +149,7 @@ impl SearchScriptureModel {
         btn.connect_clicked(clone!(
             #[strong]
             conn,
-            move |_| {
+            move |btn| {
                 // TODO: prevent mutiple import windows
                 let win = gtk::Window::new();
                 win.set_default_height(256);
@@ -662,7 +662,10 @@ mod download {
     };
     use relm4::{gtk, typed_view::list::RelmListItem, view, RelmWidgetExt};
 
-    use crate::{db::connection::DatabaseConnection, widgets::search::scriptures::import_bible};
+    use crate::{
+        db::{connection::DatabaseConnection, query::Query},
+        widgets::search::scriptures::import_bible,
+    };
 
     use super::BibleDownload;
 
@@ -698,11 +701,8 @@ mod download {
                     },
                     #[name="btn"]
                     gtk::Button{
-                        set_label:"Install",
+                        // set_label:"Install",
                     },
-                    //  gtk::Image{
-                    //      set_icon_name:Some("mark")
-                    //  }
                 }
             }
 
@@ -715,17 +715,22 @@ mod download {
             let a = self.data.name.split(".").collect::<Vec<&str>>();
             if let Some(name) = a.get(0) {
                 let name = name.to_string();
-                let text = format!("{}", name);
-                widgets.text.set_label(&text);
-            }
-
-            if self.already_added {
-                widgets.btn.set_sensitive(false);
-                widgets.btn.set_label("Installed");
+                match self.already_added {
+                    true => {
+                        widgets.btn.set_label("Uninstall");
+                        widgets.text.set_label(&format!("{} (Installed)", name));
+                    }
+                    false => {
+                        widgets.btn.set_label("Install");
+                        widgets.text.set_label(&format!("{}", name));
+                    }
+                };
             }
 
             let conn = self.conn.clone();
             let data = self.data.clone();
+            let already_added = self.already_added.clone();
+
             widgets.btn.connect_clicked(move |btn| {
                 gtk::glib::spawn_future_local(clone!(
                     #[strong]
@@ -734,11 +739,41 @@ mod download {
                     data,
                     #[strong]
                     conn,
+                    #[strong]
+                    already_added,
                     async move {
                         btn.set_sensitive(false);
-                        btn.set_label("Installing");
-                        import_bible(&data, conn.clone()).await;
-                        btn.set_label("Installed");
+
+                        match already_added {
+                            true => {
+                                let a = data.name.split(".").collect::<Vec<&str>>();
+                                if let Some(name) = a.get(0) {
+                                    let name = name.to_string();
+                                    let name = format!("{}", name);
+                                    let mut conn = conn.borrow_mut();
+                                    let delete_result =
+                                        Query::delete_bible_translation(&mut conn.connection, name);
+
+                                    match delete_result {
+                                        Ok(_) => btn.set_label("Install"),
+                                        Err(e) => {
+                                            btn.set_label("Uninstall");
+                                            eprintln!(
+                                                "SQL ERROR: error removing translation\n{:?}",
+                                                e
+                                            );
+                                        }
+                                    }
+                                }
+                            }
+                            false => {
+                                btn.set_label("Installing");
+                                import_bible(&data, conn.clone()).await;
+                                btn.set_label("Installed");
+                            }
+                        }
+
+                        btn.set_sensitive(true);
                     }
                 ));
             });
