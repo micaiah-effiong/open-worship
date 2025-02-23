@@ -1,7 +1,7 @@
 SETLOCAL
 SET "target=x86_64-pc-windows-msvc"
 
-cargo build --release
+# cargo build --release
 
 Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
 
