@@ -3,6 +3,8 @@ name = "open-worship"
 version = "0.1.0"
 edition = "2021"
 authors = ["Micah Effiong <micaiah.effiong@gmail.com>"]
+license = "MIT"
+description= "A house of worship presentation software"
 
 [dependencies]
 # gtk = { package = "gtk4", version = "0.9.0" }
