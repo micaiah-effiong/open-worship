@@ -33,3 +33,6 @@ assets =[
   ["res/linux/open-worship.desktop", "/usr/share/applications/open-worship.desktop","644"],
   ["res/linux/open-worship.png", "/usr/share/icons/hicolor/256x256/apps/open-worship.png", "644"],
 ]
+
+[package.metadata.wix]
+include = ["res/windows/wix/open-worship.wxs"]
