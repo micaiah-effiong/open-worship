@@ -186,7 +186,7 @@ impl SearchSongModel {
         popover_menu.set_parent(&list_view);
 
         let gesture_click = gtk::GestureClick::new();
-        gesture_click.set_button(gtk::gdk::ffi::GDK_BUTTON_SECONDARY as u32);
+        gesture_click.set_button(gtk::gdk::BUTTON_SECONDARY);
         gesture_click.connect_pressed(clone!(
             #[strong]
             popover_menu,

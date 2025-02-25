@@ -407,7 +407,7 @@ impl SearchScriptureModel {
         popover_menu.set_align(gtk::Align::Start);
 
         let gesture = gtk::GestureClick::new();
-        gesture.set_button(gdk::ffi::GDK_BUTTON_SECONDARY as u32);
+        gesture.set_button(gtk::gdk::BUTTON_SECONDARY);
         gesture.connect_pressed(clone!(move |_, _, x, y| {
             let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
             popover_menu.set_pointing_to(Some(&rect));
