@@ -408,10 +408,11 @@ impl SearchScriptureModel {
 
         let gesture = gtk::GestureClick::new();
         gesture.set_button(gtk::gdk::BUTTON_SECONDARY);
-        gesture.connect_pressed(clone!(move |_, _, x, y| {
+        gesture.connect_pressed(clone!(move |gc, _, x, y| {
             let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
             popover_menu.set_pointing_to(Some(&rect));
             popover_menu.popup();
+            gc.set_state(gtk::EventSequenceState::Claimed);
         }));
 
         list_view.add_controller(gesture);

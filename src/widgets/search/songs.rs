@@ -190,10 +190,11 @@ impl SearchSongModel {
         gesture_click.connect_pressed(clone!(
             #[strong]
             popover_menu,
-            move |_, _, x, y| {
+            move |gc, _, x, y| {
                 let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 10, 10);
                 popover_menu.set_pointing_to(Some(&rect));
                 popover_menu.popup();
+                gc.set_state(gtk::EventSequenceState::Claimed);
             }
         ));
 
