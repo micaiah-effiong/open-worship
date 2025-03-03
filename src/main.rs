@@ -3,7 +3,9 @@ use std::rc::Rc;
 
 use config::AppConfig;
 use db::connection::DatabaseConnection;
-use gtk::{prelude::*, PopoverMenuBar};
+use gtk::prelude::*;
+#[cfg(not(target_os = "macos"))]
+use gtk::PopoverMenuBar;
 use relm4::prelude::*;
 use widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
 use widgets::live_activity_viewer::{
