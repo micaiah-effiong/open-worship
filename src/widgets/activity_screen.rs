@@ -202,8 +202,8 @@ impl SimpleComponent for ActivityScreenModel {
 }
 
 fn calculate_max_font_size_for_rect(w: i32, h: i32, text_length: f64) -> f64 {
-    let w = w.saturating_add(10);
-    let h = h.saturating_add(10);
+    let w = w.saturating_sub(10);
+    let h = h.saturating_sub(10);
     let area = w.saturating_mul(h) as f64;
     let max_font_size = (area / text_length).sqrt();
 
