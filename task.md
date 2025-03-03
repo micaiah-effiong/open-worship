@@ -16,3 +16,4 @@
   to another, shows texts from a different version
 - Songs without verses should not be added
   When adding song to database, it must have a minimum of 1 verse
+- Vertical text break auto max font adjust
