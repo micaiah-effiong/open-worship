@@ -183,37 +183,6 @@ impl SimpleComponent for ActivityScreenModel {
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
             ActivityScreenInput::DisplayUpdate(display_data) => {
-                // let text_lines = display_data.text.lines();
-                //
-                // let text_width =
-                //     text_lines.clone().fold(0, |acc, e| acc.max(e.len().into())) as f64;
-                // let text_height = text_lines.count() as f64;
-                // let text_len = display_data.text.len() as f64;
-
-                // println!("BEFORE WIDTH {:?}", self.screen_label.bounds());
-                // let b = match self.screen_label.bounds() {
-                //     Some((_x, _y, w, h)) => {
-                //         println!("IN WIDTH {:?}", self.screen_label.bounds());
-                //         f64::from((w * h) as f64 / text_len).sqrt()
-                //     }
-                //     None => return,
-                // };
-                // // let font_size = f64::from((text_width * text_height) / text_len).sqrt();
-                //
-                // self.display_text = format!("<b>{}</b>", display_data.text);
-                // println!("font_size {:?}", font_size);
-                //
-                // {
-                //     let mut desc = gtk::pango::FontDescription::new();
-                //     desc.set_size(b as i32 * gtk::pango::SCALE);
-                //     let attrs = gtk::pango::AttrList::new();
-                //     let attr = gtk::pango::AttrFontDesc::new(&desc);
-                //     attrs.insert(attr);
-                //     println!("WIDTH {:?}", self.screen_label.bounds());
-                //
-                //     self.screen_label.set_attributes(Some(&attrs));
-                // }
-
                 *self.display_text.borrow_mut() = display_data.text;
                 self.resize_font();
 
