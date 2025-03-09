@@ -73,18 +73,20 @@ impl ActivityScreenModel {
             return;
         }
 
-        let max_font_size = match self.screen_label.bounds() {
-            Some((_x, _y, w, h)) => calculate_max_font_size_for_rect(w, h, text_len),
+        let (_x, _y, w, h) = match self.screen_label.bounds() {
+            Some(r) => r,
             None => return,
         };
+        let max_font_size = calculate_max_font_size_for_rect(w, h, text_len);
 
-        let dyn_font = 60.0;
-        let dyn_font_size = calculate_dyn_font_size(dyn_font, max_font_size);
-        // println!("FONT-SIZE {max_font_size}, {custom_font_size}");
+        let fixed_font = 14.0;
+        let max_set_len = calc_max_len(w, h, fixed_font);
+        let dyn_font_size = calculate_max_font_size_for_rect(w, h, max_set_len);
+        println!("FONT-SIZE {max_font_size}, {dyn_font_size}, len = {max_set_len}");
 
         self.screen_label.inline_css(&format!(
             "font-size: {}px",
-            f64::max(dyn_font_size, max_font_size)
+            f64::min(dyn_font_size, max_font_size)
         ));
     }
 }
@@ -221,21 +223,19 @@ fn calculate_max_font_size_for_rect(w: i32, h: i32, text_length: f64) -> f64 {
     return max_font_size;
 }
 
-/// Calculate dynamic font-size with an unsigned float.
-/// Computes `font-size + max-font-size`, returning the size with respect to
-/// the max-font-size.
-///
-/// The give font-size is treated as percentage value of the max-font-size
-/// and it is capped at 100.0
-///
-///
-/// # Examples
-///
-/// Basic usage:
-///
+/// Calculate for the maximum number of text needed to fill a rect
+/// with a given font-size
 /// ```
-#[doc = concat!("assert_eq!(5.0, calculate_dyn_font_size(10, 50));")]
-fn calculate_dyn_font_size(font_size: f64, max_font_size: f64) -> f64 {
-    // fs/100 * mfs
-    return (font_size.min(100.0) / 100.0) * max_font_size;
+/// a = area
+/// l = length
+/// m = max font size
+/// m = ³√(a/l) * 2.0
+///
+/// find l when m = 10
+/// m = ³√(a/l) * 2
+/// l = 4a/m³
+/// ```
+fn calc_max_len(w: i32, h: i32, font_size: f64) -> f64 {
+    let area = (w * h) as f64;
+    return (8.0 * area) / (font_size.powf(3.0));
 }
