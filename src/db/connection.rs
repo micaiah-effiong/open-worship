@@ -27,6 +27,7 @@ pub fn load_db(path: String) {
     create_songs_table(&conn);
     create_song_verses_table(&conn);
     create_bible_books_table(&conn);
+    create_translations_table(&conn);
     insert_bible_books(&conn);
 
     let _ = conn.pragma_update(None, "journal_mode", &"WAL");
@@ -47,7 +48,7 @@ pub fn create_bible_books_table(conn: &Connection) {
     }
 }
 
-pub fn create_verses_table(conn: Connection, translation: String) {
+pub fn create_bible_book_verses_table(conn: Connection, translation: String) {
     let sql = format!(
         "CREATE TABLE IF NOT EXISTS {translation}_verses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -65,7 +66,7 @@ pub fn create_verses_table(conn: Connection, translation: String) {
     }
 }
 
-pub fn create_translations_table(conn: Connection) {
+pub fn create_translations_table(conn: &Connection) {
     let sql = format!(
         "CREATE TABLE IF NOT EXISTS translations (
             translation TEXT PRIMARY KEY,
