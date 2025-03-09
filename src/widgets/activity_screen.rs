@@ -68,23 +68,24 @@ impl ActivityScreenModel {
 
     fn resize_font(&self) {
         let text = self.display_text.borrow();
-        println!("RESIZE TEXT LEN {}", text.len());
-
         let text_len = text.len() as f64;
-        let font_size = match self.screen_label.bounds() {
+        if text_len.eq(&0.0) {
+            return;
+        }
+
+        let max_font_size = match self.screen_label.bounds() {
             Some((_x, _y, w, h)) => calculate_max_font_size_for_rect(w, h, text_len),
-            None => 1.0,
+            None => return,
         };
 
-        // let font_size = font_size.max(user_font_size);
+        let dyn_font = 60.0;
+        let dyn_font_size = calculate_dyn_font_size(dyn_font, max_font_size);
+        // println!("FONT-SIZE {max_font_size}, {custom_font_size}");
 
-        let mut desc = gtk::pango::FontDescription::new();
-        desc.set_size((font_size as i32).saturating_mul(gtk::pango::SCALE));
-        let attrs = gtk::pango::AttrList::new();
-        let attr = gtk::pango::AttrFontDesc::new(&desc);
-        attrs.insert(attr);
-
-        self.screen_label.set_attributes(Some(&attrs));
+        self.screen_label.inline_css(&format!(
+            "font-size: {}px",
+            f64::max(dyn_font_size, max_font_size)
+        ));
     }
 }
 
@@ -174,7 +175,14 @@ impl SimpleComponent for ActivityScreenModel {
         widgets.screen_overlay.add_overlay(&d);
         let model_c = model.clone();
         d.connect_resize(move |_, _w, _h| {
+            // if let Some(t) = model_c.screen_label.toplevel_window() {
+            //     if t.is_maximized() {
+            //         return;
+            //     }
+            // }
+
             model_c.resize_font();
+            println!("RESIZE {_w}, {_h}");
         });
 
         return relm4::ComponentParts { model, widgets };
@@ -201,11 +209,33 @@ impl SimpleComponent for ActivityScreenModel {
     }
 }
 
+/// Calculate max-font-size with an unsigned float.
+/// Computes `cbrt(area / txt.len()) * 2`,
+/// returning the the max-font-size for a  given area
 fn calculate_max_font_size_for_rect(w: i32, h: i32, text_length: f64) -> f64 {
     let w = w.saturating_sub(10);
     let h = h.saturating_sub(10);
     let area = w.saturating_mul(h) as f64;
-    let max_font_size = (area / text_length).sqrt();
+    let max_font_size = (area / text_length).cbrt() * 2.0;
 
     return max_font_size;
+}
+
+/// Calculate dynamic font-size with an unsigned float.
+/// Computes `font-size + max-font-size`, returning the size with respect to
+/// the max-font-size.
+///
+/// The give font-size is treated as percentage value of the max-font-size
+/// and it is capped at 100.0
+///
+///
+/// # Examples
+///
+/// Basic usage:
+///
+/// ```
+#[doc = concat!("assert_eq!(5.0, calculate_dyn_font_size(10, 50));")]
+fn calculate_dyn_font_size(font_size: f64, max_font_size: f64) -> f64 {
+    // fs/100 * mfs
+    return (font_size.min(100.0) / 100.0) * max_font_size;
 }
