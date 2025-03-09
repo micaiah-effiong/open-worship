@@ -26,4 +26,4 @@ NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
 
 # Rename AppImage to be consistent with other files
 version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
-mv Open_Worship-$(uname -m).AppImage open-worship-$version-$(uname -m).AppImage
+mv Open_worship-$(uname -m).AppImage open-worship-$version-$(uname -m).AppImage
