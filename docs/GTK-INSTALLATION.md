@@ -70,3 +70,11 @@ gvsbuild build gtk4
 > #### Note:
 >
 > For more information on setting up gtk4 see the [installation docs](https://gtk-rs.org/gtk4-rs/stable/latest/book/installation.html)
+
+#### NOTE:
+
+If you device does not have `libssl-dev` you can also install that
+
+```sh
+sudo apt install libssl-dev
+```
