@@ -2,6 +2,7 @@
 name = "open-worship"
 version = "0.1.0"
 edition = "2021"
+authors = ["Micah Effiong <micaiah.effiong@gmail.com>"]
 
 [dependencies]
 # gtk = { package = "gtk4", version = "0.9.0" }
@@ -22,3 +23,11 @@ version = "0.9.0"
 
 [build-dependencies]
 glib-build-tools = "0.20.0"
+
+[package.metadata.deb]
+section="AudioVideo"
+assets =[
+  ["target/release/open-worship", "/usr/bin/open-worship", "755"],
+  ["res/linux/open-worship.desktop", "/usr/share/applications/open-worship.desktop","644"],
+  ["res/linux/open-worship.png", "/usr/share/icons/hicolor/256x256/apps/open-worship.png", "644"],
+]
