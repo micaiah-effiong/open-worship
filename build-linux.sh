@@ -19,7 +19,7 @@ chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
 NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
 	--appdir AppDir \
 	--plugin gtk \
-	--executable target/x86_64-unknown-linux-gnu/release/open-worship \
+	--executable target/$target/release/open-worship \
 	--desktop-file res/linux/open-worship.desktop \
 	--icon-file res/linux/open-worship.png \
 	--output appimage
