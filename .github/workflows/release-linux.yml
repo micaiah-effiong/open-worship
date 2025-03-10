@@ -1,7 +1,8 @@
 name: Release
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
+  push: {}
 
 # Incremental compilation here isn't helpful
 env:
