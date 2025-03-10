@@ -36,6 +36,9 @@ jobs:
         with:
           tool: cargo-deb
 
+      - name: Cargo build
+        run: cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
+
       - name: Package (Linux, with modern)
         run: ./build-linux.sh
 

@@ -1,7 +1,7 @@
 # Build Debian package
 # --profile production --no-build --no-strip --variant=modern
 target=$(rustup target list | awk '/installed/ {print $1;}')
-cargo deb --target $target --no-strip
+cargo deb --target $target --no-strip --no-build
 mv target/$target/debian/*.deb ./
 
 # And build AppImage as well
