@@ -36,3 +36,6 @@ assets =[
 
 [package.metadata.wix]
 include = ["res/windows/wix/open-worship.wxs"]
+
+[env]
+PKG_CONFIG_PATH = "/usr/lib/x86_64-linux-gnu/pkgconfig"
