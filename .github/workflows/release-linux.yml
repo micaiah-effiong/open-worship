@@ -34,9 +34,6 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cargo-deb (Linux)
-        run: cargo install cargo-deb
-
       - name: Check GTK
         run: |
           echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
@@ -51,6 +48,9 @@ jobs:
         run: |
           echo "[PKG]: $PKG_CONFIG_PATH"
           PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
+
+      - name: Install cargo-deb (Linux)
+        run: cargo install cargo-deb
 
       - name: Package (Linux, with modern)
         run: ./build-linux.sh
