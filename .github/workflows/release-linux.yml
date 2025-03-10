@@ -39,6 +39,8 @@ jobs:
       - name: Check GTK
         run: |
           echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
+          target=$(rustup target list | awk '/installed/ {print $1;}')
+          echo "PKG_CONFIG_PATH=/usr/lib/$target/pkgconfig" >> $GITHUB_ENV
 
       - name: Cargo build
         run: cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
