@@ -16,6 +16,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check GTK
+        run: |
+          echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
+          echo "[PKG]: $(which pkg-config)"
+          target=$(rustup target list | awk '/installed/ {print $1;}')
+          echo "PKG_CONFIG_PATH=/usr/lib/$target/pkgconfig" >> $GITHUB_ENV
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
+
       - name: Install GTK4 and libfuse2 (Linux)
         run: |
           sudo apt-get update
@@ -35,14 +43,6 @@ jobs:
         uses: taiki-e/cache-cargo-install-action@v2
         with:
           tool: cargo-deb
-
-      - name: Check GTK
-        run: |
-          echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
-          target=$(rustup target list | awk '/installed/ {print $1;}')
-          echo "PKG_CONFIG_PATH=/usr/lib/$target/pkgconfig" >> $GITHUB_ENV
-          find /usr -name gtk4.pc
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
 
       - name: Cargo build
         run: |
