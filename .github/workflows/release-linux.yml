@@ -42,6 +42,7 @@ jobs:
           target=$(rustup target list | awk '/installed/ {print $1;}')
           echo "PKG_CONFIG_PATH=/usr/lib/$target/pkgconfig" >> $GITHUB_ENV
           find /usr -name gtk4.pc
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
 
       - name: Cargo build
         run: |
