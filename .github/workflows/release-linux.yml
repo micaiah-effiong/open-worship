@@ -42,6 +42,7 @@ jobs:
           echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
           echo "[PKG]: $(which pkg-config)"
           echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
+          echo "[LS]: $(ls /usr/lib/x86_64-linux-gnu/pkgconfig)"
           target=$(rustup target list | awk '/installed/ {print $1;}')
           echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
@@ -49,7 +50,7 @@ jobs:
       - name: Cargo build
         run: |
           echo "[PKG]: $PKG_CONFIG_PATH"
-          cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
+          PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
 
       - name: Package (Linux, with modern)
         run: ./build-linux.sh
