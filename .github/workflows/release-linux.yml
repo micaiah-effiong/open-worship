@@ -37,7 +37,8 @@ jobs:
           tool: cargo-deb
 
       - name: Check GTK
-        run: echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
+        run: |
+          echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
 
       - name: Cargo build
         run: cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
