@@ -2,6 +2,10 @@
 
 - Refactor and clean up parser code
 - Add dev installation instructions for different OS
+- Setup build
+  - [ ] MacOS
+  - [ ] Linux
+  - [ ] Window
 - Scale user defined font size on screen resize
   In activity_screen allow user to define font size, and scale it appropriatly
   on the display screen and adapt to resizing.
