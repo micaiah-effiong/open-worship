@@ -31,10 +31,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
+      - name: Install rust toolchain
+      - uses: dtolnay/rust-toolchain@stable
+
       - name: Install cargo-deb (Linux)
-        uses: taiki-e/cache-cargo-install-action@v2
-        with:
-          tool: cargo-deb
+        run: cargo install cargo-deb
 
       - name: Check GTK
         run: |
