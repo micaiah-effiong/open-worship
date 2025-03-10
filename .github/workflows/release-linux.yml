@@ -10,7 +10,7 @@ env:
 
 jobs:
   release:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
@@ -19,6 +19,8 @@ jobs:
       - name: Install GTK4 and libfuse2 (Linux)
         run: |
           sudo apt-get update
+          sudo apt-get remove -y libgtk-4-dev libfuse2 librsvg2-dev
+          sudo apt-get autoremove
           sudo apt-get install -y pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
 
       - name: Configure cache
