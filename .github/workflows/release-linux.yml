@@ -18,10 +18,10 @@ jobs:
             suffix: ubuntu-x86_64-${{ github.ref_name }}
             modern-rustflags: "-C target-cpu=skylake"
             rustflags: "-C target-cpu=x86-64-v2"
-          - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
-            suffix: ubuntu-aarch64-${{ github.ref_name }}
-            rustflags: ""
+          # - os: ubuntu-24.04-arm
+          #   target: aarch64-unknown-linux-gnu
+          #   suffix: ubuntu-aarch64-${{ github.ref_name }}
+          #   rustflags: ""
       fail-fast: false
     runs-on: ${{ matrix.build.os }}
 
@@ -31,7 +31,10 @@ jobs:
 
       - name: Install GTK4 and libfuse2 (Linux)
         # libfuse2 is needed for AppImage to run, librsvg2-dev is needed for AppImage to support SVG icons properly
-        run: sudo apt-get update && sudo apt-get install -y pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
+          PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig
         if: runner.os == 'Linux'
 
       # - name: CUDA toolchain (Ubuntu)
