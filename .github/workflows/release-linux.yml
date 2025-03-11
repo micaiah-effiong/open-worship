@@ -52,14 +52,14 @@ jobs:
       - name: Upload AppImage to artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: open-worship-ubuntu-x86_64
+          name: open-worship-ubuntu-x86_64-appimage
           path: open-worship-*.AppImage
           if-no-files-found: error
 
       - name: Upload installer to artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: open-worship-ubuntu-x86_64
+          name: open-worship-ubuntu-x86_64-deb
           path: open-worship*.deb
           if-no-files-found: error
 
