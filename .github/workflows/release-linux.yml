@@ -50,18 +50,14 @@ jobs:
       - name: Package (Linux, with modern)
         run: ./build-linux.sh
 
-      - name: List files
-        run: |
-          echo "[LS]: $(ls)"
-
-      # - name: Upload installer to artifacts (Linux)
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: open-worship-${{ matrix.build.suffix }}
-      #     path: |
-      #       open-worship-*.AppImage
-      #       open-worship*.deb
-      #     if-no-files-found: error
+      - name: Upload installer to artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-worship-${{ matrix.build.suffix }}
+          path: |
+            open-worship-*.AppImage
+            open-worship*.deb
+          if-no-files-found: error
 
       # - name: Upload installer to assets (Linux)
       #   uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
