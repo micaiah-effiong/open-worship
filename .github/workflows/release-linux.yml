@@ -19,8 +19,6 @@ jobs:
       - name: Install GTK4 and libfuse2 (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get remove -y libgtk-4-dev libfuse2 librsvg2-dev
-          sudo apt-get autoremove
           sudo apt-get install -y pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
 
       - name: Configure cache
@@ -41,30 +39,28 @@ jobs:
           echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
           echo "[PKG]: $(which pkg-config)"
           echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
-          target=$(rustup target list | awk '/installed/ {print $1;}')
-          # echo "[LS]: $(ls /usr/lib/x86_64-linux-gnu/pkgconfig)"
-          # echo "PKG_CONFIG_PATH=/usr/lib/x86_64-linux-gnu/pkgconfig" >> $GITHUB_ENV
-          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/uninstall.sh)"
 
       - name: Cargo build
         run: |
-          echo "[PKG]: $PKG_CONFIG_PATH"
           cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
 
       - name: Install cargo-deb (Linux)
         run: cargo install cargo-deb
 
+      - name: List files
+        run: echo "[LS]: $(ls)" 
+
       - name: Package (Linux, with modern)
         run: ./build-linux.sh
 
-      - name: Upload installer to artifacts (Linux)
-        uses: actions/upload-artifact@v4
-        with:
-          name: open-worship-${{ matrix.build.suffix }}
-          path: |
-            open-worship-*.AppImage
-            open-worship*.deb
-          if-no-files-found: error
+      # - name: Upload installer to artifacts (Linux)
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: open-worship-${{ matrix.build.suffix }}
+      #     path: |
+      #       open-worship-*.AppImage
+      #       open-worship*.deb
+      #     if-no-files-found: error
 
       # - name: Upload installer to assets (Linux)
       #   uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
