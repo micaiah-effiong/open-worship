@@ -47,12 +47,12 @@ jobs:
       - name: Install cargo-deb (Linux)
         run: cargo install cargo-deb
 
+      - name: Package (Linux, with modern)
+        run: ./build-linux.sh
+
       - name: List files
         run: |
           echo "[LS]: $(ls)"
-
-      - name: Package (Linux, with modern)
-        run: ./build-linux.sh
 
       # - name: Upload installer to artifacts (Linux)
       #   uses: actions/upload-artifact@v4
