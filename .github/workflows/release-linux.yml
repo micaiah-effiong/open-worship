@@ -48,7 +48,8 @@ jobs:
         run: cargo install cargo-deb
 
       - name: List files
-        run: echo "[LS]: $(ls)" 
+        run: |
+          echo "[LS]: $(ls)"
 
       - name: Package (Linux, with modern)
         run: ./build-linux.sh
