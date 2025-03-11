@@ -49,13 +49,18 @@ jobs:
       - name: Package (Linux, with modern)
         run: ./build-linux.sh
 
+      - name: Upload AppImage to artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-worship-ubuntu-x86_64
+          path: open-worship-*.AppImage
+          if-no-files-found: error
+
       - name: Upload installer to artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
           name: open-worship-ubuntu-x86_64
-          path: |
-            open-worship-*.AppImage
-            open-worship*.deb
+          path: open-worship*.deb
           if-no-files-found: error
 
       # - name: Upload installer to assets (Linux)
