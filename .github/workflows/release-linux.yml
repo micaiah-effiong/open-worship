@@ -52,7 +52,7 @@ jobs:
       - name: Upload installer to artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: open-worship-ubuntu-x86_64-${{ github.ref_name }}
+          name: open-worship-ubuntu-x86_64
           path: |
             open-worship-*.AppImage
             open-worship*.deb
