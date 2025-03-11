@@ -10,11 +10,6 @@ env:
 
 jobs:
   release:
-    strategy:
-      matrix:
-        build:
-          suffix: ubuntu-x86_64-${{ github.ref_name }}
-
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -57,7 +52,7 @@ jobs:
       - name: Upload installer to artifacts (Linux)
         uses: actions/upload-artifact@v4
         with:
-          name: open-worship-${{ matrix.build.suffix }}
+          name: open-worship-ubuntu-x86_64-${{ github.ref_name }}
           path: |
             open-worship-*.AppImage
             open-worship*.deb
