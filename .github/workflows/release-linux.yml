@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  workflow_dispatch: {}
+
+# Incremental compilation here isn't helpful
+env:
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install GTK4 and libfuse2 (Linux)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
+
+      - name: Configure cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check GTK
+        run: |
+          echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
+          echo "[PKG]: $(which pkg-config)"
+          echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
+
+      - name: Cargo build
+        run: |
+          cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
+
+      - name: Install cargo-deb (Linux)
+        run: cargo install cargo-deb
+
+      - name: Package (Linux, with modern)
+        run: ./build-linux.sh
+
+      - name: Upload AppImage to artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-worship-ubuntu-x86_64-appimage
+          path: open-worship-*.AppImage
+          if-no-files-found: error
+
+      - name: Upload installer to artifacts (Linux)
+        uses: actions/upload-artifact@v4
+        with:
+          name: open-worship-ubuntu-x86_64-deb
+          path: open-worship*.deb
+          if-no-files-found: error
+
+      # create release with
+      # https://github.com/softprops/action-gh-release
