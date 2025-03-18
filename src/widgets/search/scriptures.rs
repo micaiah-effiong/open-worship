@@ -4,18 +4,13 @@ use std::{cell::RefCell, io::Write, rc::Rc};
 
 use download::BibleDownloadListItem;
 use gtk::{
-    gdk,
     gio::{ActionEntry, MenuItem, SimpleActionGroup},
     glib::clone,
     prelude::*,
     MultiSelection, StringObject,
 };
 use list_item::ScriptureListItem;
-use relm4::{
-    binding::{Binding, StringBinding},
-    prelude::*,
-    typed_view::list::TypedListView,
-};
+use relm4::{prelude::*, typed_view::list::TypedListView};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -53,7 +48,7 @@ pub struct SearchScriptureModel {
     list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
     search_text: gtk::SearchEntry,
     dropdown: gtk::DropDown,
-    translation: StringBinding,
+    translation: Rc<RefCell<String>>,
     db_connection: Rc<RefCell<DatabaseConnection>>,
 }
 
@@ -98,9 +93,11 @@ impl SearchScriptureModel {
         dropdown.set_selected(0);
 
         // update model translation
-        if self.translation.guard().is_empty() {
-            let mut a = self.translation.guard();
-            *a = translations.first().unwrap().to_string();
+        if self.translation.borrow().is_empty() {
+            match translations.first() {
+                Some(t) => *self.translation.borrow_mut() = t.to_string(),
+                None => return,
+            }
         }
     }
 
@@ -149,7 +146,7 @@ impl SearchScriptureModel {
         btn.connect_clicked(clone!(
             #[strong]
             conn,
-            move |btn| {
+            move |_btn| {
                 // TODO: prevent mutiple import windows
                 let win = gtk::Window::new();
                 win.set_default_height(256);
@@ -245,7 +242,7 @@ impl SearchScriptureModel {
 
     fn get_chapter_verses(
         search_text: String,
-        bible_translation: &StringBinding,
+        bible_translation: &String,
         db: Rc<RefCell<DatabaseConnection>>,
         list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
     ) {
@@ -262,7 +259,7 @@ impl SearchScriptureModel {
         //         return;
         //     }
         // };
-        if bible_translation.guard().is_empty() {
+        if bible_translation.is_empty() {
             eprintln!("NO TRANSLATION");
             return;
         }
@@ -270,7 +267,7 @@ impl SearchScriptureModel {
         println!("CONNECT_SEARCH_CHANGED {:?}", p.eval());
         let evaluated = p.eval();
 
-        let t = bible_translation.clone().guard().to_string();
+        let t = bible_translation.clone().to_string();
         let verses = match Query::get_chapter_query(
             &db.borrow().connection,
             t,
@@ -341,7 +338,7 @@ impl SearchScriptureModel {
                 println!("TYPING TRANSLATION {:?}", bible_translation);
                 SearchScriptureModel::get_chapter_verses(
                     se.text().to_string(),
-                    &bible_translation,
+                    &bible_translation.borrow(),
                     db.clone(),
                     list_view_wrapper.clone(),
                 );
@@ -597,7 +594,7 @@ impl SimpleComponent for SearchScriptureModel {
         let mut model = SearchScriptureModel {
             list_view_wrapper: list_view_wrapper.clone(),
             search_text: gtk::SearchEntry::new(),
-            translation: StringBinding::new(""),
+            translation: Rc::new(RefCell::new(String::new())),
             db_connection: init.db_connection.clone(),
             dropdown: dropdown.clone(),
         };
@@ -634,13 +631,12 @@ impl SimpleComponent for SearchScriptureModel {
         match message {
             SearchScriptureInput::ChangeTranslation(t) => {
                 println!("SCRP UPDATE 2");
-                let mut val = self.translation.guard();
-                *val = t;
+                *self.translation.borrow_mut() = t.clone();
 
-                println!("SCRP UPDATE \n {:?}, {:?}", val, self.translation.clone());
+                println!("SCRP UPDATE \n {:?}, {:?}", t, self.translation.clone());
                 SearchScriptureModel::get_chapter_verses(
                     self.search_text.text().to_string(),
-                    &self.translation,
+                    &self.translation.borrow(),
                     self.db_connection.clone(),
                     self.list_view_wrapper.clone(),
                 );
