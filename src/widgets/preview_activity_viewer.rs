@@ -168,13 +168,13 @@ impl SimpleComponent for PreviewViewerModel {
                         .borrow_mut()
                         .append(ActivityListItem { text: item });
                 }
-                self.list_view_wrapper.borrow().view.grab_focus();
+                // self.list_view_wrapper.borrow().view.grab_focus();
             }
             PreviewViewerInput::Background(img) => {
                 if let Some(slide) = self.slide.borrow_mut().as_mut() {
                     slide.background_image = Some(img.clone());
                 }
-                self.list_view_wrapper.borrow().view.grab_focus();
+                // self.list_view_wrapper.borrow().view.grab_focus();
             }
             PreviewViewerInput::GoLive => {
                 let slide = match self.slide.borrow().clone() {

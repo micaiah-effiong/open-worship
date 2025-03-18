@@ -105,13 +105,14 @@ pub struct Scripture {
     pub chapter: u32,
     pub verse: u32,
     pub text: String,
+    pub translation: String,
 }
 
 impl Scripture {
     pub fn screen_display(&self) -> String {
         let text = format!(
-            "{}\n{} {}:{}",
-            self.text, self.book, self.chapter, self.verse,
+            "{}\n{} {}:{} ({})",
+            self.text, self.book, self.chapter, self.verse, self.translation
         );
         return text;
     }

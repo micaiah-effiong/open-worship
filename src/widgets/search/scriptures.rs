@@ -270,7 +270,7 @@ impl SearchScriptureModel {
         let t = bible_translation.clone().to_string();
         let verses = match Query::get_chapter_query(
             &db.borrow().connection,
-            t,
+            t.clone(),
             evaluated.book,
             evaluated.chapter,
         ) {
@@ -289,6 +289,7 @@ impl SearchScriptureModel {
                     chapter: verse.chapter,
                     verse: verse.verse,
                     text: verse.text.clone(),
+                    translation: t.clone(),
                 },
             });
         }
@@ -363,6 +364,7 @@ impl SearchScriptureModel {
     fn register_context_menu(&mut self, sender: &ComponentSender<Self>) {
         let list_view_wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
+        let text_entry = self.search_text.clone();
 
         // action entries
         let add_to_schedule_action = ActionEntry::builder("add-to-schedule")
@@ -370,18 +372,18 @@ impl SearchScriptureModel {
                 #[strong]
                 list_view_wrapper,
                 #[strong]
-                list_view,
+                text_entry,
                 #[strong]
                 sender,
                 move |_, _, _| {
                     let payload = SearchScriptureModel::get_payload_for_selected_scriptures(
-                        &list_view,
                         &list_view_wrapper.borrow(),
                     );
 
-                    if let Some(payload) = payload {
-                        let _ = sender.output(SearchScriptureOutput::SendToSchedule(payload));
-                    }
+                    let payload =
+                        dto::ListPayload::new(text_entry.text().to_string(), 0, payload, None);
+
+                    let _ = sender.output(SearchScriptureOutput::SendToSchedule(payload));
                 }
             ))
             .build();
@@ -417,25 +419,29 @@ impl SearchScriptureModel {
     }
 
     fn register_activate_selected(&mut self, sender: &ComponentSender<Self>) {
-        let list_view = self.list_view_wrapper.borrow().view.clone();
         let typed_list = self.list_view_wrapper.clone();
+        let text_entry = self.search_text.clone();
 
-        list_view.connect_activate(clone!(
-            #[strong]
-            typed_list,
-            #[strong]
-            sender,
-            move |lv, _| {
-                let payload = SearchScriptureModel::get_payload_for_selected_scriptures(
-                    lv,
-                    &typed_list.borrow(),
-                );
+        typed_list
+            .borrow()
+            .selection_model
+            .connect_selection_changed(clone!(
+                #[strong]
+                typed_list,
+                #[strong]
+                sender,
+                #[strong]
+                text_entry,
+                move |_m, _pos, _n_items| {
+                    let payload = SearchScriptureModel::get_payload_for_selected_scriptures(
+                        &typed_list.borrow(),
+                    );
 
-                if let Some(payload) = payload {
+                    let payload =
+                        dto::ListPayload::new(text_entry.text().to_string(), 0, payload, None);
                     let _ = sender.output(SearchScriptureOutput::SendScriptures(payload));
                 }
-            }
-        ));
+            ));
     }
 
     fn get_initial_scriptures(
@@ -446,67 +452,45 @@ impl SearchScriptureModel {
     }
 
     fn get_payload_for_selected_scriptures(
-        lv: &gtk::ListView,
         typed_list: &TypedListView<ScriptureListItem, MultiSelection>,
-    ) -> Option<dto::ListPayload> {
-        let model = match lv.model() {
+    ) -> Vec<String> {
+        let selected_items = Vec::new();
+        let model = match typed_list.view.model() {
             Some(model) => model,
-            None => return None,
+            None => return selected_items,
         };
 
         let model = match model.downcast::<gtk::MultiSelection>() {
             Ok(model) => model,
             Err(err) => {
                 println!("error getting model.\n{:?}", err);
-                return None;
+                return selected_items;
             }
         };
 
-        let mut selected_items = Vec::new();
-        let mut verse_vec = Vec::new();
-        let mut book = String::new();
-        for i in 0..model.n_items() {
-            if model.is_selected(i) {
-                if let Some(item) = typed_list.get(i) {
-                    let a = item.borrow().clone();
-                    selected_items.push(a.data.screen_display());
-                    verse_vec.push(a.data.verse);
-                    book = a.data.book;
-                }
-            }
+        let mut selected_items = selected_items;
+        let selections = model.selection();
+        for i in 0..selections.size() {
+            let item_index = selections.nth(i as u32);
+
+            let verse_text = match typed_list.get(item_index) {
+                Some(item) => item.borrow().clone().data.screen_display(),
+                None => continue,
+            };
+
+            selected_items.push(verse_text);
         }
 
-        let title: String;
-        if selected_items.len() > 1 {
-            let [first, last] = [verse_vec.first(), verse_vec.last()];
-
-            if first.is_none() || last.is_none() {
-                return None;
-            }
-
-            title = format!("{} {}:{}-{}", book, 1, first.unwrap(), last.unwrap());
-        } else {
-            if let Some(verse) = verse_vec.get(0) {
-                title = format!("{} {}:{}", book, 1, verse);
-            } else {
-                return None;
-            }
-        }
-
-        // list payload
-        return Some(dto::ListPayload::new(
-            title,
-            0,
-            selected_items.clone(),
-            None,
-        ));
+        return selected_items;
     }
 
     fn load_initial_verses(&mut self, translation: String, db_connection: &DatabaseConnection) {
         let list_view_wrapper = self.list_view_wrapper.clone();
 
-        let verses = match SearchScriptureModel::get_initial_scriptures(translation, db_connection)
-        {
+        let verses = match SearchScriptureModel::get_initial_scriptures(
+            translation.clone(),
+            db_connection,
+        ) {
             Ok(r) => r,
             Err(_) => Vec::new(),
         };
@@ -519,6 +503,7 @@ impl SearchScriptureModel {
                     chapter: verse.chapter,
                     verse: verse.verse,
                     text: verse.text.clone(),
+                    translation: translation.clone(),
                 },
             });
 
