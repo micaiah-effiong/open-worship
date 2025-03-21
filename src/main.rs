@@ -538,5 +538,11 @@ fn app_init() {
             gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         );
     }
+    match gtk::glib::setenv("GTK_CSD", "0", false) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("An error occured while setting GTK_CSD:\n{:?}", e);
+        }
+    };
     // gtk::Window::set_default_icon_name("");
 }
