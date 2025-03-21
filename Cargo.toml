@@ -34,3 +34,26 @@ assets =[
   ["res/linux/open-worship.png", "/usr/share/icons/hicolor/256x256/apps/open-worship.png", "644"],
 ]
 
+
+[package.metadata.bundle]
+name = "Openworship"
+identifier = "com.open-worship.app"
+icon = ["res/macos/open-worship.png", "res/macos/open-worship.icns" ]
+version = "0.1.0"
+resources = ["res/macos"]
+copyright = "Copyright (c) Micah Effiong 2025. All rights reserved."
+category = "public.app-category.productivity"
+short_description = "Easy-to-use worship presentation software."
+long_description = """
+OpenWorship is a powerful yet simple worship presentation software. It allows you to create engaging presentations for worship services, including song lyrics, scripture passages, videos, and more.
+
+Key Features:
+
+* Song lyric presentation 
+* Scripture presentation with multiple Bible translations
+* Media file management 
+* Presentation building tools with service scheduling
+* Multi-screen support 
+* Alerts (messages, nursery, countdown clocks)
+* Regular updates and support
+"""
