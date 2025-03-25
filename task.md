@@ -6,6 +6,9 @@
   In activity_screen allow user to define font size, and scale it appropriatly
   on the display screen and adapt to resizing.
   Also prevent sizes over MAX_FONT_VALUE for the screen.
+- Preserve previously selected translation
+  When downloading bible and reloading translations, ensure previously
+  selected translation is not altered
 
 ---
 

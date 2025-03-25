@@ -29,6 +29,7 @@ use crate::{
 pub enum SearchScriptureInput {
     ChangeTranslation(String),
     ReloadTranlations,
+    NewTranslation(String),
 }
 
 #[derive(Debug)]
@@ -81,6 +82,8 @@ impl SearchScriptureModel {
             return;
         }
 
+        // TODO: ensure previously selected translation is not altered
+
         let translation_slice = translations
             .iter()
             .map(|i| i.as_str())
@@ -88,7 +91,7 @@ impl SearchScriptureModel {
             .as_slice()
             .to_owned();
         let str_list = gtk::StringList::new(&translation_slice);
-        let single_model = gtk::SingleSelection::new(Some(str_list));
+        let single_model = gtk::SingleSelection::new(Some(str_list.clone()));
         dropdown.set_model(Some(&single_model));
         dropdown.set_selected(0);
 
@@ -97,6 +100,17 @@ impl SearchScriptureModel {
             match translations.first() {
                 Some(t) => *self.translation.borrow_mut() = t.to_string(),
                 None => return,
+            }
+        } else {
+            for i in 0..str_list.n_items() {
+                let item = match str_list.string(i) {
+                    Some(i) => i.to_string(),
+                    None => continue,
+                };
+
+                if item == self.translation.borrow().clone() {
+                    dropdown.set_selected(i);
+                }
             }
         }
     }
@@ -146,6 +160,8 @@ impl SearchScriptureModel {
         btn.connect_clicked(clone!(
             #[strong]
             conn,
+            #[strong]
+            sender,
             move |_btn| {
                 // TODO: prevent mutiple import windows
                 let win = gtk::Window::new();
@@ -168,6 +184,7 @@ impl SearchScriptureModel {
                                     data: item.clone(),
                                     conn: conn.clone(),
                                     already_added: translation_map.contains_key(&name),
+                                    parent_sender: sender.clone(),
                                 });
                             }
                         }
@@ -192,6 +209,8 @@ impl SearchScriptureModel {
                 btn.connect_clicked(clone!(
                     #[strong]
                     conn,
+                    #[strong]
+                    sender,
                     move |btn| {
                         gtk::glib::spawn_future_local(clone!(
                             #[strong]
@@ -200,6 +219,8 @@ impl SearchScriptureModel {
                             btn,
                             #[strong]
                             conn,
+                            #[strong]
+                            sender,
                             async move {
                                 let list = list.borrow();
                                 let selection = list.selection_model.selection();
@@ -211,7 +232,12 @@ impl SearchScriptureModel {
                                     if let Some(item) = list.get(i as u32) {
                                         let item = item.borrow().to_owned().data;
                                         bible_list.push(item.clone());
-                                        import_bible(&item, conn).await;
+                                        let installed_translation = import_bible(&item, conn).await;
+                                        if let Some(installed_t) = installed_translation {
+                                            sender.input(SearchScriptureInput::NewTranslation(
+                                                installed_t,
+                                            ));
+                                        }
                                         break;
                                     }
                                 }
@@ -611,7 +637,7 @@ impl SimpleComponent for SearchScriptureModel {
         return relm4::ComponentParts { model, widgets };
     }
 
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         println!("SCRP UPDATE");
         match message {
             SearchScriptureInput::ChangeTranslation(t) => {
@@ -630,6 +656,14 @@ impl SimpleComponent for SearchScriptureModel {
                 let t = SearchScriptureModel::get_bible_translations(self.db_connection.clone());
                 self.load_bible_translations(&self.dropdown.clone(), t);
             }
+
+            SearchScriptureInput::NewTranslation(t) => {
+                if self.translation.borrow().is_empty() {
+                    *self.translation.borrow_mut() = t.clone();
+                    self.load_initial_verses(t, &self.db_connection.clone().borrow());
+                }
+                sender.input(SearchScriptureInput::ReloadTranlations);
+            }
         }
     }
 }
@@ -642,20 +676,21 @@ mod download {
         glib::clone,
         prelude::{ButtonExt, WidgetExt},
     };
-    use relm4::{gtk, typed_view::list::RelmListItem, view, RelmWidgetExt};
+    use relm4::{gtk, typed_view::list::RelmListItem, view, ComponentSender, RelmWidgetExt};
 
     use crate::{
         db::{connection::DatabaseConnection, query::Query},
         widgets::search::scriptures::import_bible,
     };
 
-    use super::BibleDownload;
+    use super::{BibleDownload, SearchScriptureInput, SearchScriptureModel};
 
     #[derive(Debug, Clone)]
     pub struct BibleDownloadListItem {
         pub data: BibleDownload,
         pub conn: Rc<RefCell<DatabaseConnection>>,
         pub already_added: bool,
+        pub parent_sender: ComponentSender<SearchScriptureModel>,
     }
 
     pub struct BibleListItemWidget {
@@ -712,6 +747,7 @@ mod download {
             let conn = self.conn.clone();
             let data = self.data.clone();
             let already_added = self.already_added.clone();
+            let sender = self.parent_sender.clone();
 
             widgets.btn.connect_clicked(move |btn| {
                 gtk::glib::spawn_future_local(clone!(
@@ -723,6 +759,8 @@ mod download {
                     conn,
                     #[strong]
                     already_added,
+                    #[strong]
+                    sender,
                     async move {
                         btn.set_sensitive(false);
 
@@ -750,7 +788,12 @@ mod download {
                             }
                             false => {
                                 btn.set_label("Installing");
-                                import_bible(&data, conn.clone()).await;
+
+                                let installed_translation = import_bible(&data, conn.clone()).await;
+                                if let Some(installed_t) = installed_translation {
+                                    sender.input(SearchScriptureInput::NewTranslation(installed_t));
+                                }
+
                                 btn.set_label("Installed");
                             }
                         }
@@ -763,12 +806,15 @@ mod download {
     }
 }
 
-async fn import_bible(bible: &BibleDownload, conn: Rc<RefCell<DatabaseConnection>>) {
+async fn import_bible(
+    bible: &BibleDownload,
+    conn: Rc<RefCell<DatabaseConnection>>,
+) -> Option<String> {
     println!("SELCETIONS {:?}", bible);
 
     let download_url = match &bible.download_url {
         Some(d) => d,
-        None => return,
+        None => return None,
     };
 
     let resp = reqwest::get(download_url)
@@ -782,114 +828,124 @@ async fn import_bible(bible: &BibleDownload, conn: Rc<RefCell<DatabaseConnection
     let file_path = path_str.join(bible.name.clone());
     let file = std::fs::File::create_new(&file_path);
 
-    if let Ok(mut file) = file {
-        match file.write_all(&resp) {
-            Ok(a) => a,
-            Err(e) => {
-                println!("Error saving file: {:?}", e);
-                return;
-            }
-        };
-        println!("CREATED FILE {:?}", file_path);
+    // if let Ok(mut file) = file {}
 
-        let db_conn = match Connection::open(&file_path) {
-            Ok(conn) => conn,
-            Err(e) => {
-                println!("Error opening file: {:?}", e);
-                return;
-            }
-        };
-
-        let translation: BibleTranslation = match db_conn.query_row(
-            "SELECT translation, title, license FROM translations",
-            [],
-            |r| {
-                let bt = BibleTranslation {
-                    translation: r.get::<_, String>(0)?,
-                    title: r.get::<_, String>(1)?,
-                    license: r.get::<_, String>(2)?,
-                };
-
-                Ok(bt)
-            },
-        ) {
-            Ok(r) => r,
-            Err(e) => {
-                eprintln!(
-                    "SQL ERROR: error getting downloaded translation info \n{:?}",
-                    e
-                );
-                return;
-            }
-        };
-
-        let translation_name = match bible.name.split(".").collect::<Vec<&str>>().get(0) {
-            Some(name) => name.to_string(),
-            None => return,
-        };
-
-        let mut verses_sql = match db_conn.prepare(&format!(
-            "SELECT id, book_id, chapter, verse, text FROM {}_verses",
-            translation_name
-        )) {
-            Ok(s) => s,
-            Err(e) => {
-                println!("SQL ERROR: error getting downloaded verses \n{:?}", e);
-                return;
-            }
-        };
-
-        let bible_verse = match verses_sql.query_map([], |r| {
-            let bv = (
-                r.get::<_, u32>(0)?, // id
-                BibleVerse {
-                    book: "".to_string(),
-                    book_id: r.get::<_, u32>(1)?, // book_id
-                    chapter: r.get::<_, u32>(2)?, // chapter
-                    verse: r.get::<_, u32>(3)?,   // verse
-                    text: r.get::<_, String>(4)?, // text
-                },
-            );
-
-            return Ok(bv);
-        }) {
-            Ok(a) => a,
-            Err(e) => {
-                eprintln!("SQL ERROR: error getting downloaded verses \n{:?}", e);
-                return;
-            }
-        };
-
-        let mut verses_vec = Vec::new();
-        for row in bible_verse {
-            match row {
-                Ok(r) => {
-                    if r.1.book_id > 66 {
-                        eprintln!("SQL ERROR: Book too large \n{:?}", verses_vec.get(0));
-                        return;
-                    }
-
-                    verses_vec.push(r);
-                }
-                Err(e) => {
-                    eprintln!("SQL ERROR: error extracting downloaded verses \n{:?}", e);
-                    return;
-                }
-            };
+    let mut file = match file {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("failed to create file {:?}", e);
+            return None;
         }
+    };
 
-        let res = Query::insert_verse(&mut conn.borrow_mut().connection, translation, verses_vec);
+    match file.write_all(&resp) {
+        Ok(a) => a,
+        Err(e) => {
+            println!("Error saving file: {:?}", e);
+            return None;
+        }
+    };
+    println!("CREATED FILE {:?}", file_path);
 
-        match std::fs::remove_file(&file_path) {
-            Ok(_) => (),
+    let db_conn = match Connection::open(&file_path) {
+        Ok(conn) => conn,
+        Err(e) => {
+            println!("Error opening file: {:?}", e);
+            return None;
+        }
+    };
+
+    let translation: BibleTranslation = match db_conn.query_row(
+        "SELECT translation, title, license FROM translations",
+        [],
+        |r| {
+            let bt = BibleTranslation {
+                translation: r.get::<_, String>(0)?,
+                title: r.get::<_, String>(1)?,
+                license: r.get::<_, String>(2)?,
+            };
+
+            Ok(bt)
+        },
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!(
+                "SQL ERROR: error getting downloaded translation info \n{:?}",
+                e
+            );
+            return None;
+        }
+    };
+
+    let translation_name = match bible.name.split(".").collect::<Vec<&str>>().get(0) {
+        Some(name) => name.to_string(),
+        None => return None,
+    };
+
+    let mut verses_sql = match db_conn.prepare(&format!(
+        "SELECT id, book_id, chapter, verse, text FROM {}_verses",
+        translation_name
+    )) {
+        Ok(s) => s,
+        Err(e) => {
+            println!("SQL ERROR: error getting downloaded verses \n{:?}", e);
+            return None;
+        }
+    };
+
+    let bible_verse = match verses_sql.query_map([], |r| {
+        let bv = (
+            r.get::<_, u32>(0)?, // id
+            BibleVerse {
+                book: "".to_string(),
+                book_id: r.get::<_, u32>(1)?, // book_id
+                chapter: r.get::<_, u32>(2)?, // chapter
+                verse: r.get::<_, u32>(3)?,   // verse
+                text: r.get::<_, String>(4)?, // text
+            },
+        );
+
+        return Ok(bv);
+    }) {
+        Ok(a) => a,
+        Err(e) => {
+            eprintln!("SQL ERROR: error getting downloaded verses \n{:?}", e);
+            return None;
+        }
+    };
+
+    let mut verses_vec = Vec::new();
+    for row in bible_verse {
+        match row {
+            Ok(r) => {
+                if r.1.book_id > 66 {
+                    eprintln!("SQL ERROR: Book too large \n{:?}", verses_vec.get(0));
+                    return None;
+                }
+
+                verses_vec.push(r);
+            }
             Err(e) => {
-                eprintln!("FILE ERROR: error removing downloaded verses \n{:?}", e);
-                return;
+                eprintln!("SQL ERROR: error extracting downloaded verses \n{:?}", e);
+                return None;
             }
         };
-
-        println!("INSERTING VERESES DONE: {:?}", res);
     }
+
+    let translation_name = translation.translation.clone();
+    let res = Query::insert_verse(&mut conn.borrow_mut().connection, translation, verses_vec);
+    println!("INSERTING VERESES DONE: {:?}", res);
+
+    match std::fs::remove_file(&file_path) {
+        Ok(_) => (),
+        Err(e) => {
+            eprintln!("FILE ERROR: error removing downloaded verses \n{:?}", e);
+            return None;
+        }
+    };
+
+    return Some(translation_name);
     // list.selection_model
     //     .select_item(list.selection_model.selection().nth(0), true);
     //
