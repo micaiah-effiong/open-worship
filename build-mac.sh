@@ -11,10 +11,13 @@ cargo bundle --release --format osx
 rm -r $BUILD_DIR
 mkdir -p $BUILD_DIR
 cp -r target/release/bundle/osx/Openworship.app $BUILD_DIR
-cd build/macos
+cd $BUILD_DIR
 
 # link dylib
 dylibbundler -od -b -x Openworship.app/Contents/MacOS/open-worship -d Openworship.app/Contents/Resources/libs -p @executable_path/../Resources/libs
+
+# log 
+otool -L  Openworship.app/Contents/MacOS/open-worship
 
 # reset dir
 cd $CURRENT_DIR

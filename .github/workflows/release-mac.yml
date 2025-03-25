@@ -37,7 +37,6 @@ jobs:
 
       - name: Build and package for Mac
         run: |
-          cargo install cargo-bundle
           ./build-mac.sh
 
       - name: Create dmg (macOS)
