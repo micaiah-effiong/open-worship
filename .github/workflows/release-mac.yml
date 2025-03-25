@@ -2,6 +2,7 @@ name: Release Mac
 
 on:
   workflow_dispatch: {}
+  push: {}
 
 # Incremental compilation here isn't helpful
 env:
