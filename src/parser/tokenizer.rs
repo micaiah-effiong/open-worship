@@ -91,10 +91,10 @@ impl Tokenizer {
                     };
                 }
 
-                return Token {
+                Token {
                     value: String::from(self.char),
                     t_type: TokenEnum::ILLEGAL,
-                };
+                }
             }
         };
 
