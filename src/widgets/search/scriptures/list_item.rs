@@ -5,6 +5,7 @@ use crate::dto::Scripture;
 #[derive(Debug, Clone)]
 pub struct ScriptureListItem {
     pub data: Scripture,
+    pub full_reference: bool,
 }
 
 pub struct ScriptureListItemWidget {
@@ -35,10 +36,14 @@ impl RelmListItem for ScriptureListItem {
     }
 
     fn bind(&mut self, _widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-        let text = format!(
+        let book_reference = format!(
             "{}:{} \t{}",
             self.data.chapter, self.data.verse, self.data.text
         );
+        let text = match self.full_reference {
+            true => format!("{} {book_reference}", self.data.book),
+            false => book_reference,
+        };
         _widgets.text.set_label(&text);
     }
 }

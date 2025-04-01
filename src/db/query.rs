@@ -11,7 +11,41 @@ use super::connection::BibleTranslation;
 pub struct Query {}
 
 impl Query {
-    pub fn get_chapter_query(
+    pub fn search_by_partial_text_query(
+        conn: &Connection,
+        translation: String,
+        text: String,
+    ) -> RuResult<Vec<BibleVerse>> {
+        let sql = format!(
+            r#"
+            SELECT book_id, chapter, verse, text, books.name AS book 
+            FROM {translation}_verses
+            JOIN bible_books AS books ON books.id = {translation}_verses.book_id
+            WHERE {translation}_verses.text LIKE ?1
+            LIMIT 100
+            "#
+        );
+        // println!("SEARCH \nbook: {book}, chapter: {chapter}, transaction: {translation}");
+
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt.query_map(params![format!("%{text}%")], |r| {
+            Ok(BibleVerse {
+                book_id: r.get::<_, u32>(0)?,
+                chapter: r.get::<_, u32>(1)?,
+                verse: r.get::<_, u32>(2)?,
+                text: r.get::<_, String>(3)?,
+                book: r.get::<_, String>(4)?,
+            })
+        })?;
+
+        let mut verses_vec = Vec::new();
+        for row in rows {
+            verses_vec.push(row.unwrap());
+        }
+
+        return Ok(verses_vec);
+    }
+    pub fn search_by_chapter_query(
         conn: &Connection,
         translation: String,
         book: String,

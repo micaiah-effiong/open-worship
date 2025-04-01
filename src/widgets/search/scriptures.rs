@@ -266,40 +266,42 @@ impl SearchScriptureModel {
         ));
     }
 
-    fn get_chapter_verses(
+    fn search_bible(
         search_text: String,
         bible_translation: &String,
         db: Rc<RefCell<DatabaseConnection>>,
         list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
     ) {
-        let p = parser::Parser::parser(search_text);
-        let p = match p {
-            Some(p) => p,
-            None => return,
-        };
-
-        // let bible_translation = match &bible_translation {
-        //     Some(t) => t,
-        //     None => {
-        //         eprintln!("NO TRANSLATION");
-        //         return;
-        //     }
-        // };
         if bible_translation.is_empty() {
             eprintln!("NO TRANSLATION");
             return;
         }
 
-        println!("CONNECT_SEARCH_CHANGED {:?}", p.eval());
-        let evaluated = p.eval();
-
+        let p = parser::Parser::parser(search_text.clone());
         let t = bible_translation.clone().to_string();
-        let verses = match Query::get_chapter_query(
-            &db.borrow().connection,
-            t.clone(),
-            evaluated.book,
-            evaluated.chapter,
-        ) {
+        let (verses, evaluated) = match p {
+            Some(p) => {
+                let evaluated = p.eval();
+                println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
+                let verses = Query::search_by_chapter_query(
+                    &db.borrow().connection,
+                    t.clone(),
+                    evaluated.book.clone(),
+                    evaluated.chapter.clone(),
+                );
+                (verses, Some(evaluated))
+            }
+            None => {
+                let verses = Query::search_by_partial_text_query(
+                    &db.borrow().connection,
+                    t.clone(),
+                    search_text,
+                );
+                (verses, None)
+            }
+        };
+
+        let verses = match verses {
             Ok(vs) => vs,
             Err(x) => {
                 println!("SQL ERROR: \n{:?}", x);
@@ -310,6 +312,7 @@ impl SearchScriptureModel {
         list_view_wrapper.borrow_mut().clear();
         for verse in verses {
             list_view_wrapper.borrow_mut().append(ScriptureListItem {
+                full_reference: evaluated.is_none(),
                 data: dto::Scripture {
                     book: verse.book.clone(),
                     chapter: verse.chapter,
@@ -320,30 +323,37 @@ impl SearchScriptureModel {
             });
         }
 
-        let pos = evaluated.verses.get(0).unwrap_or(&0).clone();
-        let list_model = list_view_wrapper.borrow().selection_model.clone();
-        let list_view = list_view_wrapper.borrow().view.clone();
-        list_model.select_item(pos.saturating_sub(1), true);
+        /* select verse in listview */
 
+        let list_model = list_view_wrapper.borrow().selection_model.clone();
+        list_model.unselect_all();
+
+        /*
+         * exit of the search was a partial text search
+         * and not a book reference
+         */
+        if evaluated.is_none() {
+            list_model.select_item(0, true);
+            return;
+        }
+
+        let evaluated = evaluated.unwrap();
         for index in evaluated.verses.clone() {
             list_model.select_item(index.saturating_sub(1), false);
         }
 
+        let list_view = list_view_wrapper.borrow().view.clone();
         let list = match list_view.first_child() {
             Some(li) => util::widget_to_vec(&li),
             None => return (),
         };
 
-        for (i, li) in list.iter().enumerate() {
-            let vli = match evaluated.verses.first() {
-                Some(vli) => vli,
-                None => continue,
+        if let Some(vli) = evaluated.verses.first() {
+            // subtract here since list.get uses zero based index
+            match list.get(vli.saturating_sub(1) as usize) {
+                Some(li) => li.grab_focus(),
+                None => return (),
             };
-
-            if vli.saturating_sub(1).eq(&(i as u32)) {
-                li.grab_focus();
-                break;
-            }
         }
     }
 
@@ -363,7 +373,7 @@ impl SearchScriptureModel {
             list_view_wrapper,
             move |se| {
                 println!("TYPING TRANSLATION {:?}", bible_translation);
-                SearchScriptureModel::get_chapter_verses(
+                SearchScriptureModel::search_bible(
                     se.text().to_string(),
                     &bible_translation.borrow(),
                     db.clone(),
@@ -474,7 +484,12 @@ impl SearchScriptureModel {
         translation: String,
         db: &DatabaseConnection,
     ) -> Result<Vec<BibleVerse>, rusqlite::Error> {
-        return Query::get_chapter_query(&db.connection, translation, String::from("Genesis"), 1);
+        return Query::search_by_chapter_query(
+            &db.connection,
+            translation,
+            String::from("Genesis"),
+            1,
+        );
     }
 
     fn get_payload_for_selected_scriptures(
@@ -524,6 +539,7 @@ impl SearchScriptureModel {
         list_view_wrapper.borrow_mut().clear();
         for (i, verse) in verses.iter().enumerate() {
             list_view_wrapper.borrow_mut().append(ScriptureListItem {
+                full_reference: false,
                 data: dto::Scripture {
                     book: verse.book.clone(),
                     chapter: verse.chapter,
@@ -645,7 +661,7 @@ impl SimpleComponent for SearchScriptureModel {
                 *self.translation.borrow_mut() = t.clone();
 
                 println!("SCRP UPDATE \n {:?}, {:?}", t, self.translation.clone());
-                SearchScriptureModel::get_chapter_verses(
+                SearchScriptureModel::search_bible(
                     self.search_text.text().to_string(),
                     &self.translation.borrow(),
                     self.db_connection.clone(),
