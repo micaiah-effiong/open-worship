@@ -39,7 +39,7 @@ pub struct SearchModel {
     scripture_page: relm4::Controller<SearchScriptureModel>,
     song_page: relm4::Controller<SearchSongModel>,
     background_image: Rc<RefCell<Option<String>>>,
-    db_connection: Rc<RefCell<DatabaseConnection>>,
+    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl SearchModel {
@@ -75,7 +75,7 @@ impl SearchModel {
 }
 
 pub struct SearchInit {
-    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl SearchModel {}

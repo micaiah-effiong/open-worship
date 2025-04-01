@@ -37,7 +37,7 @@ pub struct SearchSongModel {
     list_view_wrapper: Rc<RefCell<TypedListView<SongListItemModel, SingleSelection>>>,
     search_field: gtk::SearchEntry,
     edit_song_dialog: relm4::Controller<EditModel>,
-    db_connection: Rc<RefCell<DatabaseConnection>>,
+    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl SearchSongModel {
@@ -53,14 +53,13 @@ impl SearchSongModel {
             list,
             move |se| {
                 //
-                let songs =
-                    match Query::get_songs(&db.borrow_mut().connection, se.text().to_string()) {
-                        Ok(q) => q,
-                        Err(e) => {
-                            eprintln!("SQL ERROR: {:?}", e);
-                            return ();
-                        }
-                    };
+                let songs = match Query::get_songs(db.clone(), se.text().to_string()) {
+                    Ok(q) => q,
+                    Err(e) => {
+                        eprintln!("SQL ERROR: {:?}", e);
+                        return ();
+                    }
+                };
 
                 let mut lw = list.borrow_mut();
                 lw.clear();
@@ -242,7 +241,7 @@ impl SearchSongModel {
 impl SearchSongModel {}
 
 pub struct SearchSongInit {
-    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl SearchSongModel {}
@@ -302,8 +301,7 @@ impl SimpleComponent for SearchSongModel {
     ) -> relm4::ComponentParts<Self> {
         let mut list_view_wrapper = TypedListView::new();
 
-        let initial_songs =
-            Query::get_songs(&init.db_connection.borrow().connection, "".to_string());
+        let initial_songs = Query::get_songs(init.db_connection.clone(), "".to_string());
         match initial_songs {
             Ok(songs) => {
                 for song in songs {
@@ -349,8 +347,7 @@ impl SimpleComponent for SearchSongModel {
                 self.edit_song_dialog.emit(EditModelInputMsg::Show(song));
             }
             SearchSongInput::NewSong(song) => {
-                let songs =
-                    Query::get_songs(&self.db_connection.borrow().connection, "".to_string());
+                let songs = Query::get_songs(self.db_connection.clone(), "".to_string());
 
                 match songs {
                     Ok(songs) => {
@@ -368,9 +365,8 @@ impl SimpleComponent for SearchSongModel {
                     Some(si) => si.borrow().clone().song,
                     None => return (),
                 };
-                let mut conn = self.db_connection.borrow_mut();
 
-                match Query::delete_song(&mut conn.connection, song_item) {
+                match Query::delete_song(self.db_connection.clone(), song_item) {
                     Ok(_) => (),
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
@@ -378,7 +374,7 @@ impl SimpleComponent for SearchSongModel {
                     }
                 };
 
-                match Query::get_songs(&mut conn.connection, "".to_string()) {
+                match Query::get_songs(self.db_connection.clone(), "".to_string()) {
                     Ok(songs) => {
                         self.list_view_wrapper.borrow_mut().clear();
                         let mut lw = self.list_view_wrapper.borrow_mut();

@@ -50,7 +50,7 @@ struct AppModel {
     live_activity_screen: relm4::Controller<ActivityScreenModel>,
     search_viewer: relm4::Controller<SearchModel>,
 
-    db_connection: Rc<RefCell<DatabaseConnection>>,
+    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl AppModel {
@@ -250,8 +250,12 @@ impl SimpleComponent for AppModel {
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
         // db
-        let db_connection = Rc::new(RefCell::new(db::connection::DatabaseConnection::open(
-            AppConfig::get_db_path(),
+        // let db_connection = Rc::new(RefCell::new(db::connection::DatabaseConnection::open(
+        //     AppConfig::get_db_path(),
+        // )));
+
+        let db_connection = Rc::new(RefCell::new(Some(
+            db::connection::DatabaseConnection::open(AppConfig::get_db_path()),
         )));
 
         let schedule_activity_viewer = ScheduleViewerModel::builder().launch(()).forward(
@@ -294,7 +298,7 @@ impl SimpleComponent for AppModel {
             search_viewer,
             preview_activity_screen,
             live_activity_screen,
-            db_connection,
+            db_connection: db_connection.clone(),
         };
         let widgets = view_output!();
 
@@ -306,6 +310,13 @@ impl SimpleComponent for AppModel {
         let app = relm4::main_application();
         add_app_menu(Some(&app), Some(&widgets.window_box));
         add_app_actions(&window, &app);
+
+        window.connect_destroy(move |_| {
+            if let Some(db) = db_connection.borrow_mut().take() {
+                let e = db.close();
+                println!("Close db {:?}", e);
+            }
+        });
 
         widgets.main_window.present();
 

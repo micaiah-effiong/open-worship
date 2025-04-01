@@ -23,7 +23,7 @@ pub struct EditModel {
     pub screen: Controller<ActivityScreenModel>,
     pub list_wrapper: Rc<RefCell<TypedListView<EditSongModalListItem, SingleSelection>>>,
     pub song_title_entry: Rc<RefCell<gtk::Entry>>,
-    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 #[derive(Debug)]
@@ -54,7 +54,7 @@ pub enum EditModelOpeningState {
 }
 
 pub struct EditModelInit {
-    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 const WIDTH: i32 = 1200;
@@ -350,15 +350,14 @@ impl SimpleComponent for EditModel {
 
                         // TODO:
                         // save song to database
-
-                        let mut conn = self.db_connection.borrow_mut();
+                        let conn = self.db_connection.clone();
                         if self.is_new_song {
-                            match Query::insert_song(&mut conn.connection, song) {
+                            match Query::insert_song(conn, song) {
                                 Ok(()) => (),
                                 Err(x) => println!("SQL ERROR: {:?}", x),
                             };
                         } else {
-                            match Query::update_song(&mut conn.connection, song) {
+                            match Query::update_song(conn, song) {
                                 Ok(()) => (),
                                 Err(x) => println!("SQL ERROR: {:?}", x),
                             };

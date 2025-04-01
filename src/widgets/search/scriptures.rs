@@ -50,19 +50,20 @@ pub struct SearchScriptureModel {
     search_text: gtk::SearchEntry,
     dropdown: gtk::DropDown,
     translation: Rc<RefCell<String>>,
-    db_connection: Rc<RefCell<DatabaseConnection>>,
+    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl SearchScriptureModel {}
 
 pub struct SearchScriptureInit {
-    pub db_connection: Rc<RefCell<DatabaseConnection>>,
+    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl SearchScriptureModel {
-    fn get_bible_translations(db: Rc<RefCell<DatabaseConnection>>) -> Vec<std::string::String> {
-        let conn = &db.borrow().connection;
-        let list = match Query::get_translations(conn) {
+    fn get_bible_translations(
+        db: Rc<RefCell<Option<DatabaseConnection>>>,
+    ) -> Vec<std::string::String> {
+        let list = match Query::get_translations(db) {
             Ok(l) => l,
             Err(e) => {
                 eprintln!(
@@ -146,7 +147,7 @@ impl SearchScriptureModel {
         &mut self,
         btn: &gtk::Button,
         translations: Vec<String>,
-        db: Rc<RefCell<DatabaseConnection>>,
+        db: Rc<RefCell<Option<DatabaseConnection>>>,
         sender: ComponentSender<Self>,
     ) {
         let conn = db.clone();
@@ -232,7 +233,7 @@ impl SearchScriptureModel {
                                     if let Some(item) = list.get(i as u32) {
                                         let item = item.borrow().to_owned().data;
                                         bible_list.push(item.clone());
-                                        let installed_translation = import_bible(&item, conn).await;
+                                        let installed_translation = import_bible(conn, &item).await;
                                         if let Some(installed_t) = installed_translation {
                                             sender.input(SearchScriptureInput::NewTranslation(
                                                 installed_t,
@@ -269,7 +270,7 @@ impl SearchScriptureModel {
     fn search_bible(
         search_text: String,
         bible_translation: &String,
-        db: Rc<RefCell<DatabaseConnection>>,
+        db: Rc<RefCell<Option<DatabaseConnection>>>,
         list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
     ) {
         if bible_translation.is_empty() {
@@ -284,7 +285,7 @@ impl SearchScriptureModel {
                 let evaluated = p.eval();
                 println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
                 let verses = Query::search_by_chapter_query(
-                    &db.borrow().connection,
+                    db,
                     t.clone(),
                     evaluated.book.clone(),
                     evaluated.chapter.clone(),
@@ -292,11 +293,7 @@ impl SearchScriptureModel {
                 (verses, Some(evaluated))
             }
             None => {
-                let verses = Query::search_by_partial_text_query(
-                    &db.borrow().connection,
-                    t.clone(),
-                    search_text,
-                );
+                let verses = Query::search_by_partial_text_query(db, t.clone(), search_text);
                 (verses, None)
             }
         };
@@ -357,7 +354,7 @@ impl SearchScriptureModel {
         }
     }
 
-    fn register_search_change(&mut self, db: Rc<RefCell<DatabaseConnection>>) {
+    fn register_search_change(&mut self, db: Rc<RefCell<Option<DatabaseConnection>>>) {
         let list_model = self.list_view_wrapper.borrow().selection_model.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
         let search_field = self.search_text.clone();
@@ -481,15 +478,10 @@ impl SearchScriptureModel {
     }
 
     fn get_initial_scriptures(
+        db: Rc<RefCell<Option<DatabaseConnection>>>,
         translation: String,
-        db: &DatabaseConnection,
     ) -> Result<Vec<BibleVerse>, rusqlite::Error> {
-        return Query::search_by_chapter_query(
-            &db.connection,
-            translation,
-            String::from("Genesis"),
-            1,
-        );
+        return Query::search_by_chapter_query(db, translation, String::from("Genesis"), 1);
     }
 
     fn get_payload_for_selected_scriptures(
@@ -525,12 +517,16 @@ impl SearchScriptureModel {
         return selected_items;
     }
 
-    fn load_initial_verses(&mut self, translation: String, db_connection: &DatabaseConnection) {
+    fn load_initial_verses(
+        &mut self,
+        db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
+        translation: String,
+    ) {
         let list_view_wrapper = self.list_view_wrapper.clone();
 
         let verses = match SearchScriptureModel::get_initial_scriptures(
-            translation.clone(),
             db_connection,
+            translation.clone(),
         ) {
             Ok(r) => r,
             Err(_) => Vec::new(),
@@ -637,7 +633,7 @@ impl SimpleComponent for SearchScriptureModel {
 
         let translations = SearchScriptureModel::get_bible_translations(init.db_connection.clone());
         if let Some(first) = translations.first() {
-            model.load_initial_verses(first.to_string(), &init.db_connection.borrow());
+            model.load_initial_verses(init.db_connection.clone(), first.to_string());
         }
 
         model.register_search_change(db.clone());
@@ -676,7 +672,7 @@ impl SimpleComponent for SearchScriptureModel {
             SearchScriptureInput::NewTranslation(t) => {
                 if self.translation.borrow().is_empty() {
                     *self.translation.borrow_mut() = t.clone();
-                    self.load_initial_verses(t, &self.db_connection.clone().borrow());
+                    self.load_initial_verses(self.db_connection.clone(), t);
                 }
                 sender.input(SearchScriptureInput::ReloadTranlations);
             }
@@ -704,7 +700,7 @@ mod download {
     #[derive(Debug, Clone)]
     pub struct BibleDownloadListItem {
         pub data: BibleDownload,
-        pub conn: Rc<RefCell<DatabaseConnection>>,
+        pub conn: Rc<RefCell<Option<DatabaseConnection>>>,
         pub already_added: bool,
         pub parent_sender: ComponentSender<SearchScriptureModel>,
     }
@@ -786,9 +782,7 @@ mod download {
                                 if let Some(name) = a.get(0) {
                                     let name = name.to_string();
                                     let name = format!("{}", name);
-                                    let mut conn = conn.borrow_mut();
-                                    let delete_result =
-                                        Query::delete_bible_translation(&mut conn.connection, name);
+                                    let delete_result = Query::delete_bible_translation(conn, name);
 
                                     match delete_result {
                                         Ok(_) => btn.set_label("Install"),
@@ -805,7 +799,7 @@ mod download {
                             false => {
                                 btn.set_label("Installing");
 
-                                let installed_translation = import_bible(&data, conn.clone()).await;
+                                let installed_translation = import_bible(conn, &data).await;
                                 if let Some(installed_t) = installed_translation {
                                     sender.input(SearchScriptureInput::NewTranslation(installed_t));
                                 }
@@ -823,8 +817,8 @@ mod download {
 }
 
 async fn import_bible(
+    conn: Rc<RefCell<Option<DatabaseConnection>>>,
     bible: &BibleDownload,
-    conn: Rc<RefCell<DatabaseConnection>>,
 ) -> Option<String> {
     println!("SELCETIONS {:?}", bible);
 
@@ -950,7 +944,7 @@ async fn import_bible(
     }
 
     let translation_name = translation.translation.clone();
-    let res = Query::insert_verse(&mut conn.borrow_mut().connection, translation, verses_vec);
+    let res = Query::insert_verse(conn, translation, verses_vec);
     println!("INSERTING VERESES DONE: {:?}", res);
 
     match std::fs::remove_file(&file_path) {

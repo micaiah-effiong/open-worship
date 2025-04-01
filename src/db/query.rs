@@ -1,21 +1,31 @@
-use rusqlite::{params, Connection, Result as RuResult};
+use std::{cell::RefCell, rc::Rc};
+
+use rusqlite::{params, Result as RuResult};
 
 use crate::{
     db::connection::BibleVerse,
     dto::{Song, SongVerse},
 };
 
-use super::connection::BibleTranslation;
+use super::connection::{BibleTranslation, DatabaseConnection};
 
 /// Query
 pub struct Query {}
 
 impl Query {
     pub fn search_by_partial_text_query(
-        conn: &Connection,
+        conn: Rc<RefCell<Option<DatabaseConnection>>>,
         translation: String,
         text: String,
     ) -> RuResult<Vec<BibleVerse>> {
+        let database_connection = conn.borrow();
+        let conn = match *database_connection {
+            Some(ref conn) => &conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
+
         let sql = format!(
             r#"
             SELECT book_id, chapter, verse, text, books.name AS book 
@@ -46,11 +56,19 @@ impl Query {
         return Ok(verses_vec);
     }
     pub fn search_by_chapter_query(
-        conn: &Connection,
+        conn: Rc<RefCell<Option<DatabaseConnection>>>,
         translation: String,
         book: String,
         chapter: u32,
     ) -> RuResult<Vec<BibleVerse>> {
+        let database_connection = conn.borrow();
+        let conn = match *database_connection {
+            Some(ref conn) => &conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
+
         let sql = format!(
             r#"
             SELECT book_id, chapter, verse, text, books.name AS book 
@@ -81,7 +99,14 @@ impl Query {
         return Ok(verses_vec);
     }
 
-    pub fn insert_song(conn: &mut Connection, song: Song) -> RuResult<()> {
+    pub fn insert_song(conn: Rc<RefCell<Option<DatabaseConnection>>>, song: Song) -> RuResult<()> {
+        let mut database_connection = conn.borrow_mut();
+        let conn = match *database_connection {
+            Some(ref mut conn) => &mut conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
         let song_sql = r#"
             INSERT INTO songs(title) VALUES(?1)
         "#;
@@ -107,7 +132,14 @@ impl Query {
         return tx.commit();
     }
 
-    pub fn update_song(conn: &mut Connection, song: Song) -> RuResult<()> {
+    pub fn update_song(conn: Rc<RefCell<Option<DatabaseConnection>>>, song: Song) -> RuResult<()> {
+        let mut database_connection = conn.borrow_mut();
+        let conn = match *database_connection {
+            Some(ref mut conn) => &mut conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
         let song_sql = "UPDATE songs SET title=?1 WHERE id = ?2";
         let clear_song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
 
@@ -129,7 +161,14 @@ impl Query {
         return tx.commit();
     }
 
-    pub fn delete_song(conn: &mut Connection, song: Song) -> RuResult<()> {
+    pub fn delete_song(conn: Rc<RefCell<Option<DatabaseConnection>>>, song: Song) -> RuResult<()> {
+        let mut database_connection = conn.borrow_mut();
+        let conn = match *database_connection {
+            Some(ref mut conn) => &mut conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
         let song_sql = "DELETE FROM songs WHERE id = ?1";
         let song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
 
@@ -140,7 +179,18 @@ impl Query {
         return tx.commit();
     }
 
-    pub fn get_songs(conn: &Connection, search_text: String) -> RuResult<Vec<Song>> {
+    pub fn get_songs(
+        conn: Rc<RefCell<Option<DatabaseConnection>>>,
+        search_text: String,
+    ) -> RuResult<Vec<Song>> {
+        let database_connection = conn.borrow();
+        let conn = match *database_connection {
+            Some(ref conn) => &conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
+
         let mut songs_sql =
             conn.prepare("SELECT id, title FROM songs WHERE title LIKE ?1 ORDER BY title ASC")?;
         let mut songs_verses_sql =
@@ -173,10 +223,18 @@ impl Query {
     }
 
     pub fn insert_verse(
-        conn: &mut Connection,
+        conn: Rc<RefCell<Option<DatabaseConnection>>>,
         bible_translation: BibleTranslation,
         bible_verse: Vec<(u32, BibleVerse)>,
     ) -> RuResult<()> {
+        let mut database_connection = conn.borrow_mut();
+        let conn = match *database_connection {
+            Some(ref mut conn) => &mut conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
+
         println!("INSERTING VERESES");
         let translations_sql =
             "INSERT OR IGNORE INTO `translations` (`translation`, `title`, `license`) VALUES (?1, ?2, ?3);";
@@ -233,7 +291,16 @@ impl Query {
         return tx.commit();
     }
 
-    pub fn get_translations(conn: &Connection) -> RuResult<Vec<String>> {
+    pub fn get_translations(
+        conn: Rc<RefCell<Option<DatabaseConnection>>>,
+    ) -> RuResult<Vec<String>> {
+        let database_connection = conn.borrow();
+        let conn = match *database_connection {
+            Some(ref conn) => &conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
         let sql = "SELECT translation FROM translations";
         let mut stmt = conn.prepare(sql)?;
 
@@ -250,7 +317,17 @@ impl Query {
         Ok(translation_list)
     }
 
-    pub fn delete_bible_translation(conn: &mut Connection, translation: String) -> RuResult<()> {
+    pub fn delete_bible_translation(
+        conn: Rc<RefCell<Option<DatabaseConnection>>>,
+        translation: String,
+    ) -> RuResult<()> {
+        let mut database_connection = conn.borrow_mut();
+        let conn = match *database_connection {
+            Some(ref mut conn) => &mut conn.connection,
+            None => {
+                return Err(rusqlite::Error::UnwindingPanic);
+            }
+        };
         let delete_translations_sql = "DELETE FROM translations WHERE translation = ?1";
         let drop_translation_table_sql = format!("DROP TABLE IF EXISTS {translation}_verses"); // <name>_verses
 
