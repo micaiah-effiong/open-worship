@@ -36,6 +36,18 @@ cp -r /opt/homebrew/share/locale Openworship.app/Contents/Resources/share
 
 mkdir -p Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
 cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders 
+# fix loader libpixbufloader_svg.so id 
+svg_lib="/opt/homebrew/opt/librsvg/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader_svg.dylib" 
+if [ -f $svg_lib ]; then
+	# copy  $file to lib 
+	cp $svg_lib Openworship.app/Contents/Resources/lib
+
+	# bundle fix 
+	dylibbundler -b -of -s /opt/homebrew/Cellar/librsvg/2.60.0/lib -x $svg_lib -d Openworship.app/Contents/Resources/lib -p @executable_path/../Resources/lib
+	
+	# change id
+	install_name_tool -id @executable_path/../Resources/lib/libpixbufloader_svg.dylib Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader_svg.so
+fi
 
 for loader in Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so; do
 	dylibbundler -b -of -s /opt/homebrew/Cellar/librsvg/2.60.0/lib -x $loader -d Openworship.app/Contents/Resources/lib -p @executable_path/../Resources/lib

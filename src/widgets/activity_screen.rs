@@ -55,20 +55,9 @@ impl ActivityScreenModel {
         }
     }
 
-    fn _get_user_text_size(text: String, _user_font_size: f64) -> f64 {
-        let text_lines = text.lines();
-        let text_w = text_lines.clone().count();
-        let text_h = text_lines.clone().fold(0, |acc, e| acc.max(e.len().into()));
-        let text_len = text.len();
-
-        let size = text_w.saturating_mul(text_h).saturating_div(text_len);
-
-        return size as f64;
-    }
-
     fn resize_font(&self) {
         let text = self.display_text.borrow();
-        let text_len = text.len() as f64;
+        let text_len = calc_max_text_area(text.to_string());
         if text_len.eq(&0.0) {
             return;
         }
@@ -81,8 +70,8 @@ impl ActivityScreenModel {
 
         let fixed_font = 14.0;
         let max_set_len = calc_max_len(w, h, fixed_font);
-        let dyn_font_size = calculate_max_font_size_for_rect(w, h, max_set_len);
-        println!("FONT-SIZE {max_font_size}, {dyn_font_size}, len = {max_set_len}");
+        let dyn_font_size =
+            calculate_max_font_size_for_rect(w, h, f64::min(max_set_len, (w / 2) as f64));
 
         self.screen_label.inline_css(&format!(
             "font-size: {}px",
@@ -238,4 +227,11 @@ fn calculate_max_font_size_for_rect(w: i32, h: i32, text_length: f64) -> f64 {
 fn calc_max_len(w: i32, h: i32, font_size: f64) -> f64 {
     let area = (w * h) as f64;
     return (8.0 * area) / (font_size.powf(3.0));
+}
+
+fn calc_max_text_area(text: String) -> f64 {
+    let max_height = text.lines().count();
+    let max_width = text.lines().map(|a| a.len()).max().unwrap_or(0);
+
+    return (max_height * max_width) as f64;
 }
