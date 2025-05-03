@@ -1,8 +1,11 @@
+mod download;
 mod list_item;
 
-use std::{cell::RefCell, io::Write, rc::Rc};
+use std::{cell::RefCell, rc::Rc};
 
-use download::BibleDownloadListItem;
+use download::download_modal::{
+    DownloadBibleInit, DownloadBibleInput, DownloadBibleModel, DownloadBibleOutput,
+};
 use gtk::{
     gio::{ActionEntry, MenuItem, SimpleActionGroup},
     glib::clone,
@@ -11,13 +14,10 @@ use gtk::{
 };
 use list_item::ScriptureListItem;
 use relm4::{prelude::*, typed_view::list::TypedListView};
-use rusqlite::Connection;
-use serde::{Deserialize, Serialize};
 
 use crate::{
-    config::AppConfigDir,
     db::{
-        connection::{BibleTranslation, BibleVerse, DatabaseConnection},
+        connection::{BibleVerse, DatabaseConnection},
         query::Query,
     },
     dto,
@@ -30,6 +30,9 @@ pub enum SearchScriptureInput {
     ChangeTranslation(String),
     ReloadTranlations,
     NewTranslation(String),
+
+    //
+    OpenDownload,
 }
 
 #[derive(Debug)]
@@ -38,19 +41,14 @@ pub enum SearchScriptureOutput {
     SendToSchedule(dto::ListPayload),
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct BibleDownload {
-    pub name: String,
-    pub download_url: Option<String>,
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SearchScriptureModel {
     list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
     search_text: gtk::SearchEntry,
     dropdown: gtk::DropDown,
     translation: Rc<RefCell<String>>,
     db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
+    download_bible_modal: relm4::Controller<DownloadBibleModel>,
 }
 
 impl SearchScriptureModel {}
@@ -164,105 +162,7 @@ impl SearchScriptureModel {
             #[strong]
             sender,
             move |_btn| {
-                // TODO: prevent mutiple import windows
-                let win = gtk::Window::new();
-                win.set_default_height(256);
-                win.set_default_width(256);
-
-                let bible_src = include_str!("../../../bible_download_path.json");
-                let download_list_result = serde_json::from_str::<Vec<BibleDownload>>(bible_src);
-
-                let mut list = TypedListView::<BibleDownloadListItem, MultiSelection>::new();
-
-                if let Ok(download_list) = download_list_result {
-                    for item in download_list {
-                        if item.download_url != None {
-                            let item_name = item.name.clone();
-                            let item_name = item_name.split(".").collect::<Vec<&str>>();
-                            if let Some(name) = item_name.get(0) {
-                                let name = name.to_string();
-                                list.append(BibleDownloadListItem {
-                                    data: item.clone(),
-                                    conn: conn.clone(),
-                                    already_added: translation_map.contains_key(&name),
-                                    parent_sender: sender.clone(),
-                                });
-                            }
-                        }
-                    }
-                }
-
-                let boxx = gtk::Box::new(gtk::Orientation::Vertical, 2);
-                let h_boxx = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-
-                let scroll = gtk::ScrolledWindow::new();
-                scroll.set_child(Some(&list.view));
-                scroll.set_vexpand(true);
-                boxx.append(&scroll);
-                boxx.append(&h_boxx);
-
-                let btn = gtk::Button::new();
-                btn.set_label("Done");
-                h_boxx.append(&btn);
-
-                let list = Rc::new(RefCell::new(list));
-
-                btn.connect_clicked(clone!(
-                    #[strong]
-                    conn,
-                    #[strong]
-                    sender,
-                    move |btn| {
-                        gtk::glib::spawn_future_local(clone!(
-                            #[strong]
-                            list,
-                            #[strong]
-                            btn,
-                            #[strong]
-                            conn,
-                            #[strong]
-                            sender,
-                            async move {
-                                let list = list.borrow();
-                                let selection = list.selection_model.selection();
-
-                                let mut bible_list = Vec::new();
-                                for i in 0..selection.size() {
-                                    let i = selection.nth(i as u32);
-
-                                    if let Some(item) = list.get(i as u32) {
-                                        let item = item.borrow().to_owned().data;
-                                        bible_list.push(item.clone());
-                                        let installed_translation = import_bible(conn, &item).await;
-                                        if let Some(installed_t) = installed_translation {
-                                            sender.input(SearchScriptureInput::NewTranslation(
-                                                installed_t,
-                                            ));
-                                        }
-                                        break;
-                                    }
-                                }
-
-                                match btn.toplevel_window() {
-                                    Some(w) => w.close(),
-                                    None => (),
-                                }
-                            }
-                        ));
-                    }
-                ));
-
-                win.connect_close_request(clone!(
-                    #[strong]
-                    sender,
-                    move |_| {
-                        sender.input(SearchScriptureInput::ReloadTranlations);
-                        return gtk::glib::Propagation::Proceed;
-                    }
-                ));
-
-                win.set_child(Some(&boxx));
-                win.present();
+                sender.input(SearchScriptureInput::OpenDownload);
             }
         ));
     }
@@ -614,12 +514,25 @@ impl SimpleComponent for SearchScriptureModel {
         let list_view_wrapper = Rc::new(RefCell::new(typed_list_view));
         let dropdown = gtk::DropDown::from_strings(&[]);
 
+        let download_modal = DownloadBibleModel::builder()
+            .launch(DownloadBibleInit {
+                db_connection: init.db_connection.clone(),
+                installed_translations: SearchScriptureModel::get_bible_translations(
+                    init.db_connection.clone(),
+                ),
+            })
+            .forward(
+                sender.input_sender(),
+                SearchScriptureModel::convert_download_bible_response,
+            );
+
         let mut model = SearchScriptureModel {
             list_view_wrapper: list_view_wrapper.clone(),
             search_text: gtk::SearchEntry::new(),
             translation: Rc::new(RefCell::new(String::new())),
             db_connection: init.db_connection.clone(),
             dropdown: dropdown.clone(),
+            download_bible_modal: download_modal,
         };
 
         let list_view = model.list_view_wrapper.borrow().view.clone();
@@ -676,289 +589,18 @@ impl SimpleComponent for SearchScriptureModel {
                 }
                 sender.input(SearchScriptureInput::ReloadTranlations);
             }
+            SearchScriptureInput::OpenDownload => {
+                self.download_bible_modal.emit(DownloadBibleInput::Open);
+            }
         }
     }
 }
 
-mod download {
-
-    use std::{cell::RefCell, rc::Rc};
-
-    use gtk::{
-        glib::clone,
-        prelude::{ButtonExt, WidgetExt},
-    };
-    use relm4::{gtk, typed_view::list::RelmListItem, view, ComponentSender, RelmWidgetExt};
-
-    use crate::{
-        db::{connection::DatabaseConnection, query::Query},
-        widgets::search::scriptures::import_bible,
-    };
-
-    use super::{BibleDownload, SearchScriptureInput, SearchScriptureModel};
-
-    #[derive(Debug, Clone)]
-    pub struct BibleDownloadListItem {
-        pub data: BibleDownload,
-        pub conn: Rc<RefCell<Option<DatabaseConnection>>>,
-        pub already_added: bool,
-        pub parent_sender: ComponentSender<SearchScriptureModel>,
-    }
-
-    pub struct BibleListItemWidget {
-        text: gtk::Label,
-        btn: gtk::Button,
-    }
-
-    impl Drop for BibleListItemWidget {
-        fn drop(&mut self) {}
-    }
-
-    impl RelmListItem for BibleDownloadListItem {
-        type Root = gtk::Box;
-        type Widgets = BibleListItemWidget;
-
-        fn setup(_list_item: &gtk::ListItem) -> (Self::Root, Self::Widgets) {
-            view! {
-                list_box = gtk::Box {
-                    #[name="text"]
-                    gtk::Label {
-                        set_hexpand: true,
-                        set_ellipsize: gtk::pango::EllipsizeMode::End,
-                        set_align: gtk::Align::Start,
-                        set_margin_horizontal: 8,
-                    },
-                    #[name="btn"]
-                    gtk::Button{
-                        // set_label:"Install",
-                    },
-                }
-            }
-
-            let widgets = BibleListItemWidget { text, btn };
-
-            return (list_box, widgets);
-        }
-
-        fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-            let a = self.data.name.split(".").collect::<Vec<&str>>();
-            if let Some(name) = a.get(0) {
-                let name = name.to_string();
-                match self.already_added {
-                    true => {
-                        widgets.btn.set_label("Uninstall");
-                        widgets.text.set_label(&format!("{} (Installed)", name));
-                    }
-                    false => {
-                        widgets.btn.set_label("Install");
-                        widgets.text.set_label(&format!("{}", name));
-                    }
-                };
-            }
-
-            let conn = self.conn.clone();
-            let data = self.data.clone();
-            let already_added = self.already_added.clone();
-            let sender = self.parent_sender.clone();
-
-            widgets.btn.connect_clicked(move |btn| {
-                gtk::glib::spawn_future_local(clone!(
-                    #[strong]
-                    btn,
-                    #[strong]
-                    data,
-                    #[strong]
-                    conn,
-                    #[strong]
-                    already_added,
-                    #[strong]
-                    sender,
-                    async move {
-                        btn.set_sensitive(false);
-
-                        match already_added {
-                            true => {
-                                let a = data.name.split(".").collect::<Vec<&str>>();
-                                if let Some(name) = a.get(0) {
-                                    let name = name.to_string();
-                                    let name = format!("{}", name);
-                                    let delete_result = Query::delete_bible_translation(conn, name);
-
-                                    match delete_result {
-                                        Ok(_) => btn.set_label("Install"),
-                                        Err(e) => {
-                                            btn.set_label("Uninstall");
-                                            eprintln!(
-                                                "SQL ERROR: error removing translation\n{:?}",
-                                                e
-                                            );
-                                        }
-                                    }
-                                }
-                            }
-                            false => {
-                                btn.set_label("Installing");
-
-                                let installed_translation = import_bible(conn, &data).await;
-                                if let Some(installed_t) = installed_translation {
-                                    sender.input(SearchScriptureInput::NewTranslation(installed_t));
-                                }
-
-                                btn.set_label("Installed");
-                            }
-                        }
-
-                        btn.set_sensitive(true);
-                    }
-                ));
-            });
+impl SearchScriptureModel {
+    fn convert_download_bible_response(res: DownloadBibleOutput) -> SearchScriptureInput {
+        match res {
+            DownloadBibleOutput::NewTranslation(t) => SearchScriptureInput::NewTranslation(t),
+            DownloadBibleOutput::ReloadTranslation => SearchScriptureInput::ReloadTranlations,
         }
     }
-}
-
-async fn import_bible(
-    conn: Rc<RefCell<Option<DatabaseConnection>>>,
-    bible: &BibleDownload,
-) -> Option<String> {
-    println!("SELCETIONS {:?}", bible);
-
-    let download_url = match &bible.download_url {
-        Some(d) => d,
-        None => return None,
-    };
-
-    let resp = reqwest::get(download_url)
-        .await
-        .expect("Request error")
-        .bytes()
-        .await
-        .expect("Request error: Error getting response as bytes");
-
-    let path_str = AppConfigDir::dir_path(AppConfigDir::DOWNLOADS);
-    let file_path = path_str.join(bible.name.clone());
-    let file = std::fs::File::create_new(&file_path);
-
-    // if let Ok(mut file) = file {}
-
-    let mut file = match file {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("failed to create file {:?}", e);
-            return None;
-        }
-    };
-
-    match file.write_all(&resp) {
-        Ok(a) => a,
-        Err(e) => {
-            println!("Error saving file: {:?}", e);
-            return None;
-        }
-    };
-    println!("CREATED FILE {:?}", file_path);
-
-    let db_conn = match Connection::open(&file_path) {
-        Ok(conn) => conn,
-        Err(e) => {
-            println!("Error opening file: {:?}", e);
-            return None;
-        }
-    };
-
-    let translation: BibleTranslation = match db_conn.query_row(
-        "SELECT translation, title, license FROM translations",
-        [],
-        |r| {
-            let bt = BibleTranslation {
-                translation: r.get::<_, String>(0)?,
-                title: r.get::<_, String>(1)?,
-                license: r.get::<_, String>(2)?,
-            };
-
-            Ok(bt)
-        },
-    ) {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!(
-                "SQL ERROR: error getting downloaded translation info \n{:?}",
-                e
-            );
-            return None;
-        }
-    };
-
-    let translation_name = match bible.name.split(".").collect::<Vec<&str>>().get(0) {
-        Some(name) => name.to_string(),
-        None => return None,
-    };
-
-    let mut verses_sql = match db_conn.prepare(&format!(
-        "SELECT id, book_id, chapter, verse, text FROM {}_verses",
-        translation_name
-    )) {
-        Ok(s) => s,
-        Err(e) => {
-            println!("SQL ERROR: error getting downloaded verses \n{:?}", e);
-            return None;
-        }
-    };
-
-    let bible_verse = match verses_sql.query_map([], |r| {
-        let bv = (
-            r.get::<_, u32>(0)?, // id
-            BibleVerse {
-                book: "".to_string(),
-                book_id: r.get::<_, u32>(1)?, // book_id
-                chapter: r.get::<_, u32>(2)?, // chapter
-                verse: r.get::<_, u32>(3)?,   // verse
-                text: r.get::<_, String>(4)?, // text
-            },
-        );
-
-        return Ok(bv);
-    }) {
-        Ok(a) => a,
-        Err(e) => {
-            eprintln!("SQL ERROR: error getting downloaded verses \n{:?}", e);
-            return None;
-        }
-    };
-
-    let mut verses_vec = Vec::new();
-    for row in bible_verse {
-        match row {
-            Ok(r) => {
-                if r.1.book_id > 66 {
-                    eprintln!("SQL ERROR: Book too large \n{:?}", verses_vec.get(0));
-                    return None;
-                }
-
-                verses_vec.push(r);
-            }
-            Err(e) => {
-                eprintln!("SQL ERROR: error extracting downloaded verses \n{:?}", e);
-                return None;
-            }
-        };
-    }
-
-    let translation_name = translation.translation.clone();
-    let res = Query::insert_verse(conn, translation, verses_vec);
-    println!("INSERTING VERESES DONE: {:?}", res);
-
-    match std::fs::remove_file(&file_path) {
-        Ok(_) => (),
-        Err(e) => {
-            eprintln!("FILE ERROR: error removing downloaded verses \n{:?}", e);
-            return None;
-        }
-    };
-
-    return Some(translation_name);
-    // list.selection_model
-    //     .select_item(list.selection_model.selection().nth(0), true);
-    //
-    // btn.set_sensitive(false);
-    // // win_clone.close();
 }
