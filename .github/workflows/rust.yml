@@ -207,11 +207,6 @@ jobs:
 
       - name: Install GTK4 (Windows)
         run: |
-          # TODO: Next 3 lines should have been `pipx install gvsbuild`, but https://github.com/wingtk/gvsbuild/issues/1436
-          # py -m venv .venv
-          # .\.venv\Scripts\activate.ps1
-          # py -m pip install gvsbuild
-
           py -3.13 -m pip install --user pipx
           py -3.13 -m pipx ensurepath
           pipx install gvsbuild
