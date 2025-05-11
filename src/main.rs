@@ -17,6 +17,10 @@ use widgets::preview_activity_viewer::{
 use widgets::schedule_activity_viewer::{
     ScheduleViewerInput, ScheduleViewerModel, ScheduleViewerOutput,
 };
+
+mod icon_names {
+    include!(concat!(env!("OUT_DIR"), "/icon_names.rs"));
+}
 use widgets::search::{SearchInit, SearchModel, SearchOutput};
 mod config;
 mod db;
@@ -404,8 +408,8 @@ impl SimpleComponent for AppModel {
     }
 }
 
-const APP_ID: &str = "com.open-worship.app";
-const RESOURECE_PATH: &str = "/com/open-worship/app";
+const APP_ID: &str = "com.openworship.app";
+const RESOURECE_PATH: &str = "/com/openworship/app";
 
 // const MIN_GRID_HEIGHT: i32 = 300;
 const MIN_GRID_WIDTH: i32 = 300;
@@ -415,7 +419,7 @@ fn main() {
     let app = relm4::main_application();
     app.set_application_id(Some(APP_ID));
     app.set_resource_base_path(Some(RESOURECE_PATH));
-    relm4_icons::initialize_icons();
+    relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
 
     let app = relm4::RelmApp::from_app(app);
     relm4::gtk::init().expect("Could not init gtk");
@@ -540,7 +544,7 @@ fn app_init() {
         .expect("could not find app resources");
 
     let provider = gtk::CssProvider::new();
-    provider.load_from_resource("/com/open-worship/app/style.css");
+    provider.load_from_resource("/com/openworship/app/style.css");
 
     if let Some(display) = gtk::gdk::Display::default() {
         gtk::style_context_add_provider_for_display(

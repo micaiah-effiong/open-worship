@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use crate::db;
 
-const APP_DIR_NAME: &str = "open-worship";
+const APP_DIR_NAME: &str = "openworship";
 const APP_DATA_DIRS: [&str; 4] = ["backgrounds", "database", "media", "downloads"];
 
 pub struct AppConfig {

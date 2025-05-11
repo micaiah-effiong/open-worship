@@ -5,32 +5,28 @@
         <key>CFBundleDevelopmentRegion</key>
         <string>English</string>
         <key>CFBundleDisplayName</key>
-        <string>Open Worship</string>
+        <string>openworship</string>
         <key>CFBundleExecutable</key>
-        <string>open-worship.sh</string>
+        <string>openworship.sh</string>
         <key>CFBundleIconFile</key>
-        <string>open-worship.icns</string>
+        <string>openworship.icns</string>
         <key>CFBundleIdentifier</key>
-        <string>com.open-worship.app</string>
+        <string>xyz.autonomys.openworship</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundleName</key>
-        <string>Openworship</string>
+        <string>openworship</string>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
-        <string>0.1.0</string>
+        <key>CFBundleShortVersionString</key>
+        <string>%BUNDLE_VERSION%</string>
+        <key>CFBundleVersion</key>
+        <string>%BUNDLE_BUILD%</string>
         <key>CSResourcesFileMapped</key>
         <true/>
         <key>LSRequiresCarbon</key>
         <true/>
         <key>NSHighResolutionCapable</key>
         <true/>
-
-        <key>CFBundleShortVersionString</key>
-        <string>%BUNDLE_VERSION%</string>
-        <key>CFBundleVersion</key>
-        <string>%BUNDLE_BUILD%</string>
     </dict>
 </plist>
-
-
