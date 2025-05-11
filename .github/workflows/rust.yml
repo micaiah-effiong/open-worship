@@ -215,7 +215,7 @@ jobs:
           py -3.13 -m pip install --user pipx
           py -3.13 -m pipx ensurepath
           pipx install gvsbuild
-          gvsbuild build gtk4 librsvg --config=release
+          gvsbuild build gtk4 librsvg --configuration=release
         if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
       - name: Configure GTK4 (Windows)
