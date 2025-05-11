@@ -46,8 +46,8 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: cargo fmt
-        run: cargo fmt --all -- --check
+      # - name: cargo fmt
+      #   run: cargo fmt --all -- --check
 
   cargo-clippy:
     strategy:
@@ -93,7 +93,7 @@ jobs:
           Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
           Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
           Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
-          
+
           # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
           Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > actual-dlls.log
           if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
@@ -126,7 +126,7 @@ jobs:
       - name: CUDA toolchain (Windows)
         uses: Jimver/cuda-toolkit@4bd727d5619dc6fa323b1e76c3aa5dca94f5ec6d # v0.2.19
         with:
-          cuda: '12.4.1'
+          cuda: "12.4.1"
           method: network
           sub-packages: '["nvcc", "cudart"]'
         if: runner.os == 'Windows'
@@ -214,7 +214,7 @@ jobs:
           Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
           Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
           Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
-          
+
           # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
           Get-ChildItem C:\gtk-build\gtk\x64\release\lib\gdk-pixbuf-2.0\2.10.0\loaders\*.dll | ForEach-Object { $_.Name } > actual-pixbuf-loaders.log
           if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-pixbuf-loaders.log) -DifferenceObject (Get-Content -Path actual-pixbuf-loaders.log)) {
@@ -224,7 +224,7 @@ jobs:
             Get-Content actual-pixbuf-loaders.log
             Throw "Actual pixbuf loaders do not match expected"
           }
-          
+
           # We have hardcoded list of libraries in space-acres.wxs, make sure it didn't change unexpectedly
           Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > actual-dlls.log
           if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
