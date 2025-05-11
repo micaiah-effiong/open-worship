@@ -21,7 +21,7 @@ pub struct Token {
 
 impl Token {
     pub fn inspect(&self) -> String {
-        return self.value.clone();
+        self.value.clone()
     }
 }
 
@@ -35,15 +35,15 @@ pub struct Tokenizer {
 impl Tokenizer {
     pub fn new(inp: String) -> Self {
         // pad input before initializing lexer
-        let input: String;
-        input = String::from("  ") + &inp;
+        
+        let input: String = String::from("  ") + &inp;
 
-        return Tokenizer {
+        Tokenizer {
             char: input.chars().nth(0).expect("Input cannot be empty"),
             position: 0,
             peek_position: 1,
             input,
-        };
+        }
     }
 
     pub fn next_token(&mut self) -> Token {
@@ -99,7 +99,7 @@ impl Tokenizer {
         };
 
         self.read_char();
-        return token;
+        token
     }
 
     pub fn skip_white_space(&mut self) {
@@ -114,11 +114,11 @@ impl Tokenizer {
             self.read_char();
         }
 
-        return self
+        self
             .input
             .get(start as usize..self.position as usize)
             .unwrap() // TODO: handle error None arm
-            .to_string();
+            .to_string()
     }
 
     fn read_digit(&mut self) -> String {
@@ -127,25 +127,20 @@ impl Tokenizer {
             self.read_char();
         }
 
-        return self
+        self
             .input
             .get(start as usize..self.position as usize)
             .unwrap() // TODO: handle error None arm
-            .to_string();
+            .to_string()
     }
 
     pub fn read_char(&mut self) {
         if self.peek_position as usize >= self.input.len() {
             self.char = '\0'
-        } else {
-            match self.input.chars().nth(self.peek_position as usize) {
-                Some(ch) => self.char = ch,
-                None => (),
-            };
-        }
+        } else if let Some(ch) = self.input.chars().nth(self.peek_position as usize) { self.char = ch }
 
         self.position = self.peek_position;
-        self.peek_position = self.peek_position + 1;
+        self.peek_position += 1;
     }
 
     fn is_letter(ch: char) -> bool {

@@ -36,7 +36,7 @@ impl RelmListItem for ActivityListItem {
             label: list_item_label,
         };
 
-        return (list_view, widgets);
+        (list_view, widgets)
     }
 
     fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {

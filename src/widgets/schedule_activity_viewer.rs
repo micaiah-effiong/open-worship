@@ -40,20 +40,17 @@ pub struct ScheduleViewerModel {
 
 impl ScheduleViewerModel {
     fn new(list_data: Option<Vec<ScheduleData>>) -> Self {
-        let list = match list_data {
-            Some(list) => list,
-            None => Vec::new(),
-        };
+        let list = list_data.unwrap_or_default();
 
         let mut t_view = TypedListView::new();
         for item in list.clone() {
             t_view.append(ScheduleListItemModel::new(item.title, item.list, None));
         }
 
-        return ScheduleViewerModel {
+        ScheduleViewerModel {
             title: String::from("Schedule"),
             list_view_wrapper: Rc::new(RefCell::new(t_view)),
-        };
+        }
     }
 
     fn register_context_menu(&self, sender: &ComponentSender<ScheduleViewerModel>) {
@@ -185,7 +182,7 @@ impl SimpleComponent for ScheduleViewerModel {
 
         let widgets = view_output!();
 
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {

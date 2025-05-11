@@ -55,7 +55,7 @@ impl SearchBackgroundModel {
         }
 
         println!("load dir {:?}", &path_list);
-        return path_list;
+        path_list
     }
 
     fn append_background(&mut self, bg: Vec<String>) {
@@ -116,12 +116,9 @@ impl SearchBackgroundModel {
 
             for file in files.iter::<gtk::gio::File>() {
                 if let Ok(file) = file {
-                    match file.path() {
-                        Some(path) => {
-                            let filename = path.display().to_string();
-                            new_images.push(filename);
-                        }
-                        None => (),
+                    if let Some(path) = file.path() {
+                        let filename = path.display().to_string();
+                        new_images.push(filename);
                     }
                 }
             }
@@ -129,7 +126,7 @@ impl SearchBackgroundModel {
             sender.input(SearchBackgroundInput::NewBackgroundImages(new_images));
         });
 
-        return fc;
+        fc
     }
 }
 
@@ -259,7 +256,7 @@ impl SimpleComponent for SearchBackgroundModel {
         let bg_grid_view = model.grid_view_wrapper.borrow().view.clone();
 
         let widgets = view_output!();
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {

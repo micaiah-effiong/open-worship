@@ -53,7 +53,7 @@ impl Query {
             verses_vec.push(row.unwrap());
         }
 
-        return Ok(verses_vec);
+        Ok(verses_vec)
     }
     pub fn search_by_chapter_query(
         conn: Rc<RefCell<Option<DatabaseConnection>>>,
@@ -96,7 +96,7 @@ impl Query {
             verses_vec.push(row.unwrap());
         }
 
-        return Ok(verses_vec);
+        Ok(verses_vec)
     }
 
     pub fn insert_song(conn: Rc<RefCell<Option<DatabaseConnection>>>, song: Song) -> RuResult<()> {
@@ -129,7 +129,7 @@ impl Query {
             )?;
         }
 
-        return tx.commit();
+        tx.commit()
     }
 
     pub fn update_song(conn: Rc<RefCell<Option<DatabaseConnection>>>, song: Song) -> RuResult<()> {
@@ -158,7 +158,7 @@ impl Query {
             )?;
         }
 
-        return tx.commit();
+        tx.commit()
     }
 
     pub fn delete_song(conn: Rc<RefCell<Option<DatabaseConnection>>>, song: Song) -> RuResult<()> {
@@ -176,7 +176,7 @@ impl Query {
         tx.execute(song_verses_sql, [&song.song_id])?;
         tx.execute(song_sql, [&song.song_id])?;
 
-        return tx.commit();
+        tx.commit()
     }
 
     pub fn get_songs(
@@ -219,7 +219,7 @@ impl Query {
             songs.push(Song::from_verses(song.0, song.1, verses))
         }
 
-        return Ok(songs);
+        Ok(songs)
     }
 
     pub fn insert_verse(
@@ -277,7 +277,7 @@ impl Query {
         for verse in vec_sql_verse.iter() {
             let (sql, id, book) = verse;
             match tx.execute(
-                &sql,
+                sql,
                 (id, book.book_id, book.chapter, book.verse, &book.text),
             ) {
                 Ok(s) => s,
@@ -288,7 +288,7 @@ impl Query {
             };
         }
 
-        return tx.commit();
+        tx.commit()
     }
 
     pub fn get_translations(
@@ -304,7 +304,7 @@ impl Query {
         let sql = "SELECT translation FROM translations";
         let mut stmt = conn.prepare(sql)?;
 
-        let query_result = stmt.query_map([], |r| Ok(r.get::<_, String>(0)?))?;
+        let query_result = stmt.query_map([], |r| r.get::<_, String>(0))?;
 
         let mut translation_list = Vec::new();
         for i in query_result.into_iter() {
@@ -332,9 +332,9 @@ impl Query {
         let drop_translation_table_sql = format!("DROP TABLE IF EXISTS {translation}_verses"); // <name>_verses
 
         let trx = conn.transaction()?;
-        trx.execute(&delete_translations_sql, [&translation])?;
+        trx.execute(delete_translations_sql, [&translation])?;
         trx.execute(&drop_translation_table_sql, [])?;
 
-        return trx.commit();
+        trx.commit()
     }
 }

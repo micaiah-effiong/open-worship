@@ -33,7 +33,7 @@ impl BackgroundGridListItem {
             None => panic!("Error converting file name to string"),
         };
 
-        return BackgroundGridListItem { src, title };
+        BackgroundGridListItem { src, title }
     }
 }
 
@@ -70,7 +70,7 @@ impl RelmGridItem for BackgroundGridListItem {
             image: bg_picture,
         };
 
-        return (bg_grid_li_view, widgets);
+        (bg_grid_li_view, widgets)
     }
 
     fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {

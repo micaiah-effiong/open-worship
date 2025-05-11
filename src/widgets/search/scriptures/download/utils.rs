@@ -67,7 +67,7 @@ where
         downloaded_size = u64::min(downloaded_size + chunk.len() as u64, content_size);
     }
 
-    callback(format!("Installing..."));
+    callback("Installing...".to_string());
 
     let _db_conn = match Connection::open(&file_path) {
         Ok(conn) => conn,
@@ -101,7 +101,7 @@ where
         }
     };
 
-    let translation_name = match bible.name.split(".").collect::<Vec<&str>>().get(0) {
+    let translation_name = match bible.name.split(".").collect::<Vec<&str>>().first() {
         Some(name) => name.to_string(),
         None => {
             eprintln!("ERROR: failed to get file translation name");
@@ -134,7 +134,7 @@ where
             },
         );
 
-        return Ok(bv);
+        Ok(bv)
     });
 
     let bible_verse = match verses_query {
@@ -151,7 +151,7 @@ where
             Ok(r) => {
                 // check if book is not part of the 66 books
                 if r.1.book_id > 66 {
-                    eprintln!("SQL ERROR: Book too large \n{:?}", verses_vec.get(0));
+                    eprintln!("SQL ERROR: Book too large \n{:?}", verses_vec.first());
                     return None;
                 }
 
@@ -175,5 +175,5 @@ where
 
     callback("Done".to_string());
 
-    return Some(translation_name);
+    Some(translation_name)
 }

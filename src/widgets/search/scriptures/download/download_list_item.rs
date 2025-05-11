@@ -53,12 +53,12 @@ impl RelmListItem for BibleDownloadListItem {
 
         let widgets = BibleListItemWidget { text, btn };
 
-        return (list_box, widgets);
+        (list_box, widgets)
     }
 
     fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {
         let a = self.data.name.split(".").collect::<Vec<&str>>();
-        if let Some(name) = a.get(0) {
+        if let Some(name) = a.first() {
             let name = name.to_string();
             match self.already_added {
                 true => {
@@ -67,14 +67,14 @@ impl RelmListItem for BibleDownloadListItem {
                 }
                 false => {
                     widgets.btn.set_label("Install");
-                    widgets.text.set_label(&format!("{}", name));
+                    widgets.text.set_label(&name.to_string());
                 }
             };
         }
 
         let conn = self.conn.clone();
         let data = self.data.clone();
-        let already_added = self.already_added.clone();
+        let already_added = self.already_added;
         let sender = self.parent_sender.clone();
 
         widgets.btn.connect_clicked(move |btn| {
@@ -95,8 +95,8 @@ impl RelmListItem for BibleDownloadListItem {
                     match already_added {
                         true => {
                             let name = data.name.split(".").collect::<Vec<&str>>();
-                            if let Some(name) = name.get(0) {
-                                let name = format!("{}", name.to_string());
+                            if let Some(name) = name.first() {
+                                let name = name.to_string();
                                 let delete_result = Query::delete_bible_translation(conn, name);
 
                                 match delete_result {

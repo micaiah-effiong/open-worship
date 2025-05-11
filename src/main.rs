@@ -59,37 +59,37 @@ struct AppModel {
 
 impl AppModel {
     fn convert_schedule_activity_response(res: ScheduleViewerOutput) -> AppInput {
-        return match res {
+        match res {
             ScheduleViewerOutput::Activated(payload) => {
                 AppInput::ScheduleActivityActivated(payload)
             }
-        };
+        }
     }
     fn convert_live_activity_response(res: LiveViewerOutput) -> AppInput {
-        return match res {
+        match res {
             LiveViewerOutput::Selected(payload) => AppInput::LiveActivitySelected(payload),
             // LiveViewerOutput::Activated(txt) => AppInput::LiveActivityActivated(txt),
-        };
+        }
     }
     fn convert_preview_activity_response(res: PreviewViewerOutput) -> AppInput {
-        return match res {
+        match res {
             PreviewViewerOutput::Selected(payload) => {
                 println!("app preview {:?}", payload);
                 AppInput::PreviewActivitySelected(payload)
             }
             PreviewViewerOutput::Activated(text) => AppInput::PreviewActivityActivated(text),
-        };
+        }
     }
 
     fn convert_search_response(res: SearchOutput) -> AppInput {
-        return match res {
+        match res {
             SearchOutput::PreviewBackground(image_src) => {
                 AppInput::SearchPreviewBackground(image_src)
             }
             SearchOutput::PreviewScriptures(list) => AppInput::SearchPreviewActivity(list),
             SearchOutput::PreviewSongs(list) => AppInput::SearchPreviewActivity(list),
             SearchOutput::AddToSchedule(list) => AppInput::ScheduleActivityAddNew(list),
-        };
+        }
     }
 }
 
@@ -324,7 +324,7 @@ impl SimpleComponent for AppModel {
 
         widgets.main_window.present();
 
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
@@ -333,7 +333,7 @@ impl SimpleComponent for AppModel {
             AppInput::ScheduleActivityActivated(payload) => {
                 self.preview_activity_viewer
                     .emit(PreviewViewerInput::NewList(payload.clone()));
-                if let Some(text) = payload.list.get(0) {
+                if let Some(text) = payload.list.first() {
                     let slide = dto::DisplayPayload {
                         background_image: payload.background_image,
                         text: text.to_string(),
@@ -389,7 +389,7 @@ impl SimpleComponent for AppModel {
                     .emit(PreviewViewerInput::Background(image_src));
             }
             AppInput::SearchPreviewActivity(list_payload) => {
-                if let Some(item) = list_payload.list.get(0) {
+                if let Some(item) = list_payload.list.first() {
                     self.preview_activity_screen
                         .emit(ActivityScreenInput::DisplayUpdate(
                             dto::DisplayPayload::new(item.clone()),
@@ -474,7 +474,7 @@ fn get_display_geometry() -> Option<gtk::gdk::Rectangle> {
         }
     };
 
-    return Some(geometry);
+    Some(geometry)
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -512,7 +512,7 @@ fn build_app_menu() -> gtk::gio::Menu {
     let edit_menu = gtk::gio::Menu::new();
     menu.append_submenu(Some("Edit"), &edit_menu);
 
-    return menu;
+    menu
 }
 
 fn add_app_actions(window: &gtk::ApplicationWindow, app: &gtk::Application) {

@@ -39,7 +39,7 @@ impl AppConfig {
     }
 
     fn setup_database() {
-        let _ = db::connection::load_db(AppConfig::get_db_path()); //.expect("Error setting up database");
+        db::connection::load_db(AppConfig::get_db_path()); //.expect("Error setting up database");
     }
 
     pub fn get_db_path() -> String {
@@ -48,7 +48,7 @@ impl AppConfig {
             .display()
             .to_string();
 
-        return db_path;
+        db_path
     }
 }
 
@@ -83,6 +83,6 @@ impl AppConfigDir {
         let sys_config_dir = dirs::config_dir()
             .expect("Could not get config directory")
             .join(APP_DIR_NAME);
-        return sys_config_dir.join(AppConfigDir::to(val));
+        sys_config_dir.join(AppConfigDir::to(val))
     }
 }

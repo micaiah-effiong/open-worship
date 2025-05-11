@@ -14,7 +14,7 @@ pub struct SongListItemModel {
 
 impl SongListItemModel {
     pub fn new(song: Song) -> Self {
-        return SongListItemModel { song };
+        SongListItemModel { song }
     }
     // pub fn screen_display(&self) -> String {
     //     let text = format!("{}\n{}", self.tag, self.text);
@@ -48,11 +48,11 @@ impl RelmListItem for SongListItemModel {
 
         let widgets = SongListItemWidget { text };
 
-        return (list_box, widgets);
+        (list_box, widgets)
     }
 
     fn bind(&mut self, _widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-        let text = format!("{}", self.song.title);
+        let text = self.song.title.to_string();
         _widgets.text.set_label(&text);
     }
 }

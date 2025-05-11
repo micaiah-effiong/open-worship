@@ -27,16 +27,14 @@ const MIN_GRID_HEIGHT: i32 = 300;
 
 impl ActivityScreenModel {
     fn format_bg_style(image: String) -> String {
-        let mut style = format!(
-            "background-size: cover; background-position: center center; background-color: black;",
-        );
+        let mut style = "background-size: cover; background-position: center center; background-color: black;".to_string();
 
         if !image.is_empty() {
             let bg_image_style = format!("background-image: url(\"file://{}\");", image);
             style = style + &bg_image_style;
         }
 
-        return style;
+        style
     }
 
     fn update_display_image(&mut self, image_src: String) {
@@ -58,12 +56,12 @@ impl ActivityScreenModel {
     fn _get_user_text_size(text: String, _user_font_size: f64) -> f64 {
         let text_lines = text.lines();
         let text_w = text_lines.clone().count();
-        let text_h = text_lines.clone().fold(0, |acc, e| acc.max(e.len().into()));
+        let text_h = text_lines.clone().fold(0, |acc, e| acc.max(e.len()));
         let text_len = text.len();
 
         let size = text_w.saturating_mul(text_h).saturating_div(text_len);
 
-        return size as f64;
+        size as f64
     }
 
     fn resize_font(&self) {
@@ -187,7 +185,7 @@ impl SimpleComponent for ActivityScreenModel {
             println!("RESIZE {_w}, {_h}");
         });
 
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
@@ -218,9 +216,9 @@ fn calculate_max_font_size_for_rect(w: i32, h: i32, text_length: f64) -> f64 {
     let w = w.saturating_sub(10);
     let h = h.saturating_sub(10);
     let area = w.saturating_mul(h) as f64;
-    let max_font_size = (area / text_length).cbrt() * 2.0;
+    
 
-    return max_font_size;
+    (area / text_length).cbrt() * 2.0
 }
 
 /// Calculate for the maximum number of text needed to fill a rect
@@ -237,5 +235,5 @@ fn calculate_max_font_size_for_rect(w: i32, h: i32, text_length: f64) -> f64 {
 /// ```
 fn calc_max_len(w: i32, h: i32, font_size: f64) -> f64 {
     let area = (w * h) as f64;
-    return (8.0 * area) / (font_size.powf(3.0));
+    (8.0 * area) / (font_size.powf(3.0))
 }

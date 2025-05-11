@@ -42,14 +42,14 @@ impl LiveViewerModel {
     fn new() -> Self {
         let list_view_wrapper = Rc::new(RefCell::new(TypedListView::new()));
 
-        return LiveViewerModel {
+        LiveViewerModel {
             // title: String::from(""),
             // list: Rc::new(RefCell::new(Vec::new())),
             // background_image: Rc::new(RefCell::new(None)),
             selected_index: Rc::new(RefCell::new(None)),
             slide: Rc::new(RefCell::new(None)),
             list_view_wrapper,
-        };
+        }
     }
 }
 
@@ -104,12 +104,12 @@ impl LiveViewerModel {
             #[strong]
             selected_index,
             move |selection_model, _, _, _| {
-                let index = match selected_index.borrow().clone() {
+                let index = match *selected_index.borrow() {
                     Some(inx) => inx,
                     None => return,
                 };
 
-                selection_model.select_item(index.clone(), true);
+                selection_model.select_item(index, true);
                 list_view.grab_focus();
 
                 let mut li = list_view.first_child();
@@ -181,7 +181,7 @@ impl SimpleComponent for LiveViewerModel {
         model.listen_for_items_change();
         model.listen_for_selection_changed(&sender);
 
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {

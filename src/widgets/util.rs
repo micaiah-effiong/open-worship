@@ -17,5 +17,5 @@ pub fn widget_to_vec(_w: &gtk::Widget) -> Vec<gtk::Widget> {
         }
     }
 
-    return v;
+    v
 }
