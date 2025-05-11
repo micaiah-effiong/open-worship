@@ -209,7 +209,7 @@ impl SimpleComponent for EditModel {
             connect_close_request[sender] => move |m| {
                 println!("destroy {:?}", m);
                 sender.input(EditModelInputMsg::Hide);
-                return gtk::glib::Propagation::Stop;
+                gtk::glib::Propagation::Stop
             }
         }
     }
@@ -244,7 +244,7 @@ impl SimpleComponent for EditModel {
         model.register_response_ok(&widgets.ok_btn, &text_entry, &sender);
         EditModel::register_list_view_selection_changed(&model, sender.clone());
 
-        return relm4::ComponentParts { widgets, model };
+        relm4::ComponentParts { widgets, model }
     }
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
@@ -319,7 +319,7 @@ impl SimpleComponent for EditModel {
                     .emit(ActivityScreenInput::DisplayUpdate(payload));
             }
             EditModelInputMsg::Response(res) => {
-                let _ = match res {
+                match res {
                     gtk::ResponseType::Ok => {
                         let mut verses: Vec<String> = Vec::new();
 
@@ -494,10 +494,7 @@ impl EditModel {
         let bold_tag = buffer.create_tag(Some("bold"), &[("weight", &PANGO_WEIGHT_BOLD)]);
 
         let (start, end) = buffer.bounds();
-        match bold_tag {
-            Some(b) => buffer.apply_tag(&b, &start, &end),
-            None => (),
-        }
+        if let Some(b) = bold_tag { buffer.apply_tag(&b, &start, &end) }
 
         // println!(
         //     "NEW BUFFER\n {:?}\n{:?}",

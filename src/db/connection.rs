@@ -9,12 +9,12 @@ pub struct DatabaseConnection {
 
 impl DatabaseConnection {
     pub fn open(path: String) -> DatabaseConnection {
-        return DatabaseConnection {
+        DatabaseConnection {
             connection: Connection::open(path).expect("Cound not open the database file"),
-        };
+        }
     }
     pub fn close(self) -> Result<(), (Connection, rusqlite::Error)> {
-        return self.connection.close();
+        self.connection.close()
     }
 }
 
@@ -30,17 +30,15 @@ pub fn load_db(path: String) {
     create_translations_table(&conn);
     insert_bible_books(&conn);
 
-    let _ = conn.pragma_update(None, "journal_mode", &"WAL");
+    let _ = conn.pragma_update(None, "journal_mode", "WAL");
     let _ = conn.close();
 }
 
 pub fn create_bible_books_table(conn: &Connection) {
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS bible_books (
+    let sql = "CREATE TABLE IF NOT EXISTS bible_books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL
-        )"
-    );
+        )".to_string();
 
     let ex = conn.execute(&sql, ());
     if ex.is_err() {
@@ -67,13 +65,11 @@ pub fn create_bible_book_verses_table(conn: Connection, translation: String) {
 }
 
 pub fn create_translations_table(conn: &Connection) {
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS translations (
+    let sql = "CREATE TABLE IF NOT EXISTS translations (
             translation TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             license TEXT
-        )"
-    );
+        )".to_string();
 
     let ex = conn.execute(&sql, ());
     if ex.is_err() {
@@ -82,12 +78,10 @@ pub fn create_translations_table(conn: &Connection) {
 }
 
 pub fn create_songs_table(conn: &Connection) {
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS songs (
+    let sql = "CREATE TABLE IF NOT EXISTS songs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL
-        )"
-    );
+        )".to_string();
 
     let ex = conn.execute(&sql, ());
     if ex.is_err() {
@@ -96,16 +90,14 @@ pub fn create_songs_table(conn: &Connection) {
 }
 
 pub fn create_song_verses_table(conn: &Connection) {
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS song_verses (
+    let sql = "CREATE TABLE IF NOT EXISTS song_verses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             song_id INTEGER NOT NULL,
             verse INTEGER NOT NULL,
             text TEXT NOT NULL,
             tag TEXT,
             FOREIGN KEY (song_id) REFERENCES songs(id)
-        )"
-    );
+        )".to_string();
 
     let ex = conn.execute(&sql, ());
     if ex.is_err() {
@@ -115,7 +107,7 @@ pub fn create_song_verses_table(conn: &Connection) {
 
 fn insert_bible_books(conn: &Connection) {
     let bible_books_sql = include_str!("sql/bible_books.sql");
-    let sql = format!("{bible_books_sql}");
+    let sql = bible_books_sql.to_string();
 
     let ex = conn.execute_batch(&sql);
     if ex.is_err() {

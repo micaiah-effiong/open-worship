@@ -21,22 +21,22 @@ pub struct AstReference {
 
 impl AstReference {
     pub fn inspect(&self) -> String {
-        return format!("{} {}", self.book.inspect(), self.reference.inspect());
+        format!("{} {}", self.book.inspect(), self.reference.inspect())
     }
     pub fn eval(&self) -> BibleReference {
         let page = self.reference.eval();
-        return BibleReference {
+        BibleReference {
             book: self.book.eval(),
             chapter: page.chapter,
             verses: page.verses,
-        };
+        }
     }
     fn from(list: Vec<AstExpression>) -> Option<Self> {
         if list.len() != 2 {
             return None;
         }
 
-        let ident_ex = match list.get(0) {
+        let ident_ex = match list.first() {
             Some(id) => match id.get::<Identifier>() {
                 Some(id) => id.clone(),
                 None => return None,
@@ -53,10 +53,10 @@ impl AstReference {
             None => return None,
         };
 
-        return Some(AstReference {
+        Some(AstReference {
             reference: ref_ex,
             book: ident_ex,
-        });
+        })
     }
 }
 
@@ -76,7 +76,7 @@ impl Identifier {
     fn eval(&self) -> String {
         match &self.prefix {
             Some(pre) => format!("{} {}", pre.inspect(), self.value),
-            None => format!("{}", self.value),
+            None => self.value.to_string(),
         }
     }
 }
@@ -99,7 +99,7 @@ impl NumberLiteral {
     }
 
     fn eval(&self) -> u32 {
-        self.value.clone()
+        self.value
     }
 }
 
@@ -139,28 +139,28 @@ impl Expression for ReferenceLiteral {
             .collect::<Vec<String>>()
             .join(", ");
 
-        return format!("{}:{}", chapter, verses);
+        format!("{}:{}", chapter, verses)
     }
 }
 
 impl Expression for RangeLiteral {
     fn expression_node(&self) {}
     fn inspect(&self) -> String {
-        return format!("{}-{}", self.start.inspect(), self.end.inspect());
+        format!("{}-{}", self.start.inspect(), self.end.inspect())
     }
 }
 
 impl Expression for NumberLiteral {
     fn expression_node(&self) {}
     fn inspect(&self) -> String {
-        return self.token.inspect();
+        self.token.inspect()
     }
 }
 
 impl Expression for Identifier {
     fn expression_node(&self) {}
     fn inspect(&self) -> String {
-        return self.token.inspect();
+        self.token.inspect()
     }
 }
 
@@ -204,14 +204,13 @@ pub struct Parser {
 impl Parser {
     pub fn from(input: String) -> Self {
         let tokenizer = Tokenizer::new(input);
-        let parser = Parser::new(tokenizer);
 
-        return parser;
+        Parser::new(tokenizer)
     }
     pub fn parser(input: String) -> Option<AstReference> {
         let mut parser = Parser::from(input);
 
-        return AstReference::from(parser.parse_program());
+        AstReference::from(parser.parse_program())
     }
 
     fn new(mut tokenizer: Tokenizer) -> Self {
@@ -241,7 +240,7 @@ impl Parser {
         parser.register_postfix(TokenEnum::IDENTIFIER, parse_post_identifier);
         parser.register_postfix(TokenEnum::COLON, parse_post_chapter);
 
-        return parser;
+        parser
     }
 
     fn register_prefix(&mut self, t_type: TokenEnum, func: PrefixFn) {
@@ -264,10 +263,10 @@ impl Parser {
     fn expect_peek_token(&mut self, token: TokenEnum) -> bool {
         if self.peek_token.t_type == token {
             self.next_token();
-            return true;
+            true
         } else {
             // TODO: append to errorr list
-            return false;
+            false
         }
     }
 
@@ -278,15 +277,14 @@ impl Parser {
             // parse statement
             let stmt = self.parse_expression_statement();
 
-            match stmt {
-                Some(stmt) => stmts.push(stmt),
-                None => (),
+            if let Some(stmt) = stmt {
+                stmts.push(stmt)
             };
 
             self.next_token();
         }
 
-        return stmts;
+        stmts
     }
 
     fn parse_expression_statement(&mut self) -> Option<AstExpression> {
@@ -295,7 +293,7 @@ impl Parser {
             self.next_token();
         }
 
-        return expression;
+        expression
     }
 
     fn parse_expression(&mut self) -> Option<AstExpression> {
@@ -305,15 +303,9 @@ impl Parser {
         // verses expressions
 
         //get prefix
-        let prefix_fn = match self.prefix_fn.get(&self.current_token.t_type) {
-            Some(pre) => pre,
-            None => return None, // TODO: set error
-        };
+        let prefix_fn = self.prefix_fn.get(&self.current_token.t_type)?;
 
-        let mut left_exp = match prefix_fn(self) {
-            Some(exp) => exp,
-            None => return None, // TODO: set error
-        };
+        let mut left_exp = prefix_fn(self)?;
 
         // TODO: run infix check
         while self.current_token.t_type != TokenEnum::COMMA {
@@ -334,22 +326,16 @@ impl Parser {
         // TODO: run postfix check
 
         //get postfix
-        match self.postfix_fn.get(&self.peek_token.t_type) {
-            Some(post_fn) => {
-                self.current_token = self.peek_token.clone();
-                self.peek_token = self.tokenizer.next_token();
-                match post_fn(self, &left_exp) {
-                    Some(post) => {
-                        //
-                        left_exp = post
-                    }
-                    None => (),
-                };
-            }
-            None => {} // TODO: set error
+        if let Some(post_fn) = self.postfix_fn.get(&self.peek_token.t_type) {
+            self.current_token = self.peek_token.clone();
+            self.peek_token = self.tokenizer.next_token();
+            if let Some(post) = post_fn(self, &left_exp) {
+                //
+                left_exp = post
+            };
         };
 
-        return Some(left_exp);
+        Some(left_exp)
     }
 }
 
@@ -371,7 +357,7 @@ fn parse_number(p: &mut Parser) -> Option<AstExpression> {
         value,
     };
 
-    return Some(AstExpression::new(number, TokenEnum::NUMBER));
+    Some(AstExpression::new(number, TokenEnum::NUMBER))
 }
 
 fn parse_range(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
@@ -379,22 +365,13 @@ fn parse_range(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
         return None;
     }
 
-    let lhs_literal = match lhs.get::<NumberLiteral>() {
-        Some(l) => l,
-        None => return None,
-    };
+    let lhs_literal = lhs.get::<NumberLiteral>()?;
     let token = p.current_token.clone();
 
     p.next_token(); // move to rhs
 
-    let rhs = match p.parse_expression() {
-        Some(r) => r,
-        None => return None,
-    };
-    let rhs_literal = match rhs.get::<NumberLiteral>() {
-        Some(r) => r,
-        None => return None,
-    };
+    let rhs = p.parse_expression()?;
+    let rhs_literal = rhs.get::<NumberLiteral>()?;
 
     let range_val = RangeLiteral {
         token,
@@ -402,19 +379,13 @@ fn parse_range(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
         end: rhs_literal.clone(),
     };
 
-    return Some(AstExpression::new(range_val, TokenEnum::HYPHEN));
+    Some(AstExpression::new(range_val, TokenEnum::HYPHEN))
 }
 
 fn parse_post_identifier(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
-    let number_literal = match lhs.get::<NumberLiteral>() {
-        Some(l) => l,
-        None => return None,
-    };
+    let number_literal = lhs.get::<NumberLiteral>()?;
 
-    let ident_ast_expression = match parse_prefix_identifier(p) {
-        Some(id) => id,
-        None => return None,
-    };
+    let ident_ast_expression = parse_prefix_identifier(p)?;
 
     let mut ident = match ident_ast_expression.get::<Identifier>() {
         Some(id) => id.clone(),
@@ -423,23 +394,17 @@ fn parse_post_identifier(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpre
 
     ident.prefix = Some(number_literal.clone());
 
-    return Some(AstExpression::new(ident, TokenEnum::IDENTIFIER));
+    Some(AstExpression::new(ident, TokenEnum::IDENTIFIER))
 }
 
 fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
-    let number_literal = match lhs.get::<NumberLiteral>() {
-        Some(l) => l,
-        None => return None,
-    };
+    let number_literal = lhs.get::<NumberLiteral>()?;
 
     if p.current_token.t_type != TokenEnum::COLON {
         return None;
     }
 
-    let verses = match parse_verse(p) {
-        Some(v) => v,
-        None => return None,
-    };
+    let verses = parse_verse(p)?;
 
     let chapter = ReferenceLiteral {
         token: Token {
@@ -450,7 +415,7 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
         verses,
     };
 
-    return Some(AstExpression::new(chapter, TokenEnum::COLON));
+    Some(AstExpression::new(chapter, TokenEnum::COLON))
 }
 
 fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
@@ -465,32 +430,29 @@ fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
     while p.current_token.t_type.ne(&TokenEnum::EOF) {
         let verse = p.parse_expression();
 
-        match verse {
-            Some(v) => {
-                //
-                // verses.push(v);
+        if let Some(v) = verse {
+            //
+            // verses.push(v);
 
-                if let Some(ident) = v.get::<NumberLiteral>() {
-                    let id = ident.clone();
-                    verses.push(id);
-                } else if let Some(range) = v.get::<RangeLiteral>() {
-                    let range_literal = range.clone();
-                    let min = u32::min(range_literal.start.value, range_literal.end.value);
-                    let max = u32::max(range_literal.start.value, range_literal.end.value);
-                    let gap = min..=max;
+            if let Some(ident) = v.get::<NumberLiteral>() {
+                let id = ident.clone();
+                verses.push(id);
+            } else if let Some(range) = v.get::<RangeLiteral>() {
+                let range_literal = range.clone();
+                let min = u32::min(range_literal.start.value, range_literal.end.value);
+                let max = u32::max(range_literal.start.value, range_literal.end.value);
+                let gap = min..=max;
 
-                    for value in gap {
-                        verses.push(NumberLiteral::new(value));
-                    }
+                for value in gap {
+                    verses.push(NumberLiteral::new(value));
                 }
             }
-            None => (),
         };
 
         p.next_token();
     }
 
-    return Some(verses);
+    Some(verses)
 }
 
 fn parse_prefix_identifier(p: &mut Parser) -> Option<AstExpression> {
@@ -504,7 +466,7 @@ fn parse_prefix_identifier(p: &mut Parser) -> Option<AstExpression> {
         prefix: None,
     };
 
-    return Some(AstExpression::new(ident, TokenEnum::IDENTIFIER));
+    Some(AstExpression::new(ident, TokenEnum::IDENTIFIER))
 }
 
 #[cfg(test)]
@@ -514,13 +476,8 @@ mod test {
 
     #[test]
     fn test_identifier() {
-        let inputs = vec![
-            //
-            String::from("John"),
-            String::from("3 John"),
-        ];
-        let expected = vec![
-            //
+        let inputs = [String::from("John"), String::from("3 John")];
+        let expected = [
             AstExpression::new(
                 Identifier {
                     prefix: None,
@@ -556,7 +513,7 @@ mod test {
             let mut parser = Parser::new(tokenizer);
             let stmts = parser.parse_program();
 
-            let actual = stmts.get(0).unwrap();
+            let actual = stmts.first().unwrap();
             _test_identifier(i as u32, expected.get(i).unwrap(), actual);
         }
     }
@@ -611,7 +568,7 @@ mod test {
         let mut parser = Parser::new(tokenizer);
         let stmts = parser.parse_program();
 
-        let expression = stmts.get(0).unwrap();
+        let expression = stmts.first().unwrap();
         let ident = expression.get::<NumberLiteral>();
         let tt = expected.get::<NumberLiteral>().unwrap();
 
@@ -664,7 +621,7 @@ mod test {
         let mut parser = Parser::new(tokenizer);
         let stmts = parser.parse_program();
 
-        let expression = stmts.get(0).unwrap();
+        let expression = stmts.first().unwrap();
         let ident = expression.get::<RangeLiteral>();
         let tt = expected.get::<RangeLiteral>().unwrap();
 
@@ -711,7 +668,7 @@ mod test {
         let mut parser = Parser::new(tokenizer);
         let stmts = parser.parse_program();
 
-        let expression = stmts.get(0).unwrap();
+        let expression = stmts.first().unwrap();
 
         _test_reference_literal(&expected, expression);
     }
@@ -733,7 +690,7 @@ mod test {
 
         tt.verses.iter().zip(ident.verses.clone()).all(|(e, a)| {
             assert_eq!(e.clone(), a.clone(), "expected [{:?}], got [{:?}]", e, a,);
-            return e.value == a.value;
+            e.value == a.value
         });
 
         assert_eq!(
@@ -746,7 +703,7 @@ mod test {
     #[test]
     fn test_list_operator() {
         let input = String::from("1,4,3");
-        let expected_list = vec![
+        let expected_list = [
             AstExpression::new(
                 NumberLiteral {
                     value: 1,
@@ -812,7 +769,7 @@ mod test {
     #[test]
     fn test_program() {
         let input = String::from("1 John 1:1-3,5");
-        let expected_list = vec![
+        let expected_list = [
             AstExpression::new(
                 Identifier {
                     prefix: Some(NumberLiteral::new(1)),
@@ -847,8 +804,8 @@ mod test {
         let stmts = parser.parse_program();
 
         {
-            let stmt = stmts.get(0); // identifier
-            _test_identifier(0, expected_list.get(0).unwrap(), stmt.unwrap());
+            let stmt = stmts.first(); // identifier
+            _test_identifier(0, expected_list.first().unwrap(), stmt.unwrap());
         }
 
         {

@@ -36,10 +36,10 @@ pub struct PreviewViewerModel {
 
 impl PreviewViewerModel {
     fn new() -> Self {
-        return PreviewViewerModel {
+        PreviewViewerModel {
             slide: Rc::new(RefCell::new(None)),
             list_view_wrapper: Rc::new(RefCell::new(TypedListView::new())),
-        };
+        }
     }
 
     fn register_activate(&self, sender: &ComponentSender<Self>) {
@@ -154,7 +154,7 @@ impl SimpleComponent for PreviewViewerModel {
         model.register_selection_change(&sender);
         model.register_activate(&sender);
 
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {

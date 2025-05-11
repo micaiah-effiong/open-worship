@@ -57,7 +57,7 @@ impl SearchSongModel {
                     Ok(q) => q,
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
-                        return ();
+                        return ;
                     }
                 };
 
@@ -125,7 +125,7 @@ impl SearchSongModel {
                         None => return,
                     };
 
-                    let _ = sender.input(SearchSongInput::OpenEditModel(Some(song_list_item.song)));
+                    sender.input(SearchSongInput::OpenEditModel(Some(song_list_item.song)));
                 }
             ))
             .build();
@@ -232,9 +232,9 @@ impl SearchSongModel {
     }
 
     fn convert_edit_model_response(res: EditModelOutputMsg) -> SearchSongInput {
-        return match res {
+        match res {
             EditModelOutputMsg::Save(song) => SearchSongInput::NewSong(song),
-        };
+        }
     }
 }
 
@@ -337,7 +337,7 @@ impl SimpleComponent for SearchSongModel {
         model.register_search_field_events();
         let widgets = view_output!();
 
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     // TODO: Invalidate songs list
@@ -363,14 +363,14 @@ impl SimpleComponent for SearchSongModel {
             SearchSongInput::RemoveSong(pos) => {
                 let song_item = match self.list_view_wrapper.borrow().get(pos) {
                     Some(si) => si.borrow().clone().song,
-                    None => return (),
+                    None => return ,
                 };
 
                 match Query::delete_song(self.db_connection.clone(), song_item) {
                     Ok(_) => (),
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
-                        return ();
+                        return ;
                     }
                 };
 
@@ -384,7 +384,7 @@ impl SimpleComponent for SearchSongModel {
                     }
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
-                        return ();
+                        return ;
                     }
                 };
 

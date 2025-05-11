@@ -35,7 +35,7 @@ impl RelmListItem for EditSongModalListItem {
             text_view: list_view.clone(),
         };
 
-        return (list_view, widgets);
+        (list_view, widgets)
     }
 
     fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {

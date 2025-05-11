@@ -22,12 +22,12 @@ impl ListPayload {
         list: Vec<String>,
         background_image: Option<String>,
     ) -> ListPayload {
-        return ListPayload {
+        ListPayload {
             text,
             position,
             list,
             background_image,
-        };
+        }
     }
 }
 
@@ -40,10 +40,10 @@ pub struct DisplayPayload {
 
 impl DisplayPayload {
     pub fn new(text: String) -> Self {
-        return DisplayPayload {
+        DisplayPayload {
             text,
             background_image: None,
-        };
+        }
     }
 }
 
@@ -60,7 +60,7 @@ pub struct SongVerse {
 
 impl SongVerse {
     pub fn new(text: String, tag: Option<String>) -> Self {
-        return SongVerse { tag, text };
+        SongVerse { tag, text }
     }
 }
 
@@ -81,19 +81,19 @@ impl Song {
             verses.push(SongVerse::new(verse, None));
         }
 
-        return Song {
+        Song {
             title,
             verses,
             song_id,
-        };
+        }
     }
 
     pub fn from_verses(song_id: u32, title: String, verses: Vec<SongVerse>) -> Self {
-        return Song {
+        Song {
             title,
             verses,
             song_id,
-        };
+        }
     }
 }
 
@@ -114,6 +114,6 @@ impl Scripture {
             "{}\n{} {}:{} ({})",
             self.text, self.book, self.chapter, self.verse, self.translation
         );
-        return text;
+        text
     }
 }

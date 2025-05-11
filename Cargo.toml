@@ -1,17 +1,44 @@
 [package]
-name = "open-worship"
-version = "0.1.0"
-edition = "2021"
-authors = ["Micah Effiong <micaiah.effiong@gmail.com>"]
+name = "openworship"
+description = "Openworship is an opinionated GUI application for farming on Autonomys Network"
 license = "MIT"
-description= "A house of worship presentation software"
+version = "0.2.11"
+authors = ["Micah Effiong <micaiah.effiong@gmail.com>"]
+repository = "https://github.com/micaiah-effiong/open-worship"
+edition = "2021"
+include = [
+    "/src",
+    "/Cargo.toml",
+]
+
+[package.metadata.deb]
+section = "net"
+assets = [
+    ["res/linux/openworship-autostart.desktop", "/etc/xdg/autostart/xyz.autonomys.openworship.desktop", "644"],
+    ["target/release/openworship", "/usr/bin/openworship", "755"],
+    # Name must match application ID or else it has a strange behavior
+    ["res/linux/xyz.autonomys.openworship.desktop", "/usr/share/applications/xyz.autonomys.openworship.desktop", "644"],
+    ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/openworship.png", "644"],
+]
+
+[package.metadata.deb.variants.modern]
+name = "openworship"
+merge-assets.append = [
+    ["target/release/openworship-modern", "/usr/bin/openworship-modern", "755"],
+]
+
+[package.metadata.winres]
+ProductName = "Openworship"
+
+[package.metadata.wix]
+# Custom location to keep the root of the project cleaner
+include = ["res/windows/wix/openworship.wxs"]
 
 [dependencies]
-# gtk = { package = "gtk4", version = "0.9.0" }
-# relm = { package = "relm4", version = "0.8.0" }
 relm4 = "0.9.0"
 relm4-components = "0.9.0"
-relm4-icons = "0.9.0"
+# relm4-icons = "0.9.0"
+relm4-icons = "0.10.0-beta.2"
 dirs = "5.0.1"
 rusqlite = { version = "0.34.0", features = ["bundled"] }
 serde = { version = "1.0.217", features = ["derive"] }
@@ -24,37 +51,23 @@ features = ["v4_12"]
 package = "gtk4"
 version = "0.9.0"
 
+[target.'cfg(windows)'.dependencies]
+native-dialog = "0.7.0"
+tracing-panic = "0.1.2"
+
+[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
+tray-icon = "0.19.2"
+
+[target.'cfg(all(unix, not(target_os = "macos")))'.dependencies]
+ksni = "0.3.0"
+
 [build-dependencies]
+relm4-icons-build = "0.10.0-beta.2"
 glib-build-tools = "0.20.0"
 
-[package.metadata.deb]
-section="AudioVideo"
-assets =[
-  ["target/release/open-worship", "/usr/bin/open-worship", "755"],
-  ["res/linux/open-worship.desktop", "/usr/share/applications/open-worship.desktop","644"],
-  ["res/linux/open-worship.png", "/usr/share/icons/hicolor/256x256/apps/open-worship.png", "644"],
-]
+[target.'cfg(windows)'.build-dependencies]
+winres = "0.1.12"
 
-
-[package.metadata.bundle]
-name = "Openworship"
-identifier = "com.open-worship.app"
-icon = ["res/macos/open-worship.png", "res/macos/open-worship.icns" ]
-version = "0.1.0"
-resources = ["res/macos"]
-copyright = "Copyright (c) Micah Effiong 2025. All rights reserved."
-category = "public.app-category.productivity"
-short_description = "Easy-to-use worship presentation software."
-long_description = """
-OpenWorship is a powerful yet simple worship presentation software. It allows you to create engaging presentations for worship services, including song lyrics, scripture passages, videos, and more.
-
-Key Features:
-
-* Song lyric presentation 
-* Scripture presentation with multiple Bible translations
-* Media file management 
-* Presentation building tools with service scheduling
-* Multi-screen support 
-* Alerts (messages, nursery, countdown clocks)
-* Regular updates and support
-"""
+[profile.production]
+inherits = "release"
+lto = "fat"

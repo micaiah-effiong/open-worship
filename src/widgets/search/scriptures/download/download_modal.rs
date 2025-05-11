@@ -72,10 +72,10 @@ impl DownloadBibleModel {
 
         if let Ok(download_list) = download_list_result {
             for item in download_list {
-                if item.download_url != None {
+                if item.download_url.is_some() {
                     let item_name = item.name.clone();
                     let item_name = item_name.split(".").collect::<Vec<&str>>();
-                    if let Some(name) = item_name.get(0) {
+                    if let Some(name) = item_name.first() {
                         let name = name.to_string();
                         list.append(BibleDownloadListItem {
                             data: item.clone(),
@@ -112,7 +112,7 @@ impl SimpleComponent for DownloadBibleModel {
             connect_close_request[sender] => move |m| {
                 println!("destroy {:?}", m);
                 sender.input(DownloadBibleInput::Close);
-                return gtk::glib::Propagation::Stop;
+                gtk::glib::Propagation::Stop
             },
 
             gtk::Box {
@@ -155,7 +155,7 @@ impl SimpleComponent for DownloadBibleModel {
             sender.clone(),
         );
 
-        return ComponentParts { model, widgets };
+        ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {

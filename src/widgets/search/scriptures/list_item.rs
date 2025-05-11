@@ -32,7 +32,7 @@ impl RelmListItem for ScriptureListItem {
 
         let widgets = ScriptureListItemWidget { text };
 
-        return (list_box, widgets);
+        (list_box, widgets)
     }
 
     fn bind(&mut self, _widgets: &mut Self::Widgets, _root: &mut Self::Root) {

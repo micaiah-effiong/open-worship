@@ -44,33 +44,33 @@ pub struct SearchModel {
 
 impl SearchModel {
     fn convert_background_msg(msg: SearchBacgroundOutput) -> SearchModelInput {
-        return match msg {
+        match msg {
             SearchBacgroundOutput::SendPreviewBackground(bg_src) => {
                 SearchModelInput::PreviewBackground(bg_src)
             }
-        };
+        }
     }
 
     fn convert_scripture_msg(msg: SearchScriptureOutput) -> SearchModelInput {
-        return match msg {
+        match msg {
             SearchScriptureOutput::SendScriptures(list_payload) => {
                 SearchModelInput::PreviewScriptures(list_payload)
             }
             SearchScriptureOutput::SendToSchedule(list_payload) => {
                 SearchModelInput::AddToSchedule(list_payload)
             }
-        };
+        }
     }
 
     fn convert_song_msg(msg: SearchSongOutput) -> SearchModelInput {
-        return match msg {
+        match msg {
             SearchSongOutput::SendToPreview(list_payload) => {
                 SearchModelInput::PreviewSongs(list_payload)
             }
             SearchSongOutput::SendToSchedule(list_payload) => {
                 SearchModelInput::AddToSchedule(list_payload)
             }
-        };
+        }
     }
 }
 
@@ -151,7 +151,7 @@ impl SimpleComponent for SearchModel {
 
         let widgets = view_output!();
 
-        return relm4::ComponentParts { model, widgets };
+        relm4::ComponentParts { model, widgets }
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
