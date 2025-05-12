@@ -278,20 +278,20 @@ jobs:
 
       - name: Sign Application (macOS)
         run: |
-          echo "Importing certificate"
-          echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
-          security create-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
-          security import certificate.p12 -k build.keychain -P "${{ secrets.MACOS_CERTIFICATE_PW }}" -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+          # echo "Importing certificate"
+          # echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
+          # security create-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+          # security default-keychain -s build.keychain
+          # security unlock-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
+          # security import certificate.p12 -k build.keychain -P "${{ secrets.MACOS_CERTIFICATE_PW }}" -T /usr/bin/codesign
+          # security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
 
           echo "Signing app"
           # Sign all libs under Resources/lib
-          find target/bundle/${{ matrix.build.target }}/Openworship.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp {} \;
+          find target/bundle/${{ matrix.build.target }}/Openworship.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --verbose=999 --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s - {} \;
 
           # Sign the app
-          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s "${{ secrets.MACOS_IDENTITY }}" --timestamp  target/bundle/${{ matrix.build.target }}/Openworship.app
+          codesign --deep --force --options=runtime --entitlements res/macos/Entitlements.plist -s - target/bundle/${{ matrix.build.target }}/Openworship.app
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
@@ -306,11 +306,12 @@ jobs:
         run: |
           echo "Signing"
           version=$(cargo pkgid | cut -d "#" -f2)
-          codesign --deep --force --options=runtime -s "${{ secrets.MACOS_IDENTITY }}" --timestamp target/bundle/openworship-$version.dmg
+          codesign --deep --force --options=runtime -s - target/bundle/openworship-$version.dmg
           echo "Notarizing"
+
           # Notarize the Dmg using notarytool
-          xcrun notarytool submit target/bundle/openworship-$version.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
-          xcrun stapler staple target/bundle/openworship-$version.dmg
+          # xcrun notarytool submit target/bundle/openworship-$version.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
+          # xcrun stapler staple target/bundle/openworship-$version.dmg
         # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
         continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
         if: runner.os == 'macOS'
@@ -347,21 +348,21 @@ jobs:
           Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
         if: runner.os == 'Windows'
 
-      - name: Sign installer (Windows)
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          dotnet tool install --global AzureSignTool
-
-          # `-Recurse` is needed or PowerShell will not find the file
-          (Get-ChildItem -Path target\wix -Include openworship-*.msi -Recurse) | ForEach-Object {
-            Write("Signing $($_)");
-
-            AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
-          }
-        # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
-        continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
-        if: runner.os == 'Windows'
+      # - name: Sign installer (Windows)
+      #   run: |
+      #     $ErrorActionPreference = "Stop"
+      #
+      #     dotnet tool install --global AzureSignTool
+      #
+      #     # `-Recurse` is needed or PowerShell will not find the file
+      #     (Get-ChildItem -Path target\wix -Include openworship-*.msi -Recurse) | ForEach-Object {
+      #       Write("Signing $($_)");
+      #
+      #       AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
+      #     }
+      #   # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
+      #   continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
+      #   if: runner.os == 'Windows'
 
       - name: Create bundle (Windows)
         run: |
@@ -370,26 +371,26 @@ jobs:
           cargo wix --profile release --no-build --nocapture --include res\windows\wix\bundle.wxs -C -ext -C WixBalExtension
         if: runner.os == 'Windows'
 
-      - name: Sign bundle (Windows)
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          dotnet tool install --global AzureSignTool
-
-          # `-Recurse` is needed or PowerShell will not find the file
-          (Get-ChildItem -Path target\wix -Include openworship-*.exe -Recurse) | ForEach-Object {
-            Write("Signing $($_)");
-
-            # Detach burn engine, which also needs to be signed
-            insignia -ib $($_) -o engine.exe;
-            AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v engine.exe;
-            # Attach signed burn engine
-            insignia -ab engine.exe $($_) -o $($_);
-            AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
-          }
-        # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
-        continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
-        if: runner.os == 'Windows'
+      # - name: Sign bundle (Windows)
+      #   run: |
+      #     $ErrorActionPreference = "Stop"
+      #
+      #     dotnet tool install --global AzureSignTool
+      #
+      #     # `-Recurse` is needed or PowerShell will not find the file
+      #     (Get-ChildItem -Path target\wix -Include openworship-*.exe -Recurse) | ForEach-Object {
+      #       Write("Signing $($_)");
+      #
+      #       # Detach burn engine, which also needs to be signed
+      #       insignia -ib $($_) -o engine.exe;
+      #       AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v engine.exe;
+      #       # Attach signed burn engine
+      #       insignia -ab engine.exe $($_) -o $($_);
+      #       AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
+      #     }
+      #   # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
+      #   continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
+      #   if: runner.os == 'Windows'
 
       - name: Install cargo-deb (Linux)
         uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
