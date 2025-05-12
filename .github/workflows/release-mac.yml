@@ -201,9 +201,9 @@ jobs:
       - name: Upload dmg to artifacts (macOS)
         uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
         with:
-          name: openworship-${{ matrix.build.suffix }}
-          path: |
-            target/bundle/*.dmg
+          # name: openworship-${{ matrix.build.suffix }}
+          name: openworship-macos-aarch64
+          path: target/bundle/*.dmg
           if-no-files-found: error
         if: runner.os == 'macOS'
 
