@@ -10,6 +10,7 @@ on:
     #   - "*"
     branches:
       - build/test
+      - main
     pull_request:
 
 # Incremental compilation here isn't helpful
