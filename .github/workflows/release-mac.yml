@@ -8,10 +8,10 @@ on:
   push:
     # tags:
     #   - "*"
-    branches:
-      - build/test
-      - main
+    # branches:
+    #   - build/test
     pull_request:
+    merge_group:
 
 # Incremental compilation here isn't helpful
 env:
