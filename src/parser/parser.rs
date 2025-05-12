@@ -204,7 +204,6 @@ pub struct Parser {
 impl Parser {
     pub fn from(input: String) -> Self {
         let tokenizer = Tokenizer::new(input);
-        
 
         Parser::new(tokenizer)
     }
@@ -278,7 +277,9 @@ impl Parser {
             // parse statement
             let stmt = self.parse_expression_statement();
 
-            if let Some(stmt) = stmt { stmts.push(stmt) };
+            if let Some(stmt) = stmt {
+                stmts.push(stmt)
+            };
 
             self.next_token();
         }
@@ -475,9 +476,9 @@ mod test {
 
     #[test]
     fn test_identifier() {
-        let inputs = [String::from("John"),
-            String::from("3 John")];
-        let expected = [AstExpression::new(
+        let inputs = [String::from("John"), String::from("3 John")];
+        let expected = [
+            AstExpression::new(
                 Identifier {
                     prefix: None,
                     value: String::from("John"),
@@ -504,7 +505,8 @@ mod test {
                     },
                 },
                 TokenEnum::IDENTIFIER,
-            )];
+            ),
+        ];
 
         for (i, input) in inputs.iter().enumerate() {
             let tokenizer = Tokenizer::new(input.to_string());
@@ -701,7 +703,8 @@ mod test {
     #[test]
     fn test_list_operator() {
         let input = String::from("1,4,3");
-        let expected_list = [AstExpression::new(
+        let expected_list = [
+            AstExpression::new(
                 NumberLiteral {
                     value: 1,
                     token: Token {
@@ -730,7 +733,8 @@ mod test {
                     },
                 },
                 TokenEnum::NUMBER,
-            )];
+            ),
+        ];
 
         let tokenizer = Tokenizer::new(input);
         let mut parser = Parser::new(tokenizer);
@@ -765,7 +769,8 @@ mod test {
     #[test]
     fn test_program() {
         let input = String::from("1 John 1:1-3,5");
-        let expected_list = [AstExpression::new(
+        let expected_list = [
+            AstExpression::new(
                 Identifier {
                     prefix: Some(NumberLiteral::new(1)),
                     value: String::from("John"),
@@ -791,7 +796,8 @@ mod test {
                     ],
                 },
                 TokenEnum::COLON,
-            )];
+            ),
+        ];
 
         let tokenizer = Tokenizer::new(input);
         let mut parser = Parser::new(tokenizer);
