@@ -85,7 +85,7 @@ jobs:
           py -m venv .venv
           .\.venv\Scripts\activate.ps1
           py -m pip install gvsbuild
-          gvsbuild build --configuration release --vs-ver 17 gtk4 librsvg
+          gvsbuild build --configuration release --vs-ver 17 gtk4 librsvg libxml2
         if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
       - name: Configure GTK4 (Windows)
@@ -211,7 +211,7 @@ jobs:
           py -m venv .venv
           .\.venv\Scripts\activate.ps1
           py -m pip install gvsbuild
-          gvsbuild build --configuration release --vs-ver 17 gtk4 librsvg
+          gvsbuild build --configuration release --vs-ver 17 gtk4 librsvg libxml2
         if: runner.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
 
       - name: Configure GTK4 (Windows)
