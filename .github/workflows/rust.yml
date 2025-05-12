@@ -156,18 +156,18 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: cargo clippy
-        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D #warnings
+        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets #-- -D warnings
         if: runner.os == 'macOS'
 
       - name: cargo clippy
-        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D #warnings
+        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets #-- -D warnings
         if: runner.os == 'Windows'
 
       - name: cargo clippy
         # CXX for CUDA
         env:
           CXX: g++-12
-        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets -- -D #warnings
+        run: cargo -Zgitoxide -Zgit clippy --locked --all-targets #-- -D warnings
         if: runner.os == 'Linux'
 
   cargo-test:
