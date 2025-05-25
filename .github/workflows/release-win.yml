@@ -96,17 +96,17 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build app (Windows, modern, CUDA)
+      - name: Build app (Windows, modern)
         env:
           RUSTFLAGS: ${{ matrix.build.modern-rustflags }}
         run: |
-          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --features cuda
+          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production 
           Move-Item -Path target\${{ matrix.build.target }}\production\openworship.exe -Destination target\${{ matrix.build.target }}\production\openworship-modern.exe
 
-      - name: Build app (Windows, normal, CUDA)
+      - name: Build app (Windows, normal)
         env:
           RUSTFLAGS: ${{ matrix.build.rustflags }}
-        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production --features cuda
+        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
 
       - name: Install cargo-wix (Windows)
         uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2

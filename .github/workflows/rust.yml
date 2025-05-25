@@ -1,6 +1,7 @@
 name: Rust
 
 on:
+  workflow_dispatch:
   # push:
   #   branches:
   #     - main
@@ -9,7 +10,6 @@ on:
   # pull_request:
   #   paths-ignore:
   #     - "**.md"
-  # workflow_dispatch:
   # merge_group:
 
 concurrency:
