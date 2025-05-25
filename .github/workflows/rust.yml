@@ -9,8 +9,8 @@ on:
   # pull_request:
   #   paths-ignore:
   #     - "**.md"
-  workflow_dispatch:
-  merge_group:
+  # workflow_dispatch:
+  # merge_group:
 
 concurrency:
   group: rust-${{ github.workflow }}-${{ github.ref }}
