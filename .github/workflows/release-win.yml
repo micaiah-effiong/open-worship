@@ -5,12 +5,13 @@ name: Release
 
 on:
   workflow_dispatch:
-  merge_group:
-  # push:
-  #   # tags:
-  #   #   - "*"
-  #   branches:
-  #     - build/test
+  push:
+    #   # tags:
+    #   #   - "*"
+    #   branches:
+    #     - build/test
+    pull_request:
+    merge_group:
 
 # Incremental compilation here isn't helpful
 env:
