@@ -254,7 +254,6 @@
                         </Component>
 
                         <Component Id='gtk4_xml2_16.dll' Guid='b445bd2c-3900-4382-891a-1b5359bfec9a'>
-                            <ComponentRef Id='gtk4_xml2_16.dll'/>
                             <File Id='xml2_16.dll' Name='xml2-16.dll' DiskId='1' Source='$(var.CargoTargetDir)\wix\gtk4\bin\xml2-16.dll' />
                         </Component>
                         <Component Id='gtk4_zlib1.dll' Guid='b83feda4-4cc4-4ef1-9c95-ce74b785f6d9'>
