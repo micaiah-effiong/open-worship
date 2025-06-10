@@ -24,7 +24,7 @@ jobs:
         build:
           - os: windows-2022
             target: x86_64-pc-windows-msvc
-            suffix: windows-x86_64-${{ github.ref_name }}
+            suffix: windows-x86_64-${{ github.sha}}
             modern-rustflags: "-C target-cpu=skylake"
             rustflags: "-C target-cpu=x86-64-v2"
     runs-on: windows-2022
