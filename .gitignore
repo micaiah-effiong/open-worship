@@ -22,5 +22,10 @@ target/
 
 *.nvim
 
+AppDir/*
+linuxdeploy-*
+build/*
+
+
 # macos
 .DS_Store

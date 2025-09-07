@@ -2135,7 +2135,7 @@ dependencies = [
 
 [[package]]
 name = "openworship"
-version = "0.2.11"
+version = "0.0.1"
 dependencies = [
  "dirs 5.0.1",
  "futures-util",
