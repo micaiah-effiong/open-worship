@@ -6,12 +6,12 @@ name: Release
 on:
   workflow_dispatch:
   push:
-    #   # tags:
-    #   #   - "*"
-    #   branches:
-    #     - build/test
-    pull_request:
-    merge_group:
+    # tags:
+    #   - "*"
+    branches:
+      - build/test
+  pull_request:
+  merge_group:
 
 # Incremental compilation here isn't helpful
 env:
@@ -38,6 +38,12 @@ jobs:
         with:
           path: C:\gtk-build\gtk\x64\release
           key: ${{ runner.os }}-gtk4
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
 
       - name: Install GTK4 (Windows)
         run: |
