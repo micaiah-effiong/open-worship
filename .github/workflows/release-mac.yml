@@ -1,7 +1,7 @@
 # This action enables building release executables/installers and can be triggered manually or by release creation.
 #
 # Executables are built both for releases and for manually triggered runs, uploaded to artifacts and assets.
-name: Release Mac
+name: Release Mac Build
 
 on:
   workflow_dispatch:
