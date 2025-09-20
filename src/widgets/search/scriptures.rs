@@ -8,9 +8,9 @@ use download::download_modal::{
     DownloadBibleInit, DownloadBibleInput, DownloadBibleModel, DownloadBibleOutput,
 };
 use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
-use gtk::glib::clone;
+use gtk::glib::{clone, SignalHandlerId};
 use gtk::prelude::*;
-use gtk::{MultiSelection, StringObject};
+use gtk::{BitsetIter, ListView, MultiSelection, StringObject};
 use list_item::ScriptureListItem;
 use relm4::prelude::*;
 use relm4::typed_view::list::TypedListView;
@@ -18,7 +18,7 @@ use relm4::typed_view::list::TypedListView;
 use crate::db::connection::{BibleVerse, DatabaseConnection};
 use crate::db::query::Query;
 use crate::dto;
-use crate::parser::parser;
+use crate::parser::parser::{self, BibleReference};
 use crate::widgets::util;
 
 #[derive(Debug)]
@@ -26,6 +26,7 @@ pub enum SearchScriptureInput {
     ChangeTranslation(String),
     ReloadTranlations,
     NewTranslation(String),
+    SendToPreview,
 
     //
     OpenDownload,
@@ -45,6 +46,8 @@ pub struct SearchScriptureModel {
     translation: Rc<RefCell<String>>,
     db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
     download_bible_modal: relm4::Controller<DownloadBibleModel>,
+    selection_signal_handler: Rc<RefCell<Option<SignalHandlerId>>>,
+    search_signal_handler: Rc<RefCell<Option<SignalHandlerId>>>,
 }
 
 impl SearchScriptureModel {}
@@ -71,7 +74,6 @@ impl SearchScriptureModel {
 
     fn load_bible_translations(&mut self, dropdown: &gtk::DropDown, translations: Vec<String>) {
         if translations.is_empty() {
-            println!("NO TRANSLATION TO LOAD  ",);
             return;
         }
 
@@ -134,48 +136,31 @@ impl SearchScriptureModel {
         // });
     }
 
-    fn register_import_bible(
-        &mut self,
-        btn: &gtk::Button,
-        translations: Vec<String>,
-        db: Rc<RefCell<Option<DatabaseConnection>>>,
-        sender: ComponentSender<Self>,
-    ) {
-        let conn = db.clone();
-        let mut translation_map: std::collections::HashMap<String, bool> =
-            std::collections::HashMap::new();
+    fn parser_bible_reference(search_text: &str) -> Option<BibleReference> {
+        let p = parser::Parser::parser(search_text.to_string());
+        if let Some(p) = p {
+            let evaluated = p.eval();
+            return Some(evaluated);
+        }
 
-        translations.iter().for_each(|i| {
-            translation_map.insert(i.to_string(), true);
-        });
-
-        btn.connect_clicked(clone!(
-            #[strong]
-            conn,
-            #[strong]
-            sender,
-            move |_btn| {
-                sender.input(SearchScriptureInput::OpenDownload);
-            }
-        ));
+        None
     }
 
     fn search_bible(
         search_text: String,
-        bible_translation: &String,
+        bible_translation: &str,
         db: Rc<RefCell<Option<DatabaseConnection>>>,
         list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
-    ) {
+    ) -> std::vec::Vec<u32> {
+        let mut verse_index = Vec::new();
         if bible_translation.is_empty() {
             eprintln!("NO TRANSLATION");
-            return;
+            return verse_index;
         }
 
-        let p = parser::Parser::parser(search_text.clone());
-        let t = bible_translation.clone().to_string();
-        let (verses, evaluated) = match p {
-            Some(p) => {
-                let evaluated = p.eval();
+        let t = bible_translation.to_owned();
+        let (verses, evaluated) = match SearchScriptureModel::parser_bible_reference(&search_text) {
+            Some(evaluated) => {
                 println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
                 let verses = Query::search_by_chapter_query(
                     db,
@@ -195,12 +180,18 @@ impl SearchScriptureModel {
             Ok(vs) => vs,
             Err(x) => {
                 println!("SQL ERROR: \n{:?}", x);
-                return;
+                return verse_index;
             }
         };
 
         list_view_wrapper.borrow_mut().clear();
-        for verse in verses {
+        if let Some(e) = &evaluated {
+            e.verses.iter().for_each(|v| {
+                verse_index.push(*v);
+            });
+        }
+
+        verses.iter().for_each(|verse| {
             list_view_wrapper.borrow_mut().append(ScriptureListItem {
                 full_reference: evaluated.is_none(),
                 data: dto::Scripture {
@@ -211,80 +202,86 @@ impl SearchScriptureModel {
                     translation: t.clone(),
                 },
             });
+        });
+
+        verse_index
+    }
+
+    fn select_list_items(list_view: ListView, selection_model: MultiSelection, items: Vec<u32>) {
+        selection_model.unselect_all();
+        for index in items.iter() {
+            selection_model.select_item(*index, false);
         }
 
-        /* select verse in listview */
-
-        let list_model = list_view_wrapper.borrow().selection_model.clone();
-        list_model.unselect_all();
-
-        /*
-         * exit of the search was a partial text search
-         * and not a book reference
-         */
-        if evaluated.is_none() {
-            list_model.select_item(0, true);
-            return;
-        }
-
-        let evaluated = evaluated.unwrap();
-        for index in evaluated.verses.clone() {
-            list_model.select_item(index.saturating_sub(1), false);
-        }
-
-        let list_view = list_view_wrapper.borrow().view.clone();
+        let list_view = list_view.clone();
         let list = match list_view.first_child() {
             Some(li) => util::widget_to_vec(&li),
             None => return,
         };
 
-        if let Some(vli) = evaluated.verses.first() {
+        if let Some(vli) = items.first() {
             // subtract here since list.get uses zero based index
-            match list.get(vli.saturating_sub(1) as usize) {
+            match list.get(*vli as usize) {
                 Some(li) => li.grab_focus(),
                 None => false,
             };
         }
     }
 
-    fn register_search_change(&mut self, db: Rc<RefCell<Option<DatabaseConnection>>>) {
-        let list_model = self.list_view_wrapper.borrow().selection_model.clone();
-        let list_view = self.list_view_wrapper.borrow().view.clone();
+    fn register_search_change(
+        &mut self,
+        db: Rc<RefCell<Option<DatabaseConnection>>>,
+        sender: ComponentSender<Self>,
+    ) {
         let search_field = self.search_text.clone();
         let list_view_wrapper = self.list_view_wrapper.clone();
         let bible_translation = self.translation.clone();
+        let selection_signal_handler = self.selection_signal_handler.clone();
 
-        search_field.connect_search_changed(clone!(
+        let handle_id = search_field.connect_changed(clone!(
             #[strong]
             bible_translation,
             #[strong]
             db,
             #[strong]
             list_view_wrapper,
+            #[strong]
+            selection_signal_handler,
+            #[strong]
+            sender,
             move |se| {
-                println!("TYPING TRANSLATION {:?}", bible_translation);
-                SearchScriptureModel::search_bible(
+                let verses = SearchScriptureModel::search_bible(
                     se.text().to_string(),
                     &bible_translation.borrow(),
                     db.clone(),
                     list_view_wrapper.clone(),
                 );
-                se.grab_focus();
+
+                let lv = list_view_wrapper.borrow().view.clone();
+                let sm = list_view_wrapper.borrow().selection_model.clone();
+
+                if let Some(handler_id) = selection_signal_handler.borrow().as_ref() {
+                    list_view_wrapper
+                        .borrow()
+                        .selection_model
+                        .block_signal(handler_id);
+                    SearchScriptureModel::select_list_items(
+                        lv,
+                        sm,
+                        verses.iter().map(|v| v.saturating_sub(1)).collect(),
+                    );
+                    se.grab_focus();
+                    list_view_wrapper
+                        .borrow()
+                        .selection_model
+                        .unblock_signal(handler_id);
+                    // send to preview
+                    sender.input(SearchScriptureInput::SendToPreview);
+                }
             }
         ));
 
-        search_field.connect_activate(clone!(
-            #[strong]
-            list_model,
-            #[strong]
-            list_view,
-            move |_| {
-                list_view.emit_by_name_with_values(
-                    "activate",
-                    &[list_model.selection().nth(0).to_value()],
-                );
-            }
-        ));
+        *self.search_signal_handler.borrow_mut() = Some(handle_id);
     }
 
     fn register_context_menu(&mut self, sender: &ComponentSender<Self>) {
@@ -302,12 +299,15 @@ impl SearchScriptureModel {
                 #[strong]
                 sender,
                 move |_, _, _| {
-                    let payload = SearchScriptureModel::get_payload_for_selected_scriptures(
-                        &list_view_wrapper.borrow(),
-                    );
-
                     let payload =
-                        dto::ListPayload::new(text_entry.text().to_string(), 0, payload, None);
+                        SearchScriptureModel::get_selected_scripture(&list_view_wrapper.borrow());
+
+                    let payload = dto::ListPayload::new(
+                        text_entry.text().to_string(),
+                        0,
+                        payload.iter().map(|t| t.data.screen_display()).collect(),
+                        None,
+                    );
 
                     let _ = sender.output(SearchScriptureOutput::SendToSchedule(payload));
                 }
@@ -347,8 +347,9 @@ impl SearchScriptureModel {
     fn register_activate_selected(&mut self, sender: &ComponentSender<Self>) {
         let typed_list = self.list_view_wrapper.clone();
         let text_entry = self.search_text.clone();
+        let search_signal_handler = self.search_signal_handler.clone();
 
-        typed_list
+        let handle_id = typed_list
             .borrow()
             .selection_model
             .connect_selection_changed(clone!(
@@ -358,16 +359,53 @@ impl SearchScriptureModel {
                 sender,
                 #[strong]
                 text_entry,
+                #[strong]
+                search_signal_handler,
                 move |_m, _pos, _n_items| {
-                    let payload = SearchScriptureModel::get_payload_for_selected_scriptures(
-                        &typed_list.borrow(),
-                    );
+                    // send selected to preview
+                    let selected_verses =
+                        SearchScriptureModel::get_selected_scripture(&typed_list.borrow());
 
-                    let payload =
-                        dto::ListPayload::new(text_entry.text().to_string(), 0, payload, None);
+                    let payload = dto::ListPayload::new(
+                        text_entry.text().to_string(),
+                        0,
+                        selected_verses
+                            .iter()
+                            .map(|t| t.data.screen_display())
+                            .collect(),
+                        None,
+                    );
                     let _ = sender.output(SearchScriptureOutput::SendScriptures(payload));
+
+                    // update text entry
+                    let evaluated = SearchScriptureModel::parser_bible_reference(
+                        text_entry.text().to_string().as_ref(),
+                    );
+                    if let Some(evaluated) = evaluated {
+                        let verse = SearchScriptureModel::compress_verses(
+                            &selected_verses
+                                .iter()
+                                .map(|t| t.data.verse)
+                                .collect::<Vec<_>>(),
+                        );
+
+                        let new_text = format!(
+                            "{} {}:{}",
+                            evaluated.book,
+                            evaluated.chapter,
+                            verse.join(",")
+                        );
+
+                        if let Some(handler_id) = search_signal_handler.borrow().as_ref() {
+                            text_entry.block_signal(handler_id);
+                            text_entry.set_text(&new_text);
+                            text_entry.unblock_signal(handler_id);
+                        }
+                    }
                 }
             ));
+
+        *self.selection_signal_handler.borrow_mut() = Some(handle_id);
     }
 
     fn get_initial_scriptures(
@@ -377,37 +415,24 @@ impl SearchScriptureModel {
         Query::search_by_chapter_query(db, translation, String::from("Genesis"), 1)
     }
 
-    fn get_payload_for_selected_scriptures(
+    fn get_selected_scripture(
         typed_list: &TypedListView<ScriptureListItem, MultiSelection>,
-    ) -> Vec<String> {
-        let selected_items = Vec::new();
-        let model = match typed_list.view.model() {
-            Some(model) => model,
-            None => return selected_items,
+    ) -> Vec<ScriptureListItem> {
+        let selections = typed_list.selection_model.selection();
+        let mut selected_verses = Vec::with_capacity(selections.size() as usize);
+
+        if let Some((iter, initial_item)) = BitsetIter::init_first(&selections) {
+            let mut iter_list = iter.collect::<Vec<u32>>();
+            iter_list.insert(0, initial_item);
+
+            iter_list.into_iter().for_each(|x| {
+                if let Some(m) = typed_list.get(x) {
+                    selected_verses.push(m.borrow().clone());
+                }
+            });
         };
 
-        let model = match model.downcast::<gtk::MultiSelection>() {
-            Ok(model) => model,
-            Err(err) => {
-                println!("error getting model.\n{:?}", err);
-                return selected_items;
-            }
-        };
-
-        let mut selected_items = selected_items;
-        let selections = model.selection();
-        for i in 0..selections.size() {
-            let item_index = selections.nth(i as u32);
-
-            let verse_text = match typed_list.get(item_index) {
-                Some(item) => item.borrow().clone().data.screen_display(),
-                None => continue,
-            };
-
-            selected_items.push(verse_text);
-        }
-
-        selected_items
+        selected_verses
     }
 
     fn load_initial_verses(
@@ -444,6 +469,39 @@ impl SearchScriptureModel {
             }
         }
     }
+
+    fn compress_verses(list: &[u32]) -> Vec<String> {
+        let mut result = Vec::new();
+        if list.is_empty() {
+            return result;
+        }
+
+        let mut sorted_list = list.to_owned();
+        sorted_list.sort();
+
+        let mut start = sorted_list.first().unwrap();
+        let mut prev = sorted_list.first().unwrap();
+
+        for curr in sorted_list.iter().skip(1) {
+            if *curr != prev + 1 {
+                if start != prev {
+                    result.push(format!("{start}-{prev}"));
+                } else {
+                    result.push(start.to_string());
+                }
+                start = curr;
+            }
+            prev = curr;
+        }
+
+        if start != prev {
+            result.push(format!("{start}-{prev}"));
+        } else {
+            result.push(start.to_string());
+        }
+
+        result
+    }
 }
 
 #[relm4::component(pub)]
@@ -467,8 +525,11 @@ impl SimpleComponent for SearchScriptureModel {
 
                 #[local_ref]
                 append = &search_text -> gtk::SearchEntry {
-                    set_hexpand: true
-                }
+                    set_hexpand: true,
+                    connect_activate[sender] => move |_| {
+                        sender.input(SearchScriptureInput::SendToPreview);
+                    }
+                },
             },
 
             gtk::ScrolledWindow {
@@ -484,6 +545,9 @@ impl SimpleComponent for SearchScriptureModel {
                 #[name="import_btn"]
                 gtk::Button{
                     set_icon_name:"plus",
+                    connect_clicked[sender] => move |_|{
+                        sender.input(SearchScriptureInput::OpenDownload);
+                    }
                 },
 
                 #[local_ref]
@@ -522,6 +586,8 @@ impl SimpleComponent for SearchScriptureModel {
             db_connection: init.db_connection.clone(),
             dropdown: dropdown.clone(),
             download_bible_modal: download_modal,
+            selection_signal_handler: Rc::new(RefCell::new(None)),
+            search_signal_handler: Rc::new(RefCell::new(None)),
         };
 
         let list_view = model.list_view_wrapper.borrow().view.clone();
@@ -538,13 +604,7 @@ impl SimpleComponent for SearchScriptureModel {
             model.load_initial_verses(init.db_connection.clone(), first.to_string());
         }
 
-        model.register_search_change(db.clone());
-        model.register_import_bible(
-            &widgets.import_btn.clone(),
-            translations.clone(),
-            db,
-            sender.clone(),
-        );
+        model.register_search_change(db.clone(), sender.clone());
         model.load_bible_translations(&widgets.dropdown, translations);
         model.register_translation_change(&widgets.dropdown, &sender);
 
@@ -552,7 +612,6 @@ impl SimpleComponent for SearchScriptureModel {
     }
 
     fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
-        println!("SCRP UPDATE");
         match message {
             SearchScriptureInput::ChangeTranslation(t) => {
                 println!("SCRP UPDATE 2");
@@ -580,6 +639,19 @@ impl SimpleComponent for SearchScriptureModel {
             }
             SearchScriptureInput::OpenDownload => {
                 self.download_bible_modal.emit(DownloadBibleInput::Open);
+            }
+            SearchScriptureInput::SendToPreview => {
+                let selected_verses =
+                    SearchScriptureModel::get_selected_scripture(&self.list_view_wrapper.borrow());
+
+                let list_verse = selected_verses
+                    .iter()
+                    .map(|t| t.data.screen_display())
+                    .collect();
+                let payload =
+                    dto::ListPayload::new(self.search_text.text().to_string(), 0, list_verse, None);
+
+                let _ = sender.output(SearchScriptureOutput::SendScriptures(payload));
             }
         }
     }
