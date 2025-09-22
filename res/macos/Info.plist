@@ -11,7 +11,7 @@
         <key>CFBundleIconFile</key>
         <string>openworship.icns</string>
         <key>CFBundleIdentifier</key>
-        <string>xyz.autonomys.openworship</string>
+        <string>openworship</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundleName</key>
