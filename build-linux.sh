@@ -20,11 +20,11 @@ chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
 NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
 	--appdir AppDir \
 	--plugin gtk \
-	--executable target/$target/release/open-worship \
-	--desktop-file res/linux/open-worship.desktop \
-	--icon-file res/linux/open-worship.png \
+	--executable target/$target/release/openworship \
+	--desktop-file res/linux/openworship.desktop \
+	--icon-file res/linux/openworship.png \
 	--output appimage
 
 # Rename AppImage to be consistent with other files
 version=$(grep -Po 'version = "\K.*?(?=")' -m 1 Cargo.toml)
-mv Open_worship-$(uname -m).AppImage open-worship-$version-$(uname -m).AppImage
+mv Openworship-$(uname -m).AppImage open-worship-$version-$(uname -m).AppImage

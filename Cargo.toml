@@ -14,10 +14,10 @@ include = [
 [package.metadata.deb]
 section = "net"
 assets = [
-    # ["res/linux/openworship-autostart.desktop", "/etc/xdg/autostart/xyz.autonomys.openworship.desktop", "644"],
-    ["target/release/openworship", "/usr/bin/openworship", "755"],
     # Name must match application ID or else it has a strange behavior
-    ["res/linux/xyz.autonomys.openworship.desktop", "/usr/share/applications/xyz.autonomys.openworship.desktop", "644"],
+    # ["res/linux/openworship-autostart.desktop", "/etc/xdg/autostart/openworship.desktop", "644"],
+    ["target/release/openworship", "/usr/bin/openworship", "755"],
+    ["res/linux/openworship.desktop", "/usr/share/applications/openworship.desktop", "644"],
     ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/openworship.png", "644"],
 ]
 
