@@ -2,22 +2,21 @@ mod edit_modal;
 mod edit_modal_list_item;
 mod list_item;
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use edit_modal::{EditModel, EditModelInit, EditModelInputMsg, EditModelOutputMsg};
-use gtk::{
-    gio::{ActionEntry, MenuItem, SimpleActionGroup},
-    glib::clone,
-    prelude::*,
-    SingleSelection,
-};
+use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
+use gtk::glib::clone;
+use gtk::prelude::*;
+use gtk::SingleSelection;
 use list_item::SongListItemModel;
-use relm4::{prelude::*, typed_view::list::TypedListView};
+use relm4::prelude::*;
+use relm4::typed_view::list::TypedListView;
 
-use crate::{
-    db::{connection::DatabaseConnection, query::Query},
-    dto::{self, Song},
-};
+use crate::db::connection::DatabaseConnection;
+use crate::db::query::Query;
+use crate::dto::{self, Song};
 
 #[derive(Debug)]
 pub enum SearchSongInput {
@@ -57,7 +56,7 @@ impl SearchSongModel {
                     Ok(q) => q,
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
-                        return ;
+                        return;
                     }
                 };
 
@@ -363,14 +362,14 @@ impl SimpleComponent for SearchSongModel {
             SearchSongInput::RemoveSong(pos) => {
                 let song_item = match self.list_view_wrapper.borrow().get(pos) {
                     Some(si) => si.borrow().clone().song,
-                    None => return ,
+                    None => return,
                 };
 
                 match Query::delete_song(self.db_connection.clone(), song_item) {
                     Ok(_) => (),
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
-                        return ;
+                        return;
                     }
                 };
 
@@ -384,7 +383,7 @@ impl SimpleComponent for SearchSongModel {
                     }
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
-                        return ;
+                        return;
                     }
                 };
 

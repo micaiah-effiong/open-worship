@@ -1,9 +1,12 @@
-use std::{cell::RefCell, rc::Rc, usize};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use gtk::prelude::*;
-use relm4::{prelude::*, typed_view::grid::TypedGridView};
+use relm4::prelude::*;
+use relm4::typed_view::grid::TypedGridView;
 
-use crate::{config::AppConfigDir, structs::background_grid_list_item::BackgroundGridListItem};
+use crate::config::AppConfigDir;
+use crate::structs::background_grid_list_item::BackgroundGridListItem;
 
 // search area (notebook)
 #[derive(Debug)]
@@ -91,6 +94,7 @@ impl SearchBackgroundModel {
     ) -> gtk::FileDialog {
         let file_filter = gtk::FileFilter::new();
         file_filter.add_mime_type("image/*");
+        file_filter.set_name(Some("Images"));
 
         let list_store = gtk::gio::ListStore::new::<gtk::FileFilter>();
         list_store.append(&file_filter);
@@ -114,12 +118,10 @@ impl SearchBackgroundModel {
             let files = files.unwrap();
             let mut new_images: Vec<String> = vec![];
 
-            for file in files.iter::<gtk::gio::File>() {
-                if let Ok(file) = file {
-                    if let Some(path) = file.path() {
-                        let filename = path.display().to_string();
-                        new_images.push(filename);
-                    }
+            for file in files.iter::<gtk::gio::File>().flatten() {
+                if let Some(path) = file.path() {
+                    let filename = path.display().to_string();
+                    new_images.push(filename);
                 }
             }
 
