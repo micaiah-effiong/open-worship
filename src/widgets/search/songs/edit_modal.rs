@@ -1,11 +1,12 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::{glib::clone, pango::ffi::PANGO_WEIGHT_BOLD, prelude::*, SingleSelection};
+use gtk::{SingleSelection, glib::clone, pango::ffi::PANGO_WEIGHT_BOLD, prelude::*};
 use relm4::{prelude::*, typed_view::list::TypedListView};
 
 use crate::{
     db::{connection::DatabaseConnection, query::Query},
     dto::{self, DisplayPayload, Song},
+    utils::TextBufferExtraExt,
     widgets::{
         activity_screen::{ActivityScreenInput, ActivityScreenModel},
         search::songs::{
@@ -330,9 +331,7 @@ impl SimpleComponent for EditModel {
                                 None => continue,
                             };
 
-                            let start = song.text_buffer.start_iter();
-                            let end = song.text_buffer.end_iter();
-                            let song_str = song.text_buffer.text(&start, &end, true).to_string();
+                            let song_str = song.text_buffer.full_text().to_string();
 
                             verses.push(song_str);
                         }
@@ -440,9 +439,7 @@ impl EditModel {
 
                 if let Some(item) = list.get(index) {
                     let item = item.borrow();
-                    let start = &item.text_buffer.start_iter();
-                    let end = &item.text_buffer.end_iter();
-                    let text = &item.text_buffer.text(start, end, true);
+                    let text = &item.text_buffer.full_text();
                     let payload = DisplayPayload::new(text.to_string());
                     println!("move focus: 1. {:?}\n 2. {:?}\n", payload, index);
                     sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
@@ -460,7 +457,7 @@ impl EditModel {
                 #[strong]
                 sender,
                 move |m| {
-                    let text = &m.text(&m.start_iter(), &m.end_iter(), true);
+                    let text = &m.full_text();
 
                     let payload = DisplayPayload::new(text.to_string());
                     sender.input(EditModelInputMsg::UpdateActivityScreen(payload));
@@ -494,7 +491,9 @@ impl EditModel {
         let bold_tag = buffer.create_tag(Some("bold"), &[("weight", &PANGO_WEIGHT_BOLD)]);
 
         let (start, end) = buffer.bounds();
-        if let Some(b) = bold_tag { buffer.apply_tag(&b, &start, &end) }
+        if let Some(b) = bold_tag {
+            buffer.apply_tag(&b, &start, &end)
+        }
 
         // println!(
         //     "NEW BUFFER\n {:?}\n{:?}",
@@ -506,7 +505,7 @@ impl EditModel {
             #[strong]
             sender,
             move |m| {
-                let text = &m.text(&m.start_iter(), &m.end_iter(), true);
+                let text = &m.full_text();
 
                 let payload = DisplayPayload::new(text.to_string());
                 sender.input(EditModelInputMsg::UpdateActivityScreen(payload));

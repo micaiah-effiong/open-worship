@@ -17,9 +17,8 @@ use relm4::typed_view::list::TypedListView;
 
 use crate::db::connection::{BibleVerse, DatabaseConnection};
 use crate::db::query::Query;
-use crate::dto;
 use crate::parser::parser::{self, BibleReference};
-use crate::widgets::util;
+use crate::{dto, utils};
 
 #[derive(Debug)]
 pub enum SearchScriptureInput {
@@ -215,7 +214,7 @@ impl SearchScriptureModel {
 
         let list_view = list_view.clone();
         let list = match list_view.first_child() {
-            Some(li) => util::widget_to_vec(&li),
+            Some(li) => utils::widget_to_vec(&li),
             None => return,
         };
 

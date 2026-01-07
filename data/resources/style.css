@@ -117,3 +117,35 @@ editablelabel.schedule-list-item-editable {
     opacity: 1;
   }
 }
+
+.ow-grabber {
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  min-height: 16px;
+  min-width: 16px;
+}
+
+.ow-grabber:hover,
+.ow-grabber:active,
+.ow-grabber:focus {
+  background: none;
+  border: none;
+  box-shadow: none;
+  outline: none;
+}
+.ow-canvas-item-grid {
+  border: 2px dotted transparent;
+  margin: 7px;
+}
+.ow-canvas-item-grid-select {
+  border-color: white;
+}
+
+/* text-shadow:  */
+/* #000 -1px -1px 1px,   */
+/* #000 1px -1px 1px, */
+/* #000 -1px  1px 1px, */
+/* #000 1px  1px 1px; */
+/* -2px 2px 1px black; */

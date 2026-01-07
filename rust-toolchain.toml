@@ -1,5 +1,5 @@
 [toolchain]
-channel = "nightly-2024-12-24"
+channel = "stable-aarch64-apple-darwin"
 components = ["rust-src"]
 targets = []
 profile = "default"
