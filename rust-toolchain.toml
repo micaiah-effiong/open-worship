@@ -1,5 +1,11 @@
 [toolchain]
-channel = "stable-aarch64-apple-darwin"
-components = ["rust-src"]
-targets = []
+channel = "stable"
 profile = "default"
+# components = ["rustfmt", "clippy"]
+components = ["rust-src"]
+targets = [
+  "x86_64-unknown-linux-gnu",
+  "x86_64-pc-windows-msvc",
+  "x86_64-apple-darwin",
+  "aarch64-apple-darwin"
+]
