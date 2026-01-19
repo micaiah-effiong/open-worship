@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::config::AppConfig;
 use crate::db::connection::DatabaseConnection;
-use crate::widgets::activity_screen::{ActivityScreenInput, ActivityScreenModel};
+use crate::widgets::activity_screen::ActivityScreen;
 use crate::widgets::live_activity_viewer::{
     LiveViewerInit, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
 };
@@ -14,9 +14,9 @@ use crate::widgets::schedule_activity_viewer::{
     ScheduleViewerInput, ScheduleViewerModel, ScheduleViewerOutput,
 };
 use crate::{db, dto};
-use gtk::prelude::*;
 #[cfg(not(target_os = "macos"))]
 use gtk::PopoverMenuBar;
+use gtk::prelude::*;
 use relm4::prelude::*;
 
 mod icon_names {
@@ -32,7 +32,7 @@ enum AppInput {
     PreviewActivityActivated(dto::ListPayload),
     LiveActivitySelected(dto::Payload),
     // LiveActivityActivated(String),
-    ClearLiveDisplay,
+    ClearLiveDisplay(bool),
     PreviewGoLive,
 
     //
@@ -45,11 +45,9 @@ struct AppModel {
     preview_activity_viewer: relm4::Controller<PreviewViewerModel>,
     live_activity_viewer: relm4::Controller<LiveViewerModel>,
 
-    preview_activity_screen: relm4::Controller<ActivityScreenModel>,
-    live_activity_screen: relm4::Controller<ActivityScreenModel>,
+    preview_activity_screen: RefCell<ActivityScreen>,
+    live_activity_screen: RefCell<ActivityScreen>,
     search_viewer: relm4::Controller<SearchModel>,
-
-    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl AppModel {
@@ -125,10 +123,10 @@ impl SimpleComponent for AppModel {
                                 set_label: "Go live"
                             }
                         },
-                        gtk::Button {
-                            connect_clicked => AppInput::ClearLiveDisplay,
-                            gtk::Label {
-                                set_label: "Clear",
+                        gtk::ToggleButton {
+                            set_label: "Clear",
+                            connect_toggled [sender]=> move |t| {
+                                sender.input(AppInput::ClearLiveDisplay(t.is_active()))
                             },
                         }
                     }
@@ -202,7 +200,7 @@ impl SimpleComponent for AppModel {
                                         set_shrink_start_child: false,
                                         set_shrink_end_child: false,
                                         set_start_child = Some(model.preview_activity_viewer.widget()),
-                                        set_end_child = Some(model.preview_activity_screen.widget()),
+                                        set_end_child = Some(&model.preview_activity_screen.borrow().clone()),
                                     }
                                 },
 
@@ -218,7 +216,7 @@ impl SimpleComponent for AppModel {
                                         set_shrink_start_child: false,
                                         set_shrink_end_child: false,
                                         set_start_child = Some(model.live_activity_viewer.widget()),
-                                        set_end_child = Some(model.live_activity_screen.widget()),
+                                        set_end_child = Some(&model.live_activity_screen.borrow().clone()),
                                     }
                                 }
                             }
@@ -253,9 +251,9 @@ impl SimpleComponent for AppModel {
         //     AppConfig::get_db_path(),
         // )));
 
-        let db_connection = Rc::new(RefCell::new(Some(
-            db::connection::DatabaseConnection::open(AppConfig::get_db_path()),
-        )));
+        // let db_connection = Rc::new(RefCell::new(Some(
+        //     db::connection::DatabaseConnection::open(AppConfig::get_db_path()),
+        // )));
 
         let schedule_activity_viewer = ScheduleViewerModel::builder().launch(()).forward(
             sender.input_sender(),
@@ -278,17 +276,12 @@ impl SimpleComponent for AppModel {
                 AppModel::convert_live_activity_response,
             );
         let search_viewer = SearchModel::builder()
-            .launch(SearchInit {
-                db_connection: db_connection.clone(),
-            })
+            .launch(SearchInit {})
             .forward(sender.input_sender(), AppModel::convert_search_response);
 
-        let preview_activity_screen = ActivityScreenModel::builder()
-            .launch(())
-            .forward(sender.input_sender(), |_| unreachable!());
-        let live_activity_screen = ActivityScreenModel::builder()
-            .launch(())
-            .forward(sender.input_sender(), |_| unreachable!());
+        let preview_activity_screen = RefCell::new(ActivityScreen::new());
+
+        let live_activity_screen = RefCell::new(ActivityScreen::new());
 
         let model = AppModel {
             schedule_activity_viewer,
@@ -297,7 +290,6 @@ impl SimpleComponent for AppModel {
             search_viewer,
             preview_activity_screen,
             live_activity_screen,
-            db_connection: db_connection.clone(),
         };
         let widgets = view_output!();
 
@@ -308,13 +300,10 @@ impl SimpleComponent for AppModel {
 
         let app = relm4::main_application();
         add_app_menu(Some(&app), Some(&widgets.window_box));
-        add_app_actions(&window, &app);
+        add_app_actions(&app);
 
         window.connect_destroy(move |_| {
-            if let Some(db) = db_connection.borrow_mut().take() {
-                let e = db.close();
-                println!("Close db {:?}", e);
-            }
+            println!("Close");
         });
 
         widgets.main_window.present();
@@ -333,8 +322,7 @@ impl SimpleComponent for AppModel {
                         background_image: payload.background_image,
                         text: text.to_string(),
                     };
-                    self.preview_activity_screen
-                        .emit(ActivityScreenInput::DisplayUpdate(slide));
+                    self.preview_activity_screen.borrow().display_update(slide);
                 }
             }
             AppInput::ScheduleActivityAddNew(payload) => {
@@ -346,56 +334,54 @@ impl SimpleComponent for AppModel {
             // AppInput::LiveActivityActivated(_) => return,
             AppInput::LiveActivitySelected(payload) => {
                 self.live_activity_screen
-                    .emit(ActivityScreenInput::DisplayUpdate(
-                        dto::DisplayPayload::new(payload.text),
-                    ))
+                    .borrow()
+                    .display_update(dto::DisplayPayload::new(payload.text));
             }
 
             // preview
             AppInput::PreviewActivitySelected(payload) => {
                 self.preview_activity_screen
-                    .emit(ActivityScreenInput::DisplayUpdate(
-                        dto::DisplayPayload::new(payload.text),
-                    ));
+                    .borrow()
+                    .display_update(dto::DisplayPayload::new(payload.text));
             }
             AppInput::PreviewActivityActivated(list_payload) => {
                 self.live_activity_viewer
                     .emit(LiveViewerInput::NewList(list_payload.clone())); //
                 self.preview_activity_screen
-                    .emit(ActivityScreenInput::DisplayUpdate(
-                        dto::DisplayPayload::new(list_payload.text.clone()),
-                    ));
+                    .borrow()
+                    .display_update(dto::DisplayPayload::new(list_payload.text.clone()));
                 self.live_activity_screen
-                    .emit(ActivityScreenInput::DisplayUpdate(
-                        dto::DisplayPayload::new(list_payload.text.clone()),
-                    ));
+                    .borrow()
+                    .display_update(dto::DisplayPayload::new(list_payload.text.clone()));
 
                 if let Some(image_src) = list_payload.background_image {
                     self.live_activity_screen
-                        .emit(ActivityScreenInput::DisplayBackground(image_src));
+                        .borrow()
+                        .display_background(image_src);
                 }
             }
 
             // search model
             AppInput::SearchPreviewBackground(image_src) => {
                 self.preview_activity_screen
-                    .emit(ActivityScreenInput::DisplayBackground(image_src.clone()));
+                    .borrow()
+                    .display_background(image_src.clone());
+                // .emit(ActivityScreenInput::DisplayBackground(image_src.clone()));
                 self.preview_activity_viewer
                     .emit(PreviewViewerInput::Background(image_src));
             }
             AppInput::SearchPreviewActivity(list_payload) => {
                 if let Some(item) = list_payload.list.first() {
                     self.preview_activity_screen
-                        .emit(ActivityScreenInput::DisplayUpdate(
-                            dto::DisplayPayload::new(item.clone()),
-                        ));
+                        .borrow()
+                        .display_update(dto::DisplayPayload::new(item.clone()));
                 }
                 self.preview_activity_viewer
                     .emit(PreviewViewerInput::NewList(list_payload));
             }
-            AppInput::ClearLiveDisplay => self
-                .live_activity_screen
-                .emit(ActivityScreenInput::ClearDisplay),
+            AppInput::ClearLiveDisplay(cleared) => {
+                self.live_activity_screen.borrow().clear_display(cleared)
+            }
             AppInput::PreviewGoLive => self
                 .preview_activity_viewer
                 .emit(PreviewViewerInput::GoLive),
@@ -414,7 +400,7 @@ pub fn run() {
     let app = relm4::main_application();
     app.set_application_id(Some(APP_ID));
     app.set_resource_base_path(Some(RESOURECE_PATH));
-    relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
+    // relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
 
     let app = relm4::RelmApp::from_app(app);
     relm4::gtk::init().expect("Could not init gtk");
@@ -447,7 +433,7 @@ fn log_display_info() {
             "|	ratio {:?}",
             (x_mon.geometry().width() as f32 / x_mon.geometry().height() as f32)
         );
-        println!("|	refresh rate {:?}hz", x_mon.refresh_rate() / 1000);
+        println!("|	refresh rate {:?}hz", x_mon.refresh_rate());
     });
 
     get_display_geometry();
@@ -510,16 +496,30 @@ fn build_app_menu() -> gtk::gio::Menu {
     menu
 }
 
-fn add_app_actions(window: &gtk::ApplicationWindow, app: &gtk::Application) {
-    app.set_accels_for_action("win.close", &["<Primary>w"]);
-
-    let close_action = gtk::gio::ActionEntry::builder("close")
-        .activate(|window: &gtk::ApplicationWindow, _, _| {
-            println!("CLOSE");
-            window.close();
-        })
+fn add_app_actions(app: &gtk::Application) {
+    let quit_action = gtk::gio::ActionEntry::builder("quit")
+        .activate(|app: &gtk::Application, _, _| app.quit())
         .build();
-    window.add_action_entries([close_action]);
+    let about_action = gtk::gio::ActionEntry::builder("about")
+        .activate(|app: &gtk::Application, _, _| add_app_about())
+        .build();
+
+    app.add_action_entries([quit_action, about_action]);
+}
+
+fn add_app_about(/* window: &impl IsA<gtk::Window> */) {
+    let dialog = gtk::AboutDialog::builder()
+        // .transient_for(window)
+        // .modal(true)
+        .program_name("About Openworship")
+        .version(env!("CARGO_PKG_VERSION"))
+        .website("https://github.com/micaiah-effiong/open-worship")
+        .license_type(gtk::License::MitX11)
+        .authors(["Micah Effiong"])
+        .logo_icon_name("openworship-symbolic")
+        .build();
+
+    dialog.present();
 }
 
 // fn load_css() {
@@ -534,7 +534,6 @@ fn add_app_actions(window: &gtk::ApplicationWindow, app: &gtk::Application) {
 // }
 
 fn app_init() {
-    gtk::glib::set_application_name("Open worship");
     gtk::gio::resources_register_include!("resources.gresource")
         .expect("could not find app resources");
 

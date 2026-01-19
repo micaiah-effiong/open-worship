@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc};
 
-use gtk::{prelude::*, SingleSelection};
+use gtk::{SingleSelection, prelude::*};
 use relm4::{
-    gtk, typed_view::list::TypedListView, ComponentParts, ComponentSender, SimpleComponent,
+    ComponentParts, ComponentSender, SimpleComponent, gtk, typed_view::list::TypedListView,
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,6 @@ pub struct BibleDownload {
 #[derive(Debug)]
 pub struct DownloadBibleModel {
     list: Rc<RefCell<TypedListView<BibleDownloadListItem, SingleSelection>>>,
-    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
     installed_translations: Vec<String>,
     is_active: bool,
 }
@@ -40,19 +39,11 @@ pub enum DownloadBibleOutput {
 }
 
 pub struct DownloadBibleInit {
-    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
     pub installed_translations: Vec<String>,
 }
 
 impl DownloadBibleModel {
-    fn register_import_bible(
-        &mut self,
-        translations: Vec<String>,
-        db: Rc<RefCell<Option<DatabaseConnection>>>,
-        sender: ComponentSender<Self>,
-        // btn: &gtk::Button,
-    ) {
-        let conn = db.clone();
+    fn register_import_bible(&mut self, translations: Vec<String>, sender: ComponentSender<Self>) {
         let mut translation_map: std::collections::HashMap<String, bool> =
             std::collections::HashMap::new();
 
@@ -79,7 +70,6 @@ impl DownloadBibleModel {
                         let name = name.to_string();
                         list.append(BibleDownloadListItem {
                             data: item.clone(),
-                            conn: conn.clone(),
                             already_added: translation_map.contains_key(&name),
                             parent_sender: sender.clone(),
                         });
@@ -141,7 +131,6 @@ impl SimpleComponent for DownloadBibleModel {
         let list_view = list.borrow().view.clone();
         let mut model = DownloadBibleModel {
             list,
-            db_connection: init.db_connection.clone(),
             is_active: false,
             installed_translations: init.installed_translations.clone(),
         };
@@ -149,11 +138,7 @@ impl SimpleComponent for DownloadBibleModel {
         //
         let widgets = view_output!();
 
-        model.register_import_bible(
-            model.installed_translations.clone(),
-            model.db_connection.clone(),
-            sender.clone(),
-        );
+        model.register_import_bible(model.installed_translations.clone(), sender.clone());
 
         ComponentParts { model, widgets }
     }
@@ -172,16 +157,12 @@ impl SimpleComponent for DownloadBibleModel {
                 sender.input(DownloadBibleInput::ReloadTranslation);
             }
             DownloadBibleInput::ReloadTranslation => {
-                if let Ok(list) = Query::get_translations(self.db_connection.clone()) {
+                if let Ok(list) = Query::get_translations() {
                     self.installed_translations.clear();
                     self.installed_translations.extend(list);
 
                     self.list.borrow_mut().clear();
-                    self.register_import_bible(
-                        self.installed_translations.clone(),
-                        self.db_connection.clone(),
-                        sender.clone(),
-                    );
+                    self.register_import_bible(self.installed_translations.clone(), sender.clone());
 
                     let _ = sender.output(DownloadBibleOutput::ReloadTranslation);
                 }

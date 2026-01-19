@@ -10,6 +10,6 @@ mod utils;
 mod widgets;
 
 fn main() {
-    // app::run();
-    notepad::init_app();
+    app::run();
+    // notepad::init_app();
 }

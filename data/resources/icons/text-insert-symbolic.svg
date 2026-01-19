@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 16 16">
+
+    <g style="fill:#a7acab;fill-rule:evenodd;fill-opacity:1">
+        <path d="M3.5 3 L1.5 9 h1.2 l0.4-1.4 h2 L5.5 9 h1.2 L4.6 3 Z M3.4 6.6 l0.7-2.3 l0.7 2.3 Z"/>
+        <path d="M9.5 6 c-1.1 0-2 0.7-2 1.8 c0 1.1 0.9 1.7 1.9 1.7 c0.7 0 1.2-0.3 1.6-0.7 v0.6 h1 V6.9 c0-1.2-0.9-1.9-2.5-1.9 z M9.6 8.6 c-0.6 0-1-0.3-1-0.8 c0-0.5 0.4-0.8 1-0.8 c0.6 0 1 0.3 1 0.8 c0 0.5-0.4 0.8-1 0.8 z"/>
+        <path d="M6 11 l2 2 l2-2 z"/>
+    </g>
+</svg>

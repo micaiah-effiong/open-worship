@@ -13,11 +13,7 @@ use crate::{
 
 use super::download_modal::BibleDownload;
 
-pub async fn import_bible<F>(
-    conn: Rc<RefCell<Option<DatabaseConnection>>>,
-    bible: &BibleDownload,
-    callback: F,
-) -> Option<String>
+pub async fn import_bible<F>(bible: &BibleDownload, callback: F) -> Option<String>
 where
     F: Fn(String),
 {
@@ -165,7 +161,7 @@ where
     }
 
     let translation_name = translation.translation.clone();
-    let res = Query::insert_verse(conn, translation, verses_vec);
+    let res = Query::insert_verse(translation, verses_vec);
     println!("INSERTING VERESES DONE: {:?}", res);
 
     if let Err(e) = std::fs::remove_file(&file_path) {

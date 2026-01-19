@@ -1,6 +1,17 @@
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 
+use crate::services;
+
+fn default_font_weight() -> String {
+    "regular".into()
+}
+fn default_text_decoration() -> String {
+    "none".into()
+}
+fn default_text_shadow() -> String {
+    "#0000 0px  0px 0px".into()
+}
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "TextItemData")]
 pub struct TextItemData {
@@ -11,9 +22,17 @@ pub struct TextItemData {
     pub font_size: u32,
     #[serde(rename = "font-style")]
     pub font_style: String,
+    #[serde(rename = "font-weight", default = "default_font_weight")]
+    pub font_weight: String,
     pub justification: u32, // should be enum
     pub align: u32,         // should be enum
     pub color: String,
+    #[serde(rename = "text-underline")]
+    pub text_underline: bool,
+    #[serde(rename = "text-outline")]
+    pub text_outline: bool,
+    #[serde(rename = "text-shadow")]
+    pub text_shadow: bool,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
@@ -46,7 +65,7 @@ pub struct CanvasData {
     pub background_pattern: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 #[serde(tag = "type")]
 pub enum CanvasItemType {
     #[serde(rename = "text")]
@@ -54,6 +73,8 @@ pub enum CanvasItemType {
     #[default]
     Unknown,
 }
+
+const DEFAULT_SLIDE: &str = services::slide::EMPTY_SLIDE;
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone)]
 pub struct SlideData {
@@ -77,6 +98,10 @@ impl SlideData {
             preview,
             canvas_data,
         }
+    }
+
+    pub fn from_default() -> Self {
+        serde_json::from_str(DEFAULT_SLIDE).expect("Could not parse DEFAULT_SLIDE")
     }
 }
 

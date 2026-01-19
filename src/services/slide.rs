@@ -1,16 +1,39 @@
-use gtk::glib::object::Cast;
 use gtk::glib::{self, object::ObjectExt, subclass::types::ObjectSubclassIsExt};
 use gtk::prelude::WidgetExt;
-use gtk::{gdk, gdk_pixbuf};
-use std::time::Duration;
 
 use crate::utils::{self, WidgetChildrenExt};
 use crate::widgets::canvas::canvas::Canvas;
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::{CanvasData, SlideData};
+use crate::widgets::canvas::text_item::TextItem;
 
 const VISIBLE_CHANGED: &str = "visible-changed";
-const EMPTY_SLIDE: &str = "{\"background-color\":\"#000000\", \"background-pattern\":\"\" , \"items\": [{\"x\": 0,\"y\": 0,\"w\": 720,\"h\": 510, \"type\": \"color\", \"background_color\": \"#000000\", \"border-radius\": 0 }], \"notes\":\"\", \"preview\": \"iVBORw0KGgoAAAANSUhEUgAAAQsAAACWCAYAAADJ2q17AAAABmJLR0QA/wD/AP+gvaeTAAACM0lEQVR4nO3UMWpbURQAUd3Hlwpt1qndxztOVOjDcx8ITCcZzlnBVDNrrY/jOL5m5n4B+Mfe+3Ge5+fcbrc/z+fzvvd+dRPwhmbmcr1e/66ZMQrgv/bel5m5r1eHAD+DWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQCJWQDJ2ns/ZubVHcCbmpnL3vsxa61fx3H8npn7q6OA97P3fpzn+fkNRKooH6vPau0AAAAASUVORK5CYII=\"}";
+pub const EMPTY_SLIDE: &str = r##"{
+    "transition": 0,
+    "items": [
+        {
+            "x": -602,
+            "y": -16,
+            "w": 2710,
+            "h": 1529,
+            "type": "text",
+            "text-data": "",
+            "font": "Open Sans",
+            "font-size": 16,
+            "font-style": "normal",
+            "justification": 1,
+            "align": 1,
+            "color": "#fff",
+            "text-underline": false,
+            "text-outline": false,
+            "text-shadow": false
+        }
+    ],
+    "preview": "",
+    "background-color": "#383E41",
+    "background-pattern": ""
+}
+"##;
 
 mod imp {
     use std::cell::{Cell, RefCell};
@@ -41,6 +64,9 @@ mod imp {
 
         #[property(get, set/* =Self::set_visible_ */, default_value=true, construct)]
         pub visible: Cell<bool>,
+
+        #[property(get, set, construct, default_value = false)]
+        pub presentation_mode: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -73,6 +99,7 @@ mod imp {
                 notes: RefCell::new(String::default()),
                 trasition: RefCell::new(StackTransitionType::None),
                 visible: Cell::new(true),
+                presentation_mode: Cell::new(false),
             }
         }
     }
@@ -134,13 +161,22 @@ impl Slide {
         slide
             .bind_property("visible", &canvas, "visible")
             .bidirectional()
+            .sync_create()
+            .build();
+
+        slide
+            .bind_property("presentation_mode", &canvas, "presentation_mode")
+            .bidirectional()
+            .sync_create()
             .build();
 
         slide
     }
 
+    #[doc = "visbility is false by default"]
     pub fn empty(/* window: &SpiceWindow */) -> Self {
-        let slide = Self::default();
+        let slide = glib::Object::new::<Slide>();
+
         let data: Option<SlideData> = serde_json::from_str(EMPTY_SLIDE).ok();
         slide.imp().save_data.replace(data.clone());
 
@@ -149,17 +185,21 @@ impl Slide {
             None => None,
         };
 
-        slide
-            .imp()
-            .canvas
-            .replace(Some(Canvas::new(/* window, */ canvas_data)));
+        let canvas = Canvas::new(/* window, */ canvas_data);
 
-        if let Some(canvas) = slide.canvas() {
-            slide
-                .bind_property("visible", &canvas, "visible")
-                .bidirectional()
-                .build();
-        }
+        slide
+            .bind_property("visible", &canvas, "visible")
+            .bidirectional()
+            .sync_create()
+            .build();
+
+        slide
+            .bind_property("presentation_mode", &canvas, "presentation_mode")
+            .bidirectional()
+            .sync_create()
+            .build();
+
+        slide.imp().canvas.replace(Some(canvas));
 
         slide.load_data();
         slide.set_visible(false);
@@ -190,13 +230,15 @@ impl Slide {
             None => return,
         };
 
-        let _ = save_data.items.iter().for_each(|raw| {
+        for raw in save_data.items {
             if let Some(item) = utils::canvas_item_from_data(raw.clone(), Some(&canvas)) {
                 self.add_item(item, false, false);
             } else {
                 println!("> ITEM ERROR: could not create canvas item from");
             }
-        });
+        }
+
+        self.set_trasition(utils::int_to_transition(save_data.transition));
 
         self.imp().save_data.replace(None);
     }
@@ -312,14 +354,11 @@ impl Slide {
     }
 
     fn load_data(&self) {
-        println!("???? LOAD_DATA");
         let Some(save_data) = self.imp().save_data.borrow().clone() else {
             return;
         };
 
         self.set_preview_data(save_data.preview);
-
-        println!("???? PREVIEW {:?}", self.preview_data());
 
         if !self.preview_data().is_empty() {
             let pix_buf = utils::base64_to_pixbuf(&self.preview_data().clone());
@@ -343,5 +382,24 @@ impl Slide {
 
     pub fn canvas(&self) -> Option<Canvas> {
         self.imp().canvas.borrow().clone()
+    }
+
+    pub fn entry_buffer(&self) -> Option<gtk::TextBuffer> {
+        if let Some(canvas) = self.canvas() {
+            for t in canvas.widget().get_children::<TextItem>() {
+                return Some(t.buffer().clone());
+            }
+        }
+
+        None
+    }
+    pub fn text_item(&self) -> Option<TextItem> {
+        if let Some(canvas) = self.canvas() {
+            for t in canvas.widget().get_children::<TextItem>() {
+                return Some(t);
+            }
+        }
+
+        None
     }
 }

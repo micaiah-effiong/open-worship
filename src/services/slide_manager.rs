@@ -47,6 +47,7 @@ mod imp {
 
     use super::*;
     use crate::services::slide::Slide;
+    use crate::utils;
     use crate::widgets::canvas::canvas_item::CanvasItem;
     // use crate::services::utils::{self, AspectRatio};
     // use crate::spice_window::SpiceWindow;
@@ -202,12 +203,12 @@ mod imp {
             //         }
             //     });
             // } else {
-            obj.slideshow()
-                .set_transition_type(gtk::StackTransitionType::None);
-            obj.slideshow().set_transition_duration(0);
             // }
 
             let Some(val) = value else { return };
+            obj.slideshow().set_transition_type(val.trasition());
+            obj.slideshow().set_transition_duration(500);
+
             if self.slides.borrow().contains(&val) {
                 self.current_slide.replace(Some(val.clone()));
                 obj.set_current_item(None::<CanvasItem>);
@@ -299,11 +300,11 @@ impl SlideManager {
         );
     }
 
-    pub fn connect_item_clicked<F: Fn(Option<&CanvasItem>) -> () + 'static>(&self, f: F) {
+    pub fn connect_item_clicked<F: Fn(&Self, Option<&CanvasItem>) -> () + 'static>(&self, f: F) {
         self.connect_closure(
             signals::ITEM_CLICKED,
             false,
-            glib::closure_local!(move |_: &Self, item: Option<&CanvasItem>| f(item)),
+            glib::closure_local!(move |sm: &Self, item: Option<&CanvasItem>| f(sm, item)),
         );
     }
 
@@ -334,7 +335,7 @@ impl SlideManager {
 
         slide_manager.imp().slides.replace(Vec::new());
 
-        let empty_slide = Slide::empty(/* &window */);
+        let empty_slide = Slide::empty(/* &window */ );
         slide_manager
             .imp()
             .end_presentation_slide
@@ -447,14 +448,12 @@ impl SlideManager {
         // self.emit_aspect_ratio_changed(&self.imp().current_ratio());
 
         for slide_object in slides_array {
-            let created = self.new_slide(Some(slide_object.clone()), false);
-            println!("SLIDE OBJ \n{:?}", created);
+            self.new_slide(Some(slide_object.clone()), false);
         }
 
         if self.slides().len() > data.current_slide as usize {
             self.set_current_slide(self.slides().get(data.current_slide as usize).cloned());
             if let Some(current_slide) = self.current_slide() {
-                println!("?? LOAD_DATA");
                 current_slide.reload_preview_data();
             }
         } else {
@@ -552,8 +551,6 @@ impl SlideManager {
         }
 
         self.slideshow().add_child(&canvas);
-        // self.slideshow().set_visible(true); // show_all
-
         self.emit_new_slide_created(&slide);
 
         if undoable_action {
@@ -590,12 +587,13 @@ impl SlideManager {
         slide
     }
 
-    pub fn make_new_slide(&self) {
+    pub fn make_new_slide(&self) -> Slide {
         self.set_making_new_slide(true);
         let slide = self.new_slide(None, true);
         slide.reload_preview_data();
-        self.set_current_slide(Some(slide));
+        self.set_current_slide(Some(slide.clone()));
         self.set_making_new_slide(false);
+        slide
     }
 
     pub fn previous_slide(&self) {

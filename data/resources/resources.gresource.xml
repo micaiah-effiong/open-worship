@@ -1,8 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/com/openworship/app">
-     <file compressed="true">style.css</file>
-     <file compressed="true">icons/drag-symbolic.svg</file>
-     <file compressed="true">icons/drag-square-symbolic.svg</file>
+    <file compressed="true">style.css</file>
+    <file compressed="true">icons/drag-symbolic.svg</file>
+    <file compressed="true">icons/drag-square-symbolic.svg</file>
+    <file compressed="true">icons/screen-symbolic.svg</file>
+    <file compressed="true">icons/plus-symbolic.svg</file>
+    <file compressed="true">icons/minus-symbolic.svg</file>
+    <file compressed="true">icons/text-superscript-regular-symbolic.svg</file>
+    <file compressed="true">icons/text-subscript-regular-symbolic.svg</file>
+    <file compressed="true">icons/text-bold-filled-symbolic.svg</file>
+    <file compressed="true">icons/text-italic-regular-symbolic.svg</file>
+    <file compressed="true">icons/text-italic-filled-symbolic.svg</file>
+    <file compressed="true">icons/text-underline-filled-symbolic.svg</file>
+    <file compressed="true">icons/text-outline-filled-symbolic.svg</file>
+    <file compressed="true">icons/text-shadow-filled-symbolic.svg</file>
+
+    <file compressed="true">icons/text-justify-center-symbolic.svg</file>
+    <file compressed="true">icons/text-justify-fill-symbolic.svg</file>
+    <file compressed="true">icons/text-justify-left-symbolic.svg</file>
+    <file compressed="true">icons/text-justify-right-symbolic.svg</file>
+
+    <file compressed="true">icons/align-bottom-symbolic.svg</file>
+    <file compressed="true">icons/align-middle-symbolic.svg</file>
+    <file compressed="true">icons/align-top-symbolic.svg</file>
+
+    <file compressed="true">icons/picture-symbolic.svg</file>
+
+    <file compressed="true">icons/openworship-symbolic.png</file>
   </gresource>
 </gresources>

@@ -4,16 +4,16 @@ use relm4::{
     view,
 };
 
-use crate::dto::Song;
+use crate::dto::SongObject;
 
 /// song search list item
 #[derive(Debug, Clone)]
 pub struct SongListItemModel {
-    pub song: Song,
+    pub song: SongObject,
 }
 
 impl SongListItemModel {
-    pub fn new(song: Song) -> Self {
+    pub fn new(song: SongObject) -> Self {
         SongListItemModel { song }
     }
     // pub fn screen_display(&self) -> String {
@@ -52,7 +52,7 @@ impl RelmListItem for SongListItemModel {
     }
 
     fn bind(&mut self, _widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-        let text = self.song.title.to_string();
+        let text = self.song.title().to_string();
         _widgets.text.set_label(&text);
     }
 }

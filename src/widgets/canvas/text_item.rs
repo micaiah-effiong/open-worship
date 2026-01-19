@@ -1,25 +1,20 @@
 use gtk::{
-    gio::prelude::{ListModelExt, ListModelExtManual},
     glib::{
         self, clone,
         object::{Cast, ObjectExt},
         subclass::types::ObjectSubclassIsExt,
     },
     pango,
-    prelude::{
-        AccessibleExt, EventControllerExt, GestureExt, GridExt, TextBufferExt, TextViewExt,
-        WidgetExt,
-    },
+    prelude::{EventControllerExt, GestureExt, GridExt, TextBufferExt, TextViewExt, WidgetExt},
 };
-use serde_json::Value as JsonValue;
 
 use crate::{
     // services::history_manager::history_action::TypedHistoryAction,
-    utils::{self, TextBufferExtraExt, rect},
+    utils::TextBufferExtraExt,
     widgets::canvas::{
         canvas::Canvas,
         canvas_item::{CanvasItem, CanvasItemExt},
-        serialise::{CanvasItemData, TextItemData},
+        serialise::CanvasItemData,
     },
 };
 
@@ -39,7 +34,6 @@ mod imp {
     use crate::utils::{self, TextBufferExtraExt};
     use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt, CanvasItemImpl};
     use crate::widgets::canvas::serialise::{CanvasItemType, TextItemData};
-    use crate::widgets::canvas::text_item::PLACEHOLDER_TEXT;
 
     #[derive(Properties, Debug, Default)]
     #[properties(wrapper_type = super::TextItem)]
@@ -60,8 +54,16 @@ mod imp {
         pub font: RefCell<String>,
         #[property(get, set, default_value = "#fff", construct)]
         pub font_color: RefCell<String>,
-        #[property(get, set, default_value = "Regular", construct)]
+        #[property(get, set, default_value = "normal", construct)]
         pub font_style: RefCell<String>,
+        #[property(get, set, default_value = "regular", construct)]
+        pub font_weight: RefCell<String>,
+        #[property(get, set, default_value = false, construct)]
+        pub text_underline: Cell<bool>,
+        #[property(get, set, default_value = false, construct)]
+        pub text_shadow: Cell<bool>,
+        #[property(get, set, default_value = false, construct)]
+        pub text_outline: Cell<bool>,
 
         pub setting_text: Cell<bool>,
         pub first_change_in_edit: Cell<bool>,
@@ -69,8 +71,6 @@ mod imp {
 
         // #[property(get=Self::get_text_, set=Self::set_text_)]
         // pub text: RefCell<String>,
-        pub underline: Cell<bool>,
-
         #[property(get=Self::get_editing_, set=Self::set_editing_)]
         pub editing: Cell<bool>,
     }
@@ -94,6 +94,8 @@ mod imp {
                 _ => return,
             };
 
+            println!("TEXT_DATA {:?}", text_data);
+
             let t = text_data.text_data.clone();
             if !t.is_empty()
                 && let Ok(t) = String::from_utf8(glib::base64_decode(&t))
@@ -108,6 +110,10 @@ mod imp {
             self.obj().set_justification(text_data.justification);
             self.obj().set_align(text_data.align);
             self.obj().set_font_color(text_data.color);
+            self.obj().set_font_weight(text_data.font_weight);
+            self.obj().set_text_underline(text_data.text_underline);
+            self.obj().set_text_outline(text_data.text_outline);
+            self.obj().set_text_shadow(text_data.text_shadow);
         }
 
         fn serialise_item(&self) -> CanvasItemType {
@@ -117,18 +123,23 @@ mod imp {
 
             let encoded = glib::base64_encode(text.as_bytes()).to_string();
 
+            let obj = self.obj();
+
             let data = TextItemData {
-                font: self.obj().font(),
-                color: self.obj().font_color(),
-                font_size: self.obj().font_size(),
-                font_style: self.obj().font_style(),
-                justification: self.obj().justification(),
-                align: self.obj().align(),
+                font: obj.font(),
+                color: obj.font_color(),
+                font_size: obj.font_size(),
+                font_style: obj.font_style(),
+                font_weight: obj.font_weight(),
+                justification: obj.justification(),
+                align: obj.align(),
                 text_data: encoded.clone(),
+                text_underline: obj.text_underline(),
+                text_outline: obj.text_outline(),
+                text_shadow: obj.text_shadow(),
             };
             let data = CanvasItemType::Text(data);
 
-            println!("SERIALISE_ITEM {:?}", data);
             data
 
             // format!(
@@ -230,33 +241,53 @@ mod imp {
 
             let converted_font_size = 5.3 * canvas.current_ratio() * font_size as f64;
 
-            if converted_font_size > 0.0 {
-                let font_css = obj.get_font_css(
-                    obj.font(),
-                    obj.font_style().to_lowercase(),
-                    converted_font_size,
-                );
-                // let css = Self::STYLE_CSS
-                //     .replacen("{}", &obj.font_color(), 1)
-                //     .replacen("{}", &font_css, 1);
-
-                // glib::g_message!("TextItem", "FONT CSS \n{css}");
-                return format!(
-                    ".colored, textview.view {{
-                        color: {};
-                        font: {};
-                        padding: 0px;
-                        background: 0;
-                    }}",
-                    obj.font_color(),
-                    font_css
-                );
-
-                // utils::set_style(&obj.clone(), &css);
-                // utils::set_style(&self.entry.borrow().clone(), &css);
+            if converted_font_size <= 0.0 {
+                return String::new();
             }
 
-            return String::new();
+            let font_css = obj.get_font_css(
+                obj.font(),
+                obj.font_style(),
+                obj.font_weight(),
+                converted_font_size,
+            );
+
+            let underline = if obj.text_underline() {
+                "underline"
+            } else {
+                "none"
+            };
+
+            let outline = if obj.text_outline() {
+                "#000 -1px -1px 1px, 
+                #000 1px -1px 1px, 
+                #000 -1px  1px 1px,
+                #000 1px  1px 1px"
+            } else {
+                "#0000 0px  0px 0px"
+            };
+
+            let shadow = if obj.text_shadow() {
+                &format!("{outline}, -2px 2px 1px black")
+            } else {
+                outline
+            };
+
+            let css = format!(
+                ".colored, textview.view {{
+                        color: {};
+                        font: {font_css};
+                        padding: 0px;
+                        background: 0;
+                        text-decoration: {underline} {};
+                        text-shadow: {shadow};
+                    }}",
+                obj.font_color(),
+                obj.font_color(),
+            );
+            glib::g_message!("TextItem", "FONT CSS \n{css}");
+
+            css
         }
     }
 
@@ -270,13 +301,21 @@ mod imp {
         //     self.previous_text.borrow().to_string()
         // }
 
+        pub(super) fn placeholder_text(&self) -> String {
+            let ci = self.obj().clone().upcast::<CanvasItem>();
+            match ci.imp().is_presentation_mode() {
+                true => " ",
+                false => PLACEHOLDER_TEXT,
+            }
+            .to_string()
+        }
+
         #[doc = "Does not set text in entry widget"]
         pub(super) fn set_text(&self, value: String) {
             self.setting_text.set(true);
-            // self.entry.borrow().buffer().set_text(&value);
 
             if value.is_empty() {
-                self.label.borrow().set_label(PLACEHOLDER_TEXT);
+                self.label.borrow().set_label(&self.placeholder_text());
             } else {
                 self.label.borrow().set_label(&value);
             }
@@ -350,8 +389,8 @@ mod imp {
             let (_, layout_rect) = layout.pixel_extents();
             let layout_w = layout_rect.width() as f32 /* / gtk::pango::SCALE */ ;
             let layout_h = layout_rect.height()  as f32 /* / gtk::pango::SCALE */;
-            println!("bound={w} x {h}");
-            println!("layout={layout_w} x {layout_h}");
+            // println!("bound={w} x {h}");
+            // println!("layout={layout_w} x {layout_h}");
 
             //  Calculate scaling factors for width and height
             let w_scale = if layout_w > 0.0 {
@@ -375,9 +414,9 @@ mod imp {
                 desired_font_size
             };
 
-            println!(
-                "Scale factor: {font_scale_factor}, Scale ration {scale}, Desired font size: {desired_font_size} Final size: {final_size}"
-            );
+            // println!(
+            //     "Scale factor: {font_scale_factor}, Scale ration {scale}, Desired font size: {desired_font_size} Final size: {final_size}"
+            // );
             final_size
         }
     }
@@ -440,7 +479,7 @@ impl TextItem {
         }
 
         *imp.label.borrow_mut() = gtk::Label::builder()
-            .label(PLACEHOLDER_TEXT)
+            .label(imp.placeholder_text())
             .wrap_mode(gtk::pango::WrapMode::WordChar)
             .vexpand(true)
             .hexpand(true)
@@ -468,7 +507,7 @@ impl TextItem {
         ti.connect_clicked(clone!(
             #[weak]
             ti,
-            move || {
+            move |_| {
                 glib::g_log!(
                     "TextItem",
                     glib::LogLevel::Message,
@@ -519,7 +558,7 @@ impl TextItem {
         ti.connect_unselect(clone!(
             #[weak]
             ti,
-            move || {
+            move |_| {
                 ti.set_editing(false);
                 let entry = ti.imp().entry.borrow().clone();
                 entry.emit_select_all(false);
@@ -537,8 +576,8 @@ impl TextItem {
         imp.entry.borrow().buffer().connect_changed(clone!(
             #[weak]
             ti,
-            #[weak]
-            ci,
+            // #[weak]
+            // ci,
             move |buf| {
                 if ti.imp().setting_text.get() {
                     return;
@@ -560,7 +599,7 @@ impl TextItem {
                 let text = buf.full_text().to_string();
                 let label = ti.imp().label.borrow();
                 if text.is_empty() {
-                    label.set_label(PLACEHOLDER_TEXT);
+                    label.set_label(&ti.imp().placeholder_text());
                 } else {
                     label.set_label(&text);
                 }
@@ -582,20 +621,32 @@ impl TextItem {
     }
 
     // #[trace]
-    fn get_font_css(&self, font: String, font_style: String, font_size: f64) -> String {
+    fn get_font_css(
+        &self,
+        font: String,
+        font_style: String,
+        font_weight: String,
+        font_size: f64,
+    ) -> String {
         let font_size_text = font_size.to_string().replace(",", ".");
+        let font_style = font_style.to_lowercase();
+        let font_weight = font_weight.to_lowercase();
 
-        let mut font_style = font_style.replace("black", "900");
-        font_style = font_style.replace("extrabold", "800");
-        font_style = font_style.replace("semibold", "600");
-        font_style = font_style.replace("bold", "700");
-        font_style = font_style.replace("medium", "500");
-        font_style = font_style.replace("regular", "400");
-        font_style = font_style.replace("extralight", "300");
-        font_style = font_style.replace("light", "200");
-        font_style = font_style.replace("thin", "100");
+        let mut font_weight = font_weight.replace("black", "900");
+        font_weight = font_weight.replace("extrabold", "800");
+        font_weight = font_weight.replace("semibold", "600");
+        font_weight = font_weight.replace("bold", "700");
+        font_weight = font_weight.replace("medium", "500");
+        font_weight = font_weight.replace("regular", "400");
+        font_weight = font_weight.replace("extralight", "300");
+        font_weight = font_weight.replace("light", "200");
+        font_weight = font_weight.replace("thin", "100");
 
-        format!("{} {}px '{}'", font_style, font_size_text, font)
+        let style = format!("{font_style} {font_weight} {font_size_text}px '{font}'",);
+
+        println!("{style}");
+
+        style
     }
 
     pub fn buffer(&self) -> gtk::TextBuffer {

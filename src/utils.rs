@@ -1,7 +1,7 @@
 use gtk::gdk_pixbuf::prelude::PixbufLoaderExt;
 use gtk::gio::prelude::ListModelExt;
 use gtk::glib::object::{Cast, CastNone, IsA};
-use gtk::prelude::{StyleContextExt, TextBufferExt, WidgetExt};
+use gtk::prelude::{SelectionModelExt, StyleContextExt, TextBufferExt, WidgetExt};
 use gtk::{CssProvider, gio, glib};
 
 use crate::widgets::canvas::canvas::Canvas;
@@ -274,3 +274,119 @@ pub fn base64_to_pixbuf(b64: &str) -> Option<gtk::gdk_pixbuf::Pixbuf> {
     };
     return loader.pixbuf();
 }
+
+//
+fn get_list_store(list_view: &gtk::ListView) -> Option<gio::ListStore> {
+    let Some(selection_model) = list_view.model() else {
+        return None;
+    };
+
+    if let Ok(single) = selection_model.clone().downcast::<gtk::SingleSelection>() {
+        single
+            .model()
+            .and_then(|m| m.downcast::<gtk::gio::ListStore>().ok())
+    } else if let Ok(multi) = selection_model.clone().downcast::<gtk::MultiSelection>() {
+        multi
+            .model()
+            .and_then(|m| m.downcast::<gtk::gio::ListStore>().ok())
+    } else if let Ok(none) = selection_model.clone().downcast::<gtk::NoSelection>() {
+        none.model()
+            .and_then(|m| m.downcast::<gtk::gio::ListStore>().ok())
+    } else {
+        None
+    }
+}
+
+pub trait ListViewExtra: IsA<gtk::ListView> {
+    fn append_item(&self, item: impl IsA<glib::Object>) {
+        let list_view = self.upcast_ref::<gtk::ListView>();
+        let Some(list_store) = get_list_store(&list_view) else {
+            return;
+        };
+
+        list_store.append(&item);
+    }
+    fn get_items(&self) -> Vec<glib::Object> {
+        let list_view = self.upcast_ref::<gtk::ListView>();
+        let mut items = Vec::new();
+
+        let Some(list_store) = get_list_store(&list_view) else {
+            return items;
+        };
+
+        for index in 0..=list_store.n_items() {
+            if let Some(item) = list_store.item(index) {
+                items.push(item);
+            }
+        }
+
+        items
+    }
+    fn get_selected_items(&self) -> Vec<glib::Object> {
+        let list_view = self.upcast_ref::<gtk::ListView>();
+        let mut items = Vec::new();
+
+        let Some(model) = list_view.model() else {
+            return items;
+        };
+        let Some(list_store) = get_list_store(&list_view) else {
+            return items;
+        };
+
+        for index in 0..=list_store.n_items() {
+            if model.is_selected(index)
+                && let Some(item) = list_store.item(index)
+            {
+                items.push(item);
+            }
+        }
+
+        items
+    }
+    fn remove_selected_items(&self) {
+        let list_view = self.upcast_ref::<gtk::ListView>();
+        let Some(selection_model) = list_view.model() else {
+            return;
+        };
+
+        let Some(list_store) = get_list_store(&list_view) else {
+            return;
+        };
+
+        let bitset = selection_model.selection();
+        let Some((iter, first)) = gtk::BitsetIter::init_first(&bitset) else {
+            return;
+        };
+
+        let mut iter_list = iter.collect::<Vec<u32>>();
+        iter_list.insert(0, first);
+
+        for item in iter_list {
+            list_store.remove(item);
+        }
+    }
+
+    fn remove_all(&self) {
+        let list_view = self.upcast_ref::<gtk::ListView>();
+        if let Some(list_store) = get_list_store(&list_view) {
+            list_store.remove_all();
+        };
+    }
+}
+impl<O: IsA<gtk::ListView>> ListViewExtra for O {}
+
+//
+pub trait WidgetExtrasExt: IsA<gtk::Widget> {
+    fn set_margin_all(&self, value: i32) {
+        self.set_margin_start(value);
+        self.set_margin_end(value);
+        self.set_margin_top(value);
+        self.set_margin_bottom(value);
+    }
+
+    fn set_expand(&self, value: bool) {
+        self.set_hexpand(value);
+        self.set_vexpand(value);
+    }
+}
+impl<O: IsA<gtk::Widget>> WidgetExtrasExt for O {}

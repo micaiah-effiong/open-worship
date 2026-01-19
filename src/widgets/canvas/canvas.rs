@@ -1,8 +1,10 @@
 use std::sync::atomic::{self, AtomicBool};
 
-use gtk::glib::object::{Cast, ObjectExt};
+use gtk::glib::object::{Cast, IsA, ObjectExt};
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
-use gtk::prelude::{AccessibleExt, BoxExt, EventControllerExt, GestureExt, WidgetExt};
+use gtk::prelude::{
+    AccessibleExt, BoxExt, EventControllerExt, GestureExt, GestureSingleExt, WidgetExt,
+};
 
 use gtk::{EventControllerKey, GestureClick, Overlay, gdk, glib};
 
@@ -61,7 +63,7 @@ mod imp {
         // pub canvas_items: RefCell<Vec<CanvasItem>>,
         pub surface: RefCell<Option<gtk::cairo::ImageSurface>>,
 
-        #[property(get, set)]
+        #[property(get, set, construct)]
         pub presentation_mode: Cell<bool>,
     }
 
@@ -264,6 +266,13 @@ impl Canvas {
         // obj.imp().window.set(Some(window));
         obj.imp().sava_data.replace(save_data);
 
+        obj.connect_presentation_mode_notify(|c| {
+            // println!("-NOTIFY C_PRESENTATION_MODE {}", c.presentation_mode());
+            if c.presentation_mode() {
+                c.unselect_all(None);
+            }
+        });
+
         let canvas_grid = CanvasGrid::new(obj.clone());
 
         let overlay = gtk::Overlay::new();
@@ -337,10 +346,7 @@ impl Canvas {
                 &imp::CANVAS_CSS.replace("{}", &self.imp().background_color.borrow().clone()),
             );
 
-            utils::set_style(
-                &canvas_grid.clone(),
-                &self.imp().background_pattern.borrow(),
-            );
+            canvas_grid.style(self.imp().background_pattern.borrow().clone());
         }
 
         self.emit_request_draw_preview();
@@ -405,16 +411,14 @@ impl Canvas {
 
         canvas_item.connect_checkposition({
             let ci = canvas_item.clone();
-            move || ci.queue_resize() //ci.queue_allocate()
+            move |_| ci.queue_resize() //ci.queue_allocate()
         });
 
         canvas_item.connect_clicked(glib::clone!(
             #[weak(rename_to=c)]
             self,
-            #[strong(rename_to=ci)]
-            canvas_item,
-            move || {
-                c.unselect_all(Some(false));
+            move |ci| {
+                c.unselect_except(ci, Some(false));
                 c.emit_item_clicked(Some(ci.clone()));
             }
         ));
@@ -422,14 +426,10 @@ impl Canvas {
         canvas_item.connect_move_item(glib::clone!(
             #[weak(rename_to=c)]
             self,
-            #[strong(rename_to=ci)]
-            canvas_item,
-            move |delta_x, delta_y| {
-                // if let Some(window) = c.imp().window.upgrade()
-                //     && window.is_presenting()
-                // {
-                //     return;
-                // }
+            move |ci, delta_x, delta_y| {
+                if c.presentation_mode() {
+                    return;
+                }
 
                 let r: gdk::Rectangle = ci.rectangle().into();
 
@@ -458,6 +458,11 @@ impl Canvas {
         // }
 
         self.emit_request_draw_preview();
+
+        // println!("C_PRESENTATION_MODE {}", self.presentation_mode());
+        if self.presentation_mode() {
+            self.unselect_all(None);
+        }
 
         //
         canvas_item
@@ -488,20 +493,27 @@ impl Canvas {
 
         self.emit_request_draw_preview();
     }
+    pub fn unselect_except(&self, item: &impl IsA<CanvasItem>, reset_item: Option<bool>) {
+        let reset_item = reset_item.unwrap_or(true);
+
+        for child in self.widget().get_children::<CanvasItem>() {
+            if child == *item {
+                continue;
+            }
+            child.unselect();
+        }
+
+        if reset_item {
+            self.emit_item_clicked(None);
+        }
+
+        self.emit_request_draw_preview();
+    }
 
     fn button_press_event(&self, event: &GestureClick) {
-        // if let Some(window) = self.imp().window.upgrade()
-        //     && window.is_presenting()
-        // {
-        //     if event.button() == 1 {
-        //         self.emit_next_slide();
-        //     } else if event.button() == 3 {
-        //         self.emit_previous_slide();
-        //     }
-        // } else {
-        //     self.unselect_all(None);
-        // }
-
+        if self.presentation_mode() {
+            return;
+        }
         self.unselect_all(None);
     }
 

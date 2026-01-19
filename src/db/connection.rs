@@ -1,6 +1,9 @@
 use core::panic;
+use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use rusqlite::Connection;
+
+use crate::config::AppConfig;
 
 #[derive(Debug)]
 pub struct DatabaseConnection {
@@ -8,45 +11,70 @@ pub struct DatabaseConnection {
 }
 
 impl DatabaseConnection {
-    pub fn open(path: String) -> DatabaseConnection {
+    fn open(path: String) -> DatabaseConnection {
         DatabaseConnection {
             connection: Connection::open(path).expect("Cound not open the database file"),
         }
     }
-    pub fn close(self) -> Result<(), (Connection, rusqlite::Error)> {
+    pub fn _close(self) -> Result<(), (Connection, rusqlite::Error)> {
         self.connection.close()
     }
+
+    fn instance() -> MutexGuard<'static, DatabaseConnection> {
+        let db = DB.get_or_init(|| Mutex::new(DatabaseConnection::open(AppConfig::get_db_path())));
+        let conn = db.lock().unwrap();
+        conn
+    }
+
+    pub fn with_db<F, R>(f: F) -> Result<R, rusqlite::Error>
+    where
+        F: FnOnce(&Connection) -> Result<R, rusqlite::Error>,
+    {
+        let conn = Self::instance();
+
+        f(&conn.connection)
+    }
+
+    pub fn with_mut_db<F, R>(f: F) -> Result<R, rusqlite::Error>
+    where
+        F: FnOnce(&mut Connection) -> Result<R, rusqlite::Error>,
+    {
+        let mut conn = Self::instance();
+
+        f(&mut conn.connection)
+    }
 }
+
+static DB: OnceLock<Mutex<DatabaseConnection>> = OnceLock::new();
 
 /// open db
 /// run setup sql
 /// close db
 pub fn load_db(path: String) {
-    let conn = Connection::open(path).expect("Cound not open the database file");
+    create_songs_table();
+    create_song_verses_table();
+    create_bible_books_table();
+    create_translations_table();
+    insert_bible_books();
 
-    create_songs_table(&conn);
-    create_song_verses_table(&conn);
-    create_bible_books_table(&conn);
-    create_translations_table(&conn);
-    insert_bible_books(&conn);
-
-    let _ = conn.pragma_update(None, "journal_mode", "WAL");
-    let _ = conn.close();
+    let _ = DatabaseConnection::with_db(|c| c.pragma_update(None, "journal_mode", "WAL"));
 }
 
-pub fn create_bible_books_table(conn: &Connection) {
+pub fn create_bible_books_table() {
     let sql = "CREATE TABLE IF NOT EXISTS bible_books (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL
-        )".to_string();
+        )"
+    .to_string();
 
-    let ex = conn.execute(&sql, ());
+    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
+
     if ex.is_err() {
         panic!("Could not create bible_books table {:?}", ex);
     }
 }
 
-pub fn create_bible_book_verses_table(conn: Connection, translation: String) {
+pub fn create_bible_book_verses_table(translation: String) {
     let sql = format!(
         "CREATE TABLE IF NOT EXISTS {translation}_verses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,58 +86,63 @@ pub fn create_bible_book_verses_table(conn: Connection, translation: String) {
         )"
     );
 
-    let ex = conn.execute(&sql, ());
+    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
+
     if ex.is_err() {
         panic!("Could not create {translation}_verses table {:?}", ex);
     }
 }
 
-pub fn create_translations_table(conn: &Connection) {
+pub fn create_translations_table() {
     let sql = "CREATE TABLE IF NOT EXISTS translations (
             translation TEXT PRIMARY KEY,
             title TEXT NOT NULL,
             license TEXT
-        )".to_string();
+        )"
+    .to_string();
 
-    let ex = conn.execute(&sql, ());
+    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
     if ex.is_err() {
         panic!("Could not create translations table {:?}", ex);
     }
 }
 
-pub fn create_songs_table(conn: &Connection) {
+pub fn create_songs_table() {
     let sql = "CREATE TABLE IF NOT EXISTS songs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL
-        )".to_string();
+        )"
+    .to_string();
 
-    let ex = conn.execute(&sql, ());
+    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
     if ex.is_err() {
         panic!("Could not create song verses table {:?}", ex);
     }
 }
 
-pub fn create_song_verses_table(conn: &Connection) {
+pub fn create_song_verses_table() {
     let sql = "CREATE TABLE IF NOT EXISTS song_verses (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             song_id INTEGER NOT NULL,
             verse INTEGER NOT NULL,
             text TEXT NOT NULL,
             tag TEXT,
+            slide BLOB,
             FOREIGN KEY (song_id) REFERENCES songs(id)
-        )".to_string();
+        )"
+    .to_string();
 
-    let ex = conn.execute(&sql, ());
+    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
     if ex.is_err() {
         panic!("Could not create song verses table {:?}", ex);
     }
 }
 
-fn insert_bible_books(conn: &Connection) {
+fn insert_bible_books() {
     let bible_books_sql = include_str!("sql/bible_books.sql");
     let sql = bible_books_sql.to_string();
 
-    let ex = conn.execute_batch(&sql);
+    let ex = DatabaseConnection::with_db(|c| c.execute_batch(&sql));
     if ex.is_err() {
         panic!("Could not create song verses table {:?}", ex);
     }

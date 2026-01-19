@@ -109,6 +109,7 @@ mod imp {
             self.grabber_revealer.replace(grabber_revealer);
 
             let overlay = gtk::Overlay::new();
+            obj.append(&overlay);
             overlay.set_hexpand(true);
             overlay.set_vexpand(true);
             overlay.set_child(Some(&self.grid.borrow().clone()));
@@ -142,11 +143,14 @@ mod imp {
             obj.connect_clicked({
                 let grabber_list = grabber_list.clone();
                 let grabber_grid = grabber_grid.clone();
-                move || {
+                move |obj| {
                     println!("obj.connect_clicked");
+                    if obj.imp().is_presentation_mode() {
+                        return;
+                    }
+
                     for g in &grabber_list {
                         g.set_visible(true);
-                        // g.emit_switch_mode();
                     }
                     grabber_grid.add_css_class("ow-canvas-item-grid-select");
                 }
@@ -155,17 +159,18 @@ mod imp {
             obj.connect_unselect({
                 let grabber_list = grabber_list.clone();
                 let grabber_grid = grabber_grid.clone();
-                move || {
+                move |obj| {
                     println!("obj.connect_unselect");
+                    // if obj.imp().is_presentation_mode() {
+                    //     return;
+                    // }
+
                     for g in &grabber_list {
                         g.set_visible(false);
                     }
                     grabber_grid.remove_css_class("ow-canvas-item-grid-select");
                 }
             });
-
-            //
-            obj.append(&overlay);
 
             {
                 let clicked = gtk::GestureClick::builder().name("CanvasItemClick").build();
@@ -176,6 +181,10 @@ mod imp {
                     #[weak(rename_to=ci)]
                     self,
                     move |g, _, _, _| {
+                        if ci.is_presentation_mode() {
+                            return;
+                        }
+
                         ci.button_press_event(g);
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
@@ -184,6 +193,10 @@ mod imp {
                     #[weak(rename_to=ci)]
                     self,
                     move |g, _, _, _| {
+                        if ci.is_presentation_mode() {
+                            return;
+                        }
+
                         ci.button_release_event(g);
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
@@ -193,6 +206,10 @@ mod imp {
                     #[weak(rename_to=ci)]
                     self,
                     move |g, _| {
+                        if ci.is_presentation_mode() {
+                            return;
+                        }
+
                         ci.button_release_event(g);
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
@@ -201,15 +218,22 @@ mod imp {
                 let right_click = gtk::GestureClick::new();
                 right_click.set_button(gtk::gdk::BUTTON_SECONDARY);
                 right_click.set_propagation_phase(gtk::PropagationPhase::Bubble);
-                right_click.connect_pressed({
-                    let grabber_list = grabber_list.clone();
+                right_click.connect_pressed(glib::clone!(
+                    #[weak(rename_to=ci)]
+                    self,
+                    #[strong]
+                    grabber_list,
                     move |g, _, _, _| {
+                        if ci.is_presentation_mode() {
+                            return;
+                        }
+
                         for g in &grabber_list {
                             g.switch_mode();
                         }
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
-                });
+                ));
 
                 let motion = gtk::EventControllerMotion::new();
                 motion.set_propagation_phase(gtk::PropagationPhase::Bubble);
@@ -217,6 +241,10 @@ mod imp {
                     #[weak(rename_to=ci)]
                     self,
                     move |g, _, _| {
+                        if ci.is_presentation_mode() {
+                            return;
+                        }
+
                         ci.motion_notify_event(g);
                     }
                 ));
@@ -224,6 +252,11 @@ mod imp {
                 obj.add_controller(motion);
                 obj.add_controller(clicked);
                 obj.add_controller(right_click);
+            }
+
+            if !self.is_presentation_mode() {
+                // NOTE: this registers that the new item has been selected
+                obj.emit_clicked();
             }
         }
 
@@ -250,9 +283,6 @@ mod imp {
     impl CanvasItem {
         fn emit_checkposition(&self) {
             self.obj().emit_by_name::<()>(signals::CHECK_POSITION, &[]);
-        }
-        fn emit_clicked(&self) {
-            self.obj().emit_by_name::<()>(signals::CLICKED, &[]);
         }
 
         fn emit_unselect(&self) {
@@ -453,7 +483,7 @@ mod imp {
 
             self.holding.set(true);
 
-            self.emit_clicked();
+            self.obj().emit_clicked();
             self.set_cursor(self.holding_id.get());
 
             true
@@ -503,6 +533,7 @@ mod imp {
             let g = Grabber::new(id);
             g.set_halign(halign);
             g.set_valign(valign);
+            g.set_visible(false);
 
             self.connect_grabber(&g);
             overlay.add_overlay(&g);
@@ -510,10 +541,19 @@ mod imp {
             g
         }
         fn connect_grabber(&self, grabber: &Grabber) {
+            // if let Some(c) = self.canvas.upgrade()
+            //     && c.presentation_mode()
+            // {
+            //     return;
+            // }
+
             grabber.connect_grabbed(glib::clone!(
                 #[weak(rename_to=ci)]
                 self,
                 move |event, id, _, _| {
+                    if ci.is_presentation_mode() {
+                        return;
+                    }
                     ci.button_press_event(event);
                     ci.set_holding(id as u32);
                     event.set_state(gtk::EventSequenceState::Claimed);
@@ -524,6 +564,9 @@ mod imp {
                 #[weak(rename_to=ci)]
                 self,
                 move |event, _, _, _| {
+                    if ci.is_presentation_mode() {
+                        return;
+                    }
                     ci.button_release_event(event);
                     event.set_state(gtk::EventSequenceState::Claimed);
                 }
@@ -533,6 +576,9 @@ mod imp {
                 #[weak(rename_to=ci)]
                 self,
                 move |event, _, _, _| {
+                    if ci.is_presentation_mode() {
+                        return;
+                    }
                     ci.motion_notify_event(event);
                 }
             ));
@@ -614,7 +660,6 @@ mod imp {
             let h = self.real_height.get();
             let item_type = self.obj().serialise_item();
             let data = CanvasItemData::new(x, y, w, h, item_type);
-            println!("serialise_item {:?}", data);
             data
             // format!("{{\"x\": {},\"y\": {},\"w\": {},\"h\": {},{}}}",)
         }
@@ -626,6 +671,13 @@ mod imp {
         }
         fn style_default(&self) {
             panic!("Implement virtual method `style` for your widget")
+        }
+
+        pub fn is_presentation_mode(&self) -> bool {
+            self.canvas
+                .upgrade()
+                .and_then(|c| Some(c.presentation_mode()))
+                .unwrap_or(false)
         }
     }
 }
@@ -679,42 +731,48 @@ pub trait CanvasItemExt: IsA<CanvasItem> {
         self.upcast_ref::<CanvasItem>().imp().delete();
     }
 
-    fn connect_clicked<F: Fn() + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    fn emit_clicked(&self) {
+        self.emit_by_name::<()>(signals::CLICKED, &[]);
+    }
+    fn connect_clicked<F: Fn(&CanvasItem) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             signals::CLICKED,
             false,
-            glib::closure_local!(move |_g: CanvasItem| {
-                f();
+            glib::closure_local!(move |c: &CanvasItem| {
+                f(c);
             }),
         )
     }
 
-    fn connect_checkposition<F: Fn() + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    fn connect_checkposition<F: Fn(&CanvasItem) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             signals::CHECK_POSITION,
             false,
-            glib::closure_local!(move |_g: CanvasItem| {
-                f();
+            glib::closure_local!(move |c: &CanvasItem| {
+                f(c);
             }),
         )
     }
 
-    fn connect_move_item<F: Fn(i32, i32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    fn connect_move_item<F: Fn(&CanvasItem, i32, i32) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
         self.connect_closure(
             signals::MOVE_ITEM,
             false,
-            glib::closure_local!(move |_g: CanvasItem, x: i32, y: i32| {
-                f(x, y);
+            glib::closure_local!(move |c: &CanvasItem, x: i32, y: i32| {
+                f(c, x, y);
             }),
         )
     }
 
-    fn connect_unselect<F: Fn() + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    fn connect_unselect<F: Fn(&CanvasItem) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             signals::UN_SELECT,
             false,
-            glib::closure_local!(move |_: Self| {
-                f();
+            glib::closure_local!(move |c: &CanvasItem| {
+                f(c);
             }),
         )
     }

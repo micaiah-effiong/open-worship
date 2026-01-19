@@ -1,6 +1,6 @@
 mod background;
 mod scriptures;
-mod songs;
+pub mod songs;
 
 use std::{cell::RefCell, rc::Rc};
 
@@ -39,7 +39,6 @@ pub struct SearchModel {
     scripture_page: relm4::Controller<SearchScriptureModel>,
     song_page: relm4::Controller<SearchSongModel>,
     background_image: Rc<RefCell<Option<String>>>,
-    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
 }
 
 impl SearchModel {
@@ -74,9 +73,7 @@ impl SearchModel {
     }
 }
 
-pub struct SearchInit {
-    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
-}
+pub struct SearchInit {}
 
 impl SearchModel {}
 
@@ -124,14 +121,10 @@ impl SimpleComponent for SearchModel {
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
         let song_page = SearchSongModel::builder()
-            .launch(SearchSongInit {
-                db_connection: init.db_connection.clone(),
-            })
+            .launch(SearchSongInit {})
             .forward(sender.input_sender(), SearchModel::convert_song_msg);
         let scripture_page = SearchScriptureModel::builder()
-            .launch(SearchScriptureInit {
-                db_connection: init.db_connection.clone(),
-            })
+            .launch(SearchScriptureInit {})
             .forward(sender.input_sender(), SearchModel::convert_scripture_msg);
         let background_page = SearchBackgroundModel::builder()
             .launch(SearchBackgroundInit {})
@@ -142,7 +135,6 @@ impl SimpleComponent for SearchModel {
             background_page,
             scripture_page,
             background_image: Rc::new(RefCell::new(None)),
-            db_connection: init.db_connection,
         };
 
         let background_page_widget = model.background_page.widget();

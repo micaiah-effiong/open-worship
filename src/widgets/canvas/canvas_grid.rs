@@ -2,38 +2,20 @@ use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclass;
 use gtk::prelude::*;
 use gtk::subclass::prelude::*;
+use std::path::Path;
 
 use std::cell::RefCell;
+use std::str;
 
+use crate::utils;
 use crate::widgets::canvas::canvas::Canvas;
 
-const PATTERN_CSS: &str = "
-.pattern {
-    box-shadow: inset 0 0 0 2px alpha (#fff, 0.05);
-    background-image: url(\"{}\");
-    border-radius: 6px;
-}
-";
-
-const NO_PATTERN_CSS: &str = "
-.pattern {
-    background-image: none;
-}
-";
-
 mod imp {
-    use std::path::Path;
-
-    // use crate::services::utils;
-    // use crate::widgets::canvas::Canvas;
-
-    use crate::utils;
-
     use super::*;
 
     #[derive(Default)]
     pub struct ImpCanvasGrid {
-        pub canvas: glib::WeakRef<Canvas>, // TODO: CanvasGrid
+        pub canvas: glib::WeakRef<Canvas>,
         pub grid: RefCell<gtk::Grid>,
     }
 
@@ -44,34 +26,11 @@ mod imp {
         type ParentType = gtk::Box;
     }
 
-    impl ObjectImpl for ImpCanvasGrid {
-        // fn constructed(&self) {
-        //     self.parent_constructed();
-        //     let obj = self.obj();
-        //
-        // }
-    }
+    impl ObjectImpl for ImpCanvasGrid {}
     impl WidgetImpl for ImpCanvasGrid {}
     impl BoxImpl for ImpCanvasGrid {}
 
-    impl ImpCanvasGrid {
-        fn style(&self, pattern: String) {
-            if pattern.is_empty() {
-                utils::set_style(&self.grid.borrow().clone(), NO_PATTERN_CSS);
-                return;
-            }
-
-            // TODO: Widgets.CanvasToolbar.PATTERNS_DIR
-            if pattern.contains("") || Path::new(&pattern).exists() {
-                utils::set_style(
-                    &self.grid.borrow().clone(),
-                    &PATTERN_CSS.replace("{}", &pattern),
-                );
-            } else {
-                utils::set_style(&self.grid.borrow().clone(), NO_PATTERN_CSS);
-            }
-        }
-    }
+    impl ImpCanvasGrid {}
 }
 
 glib::wrapper! {
@@ -80,18 +39,12 @@ glib::wrapper! {
         @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-// impl Default for CanvasGrid {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
 impl CanvasGrid {
     pub fn new(canvas: Canvas) -> Self {
         let cg = glib::Object::new::<Self>();
         cg.imp().canvas.set(Some(&canvas));
 
-        let clicked = gtk::GestureClick::builder().name("CanvasGridClick").build();
+        let clicked = gtk::GestureClick::new();
         clicked.set_propagation_phase(gtk::PropagationPhase::Bubble);
         clicked.connect_pressed(glib::clone!(
             #[weak(rename_to=cg)]
@@ -108,16 +61,50 @@ impl CanvasGrid {
         cg.add_controller(clicked);
 
         let grid = gtk::Grid::new();
-        grid.add_css_class("pattern");
+        grid.add_css_class("ow-pattern");
+        cg.imp().grid.replace(grid.clone());
 
         cg.set_homogeneous(true);
-        cg.set_css_classes(&["canvas", "view"]);
+        cg.set_css_classes(&["canvas", "view", "ow-canvas-grid"]);
         cg.set_vexpand(true);
         cg.set_hexpand(true);
 
         cg.append(&grid);
-        *cg.imp().grid.borrow_mut() = grid;
 
         cg
+    }
+
+    pub fn style(&self, pattern: String) {
+        let grid = self.imp().grid.borrow().clone();
+
+        let has_pattern =
+            !pattern.is_empty() && !(pattern.starts_with("/") && !Path::new(&pattern).exists());
+
+        let res = match has_pattern {
+            true => Self::pattern_css(&pattern),
+            false => Self::no_pattern_css(),
+        };
+
+        utils::set_style(&grid, &res);
+    }
+
+    fn pattern_css(path: &str) -> String {
+        let url = if path.starts_with("/") { "file://" } else { "" };
+        format!(
+            r##".ow-pattern {{
+                background-size: cover;
+                background-position: center center;
+                box-shadow: inset 0 0 0 2px alpha(#fff, 0.05);
+                background-image: url("{url}{path}");
+                border-radius: 6px;
+            }}"##
+        )
+    }
+
+    fn no_pattern_css() -> String {
+        ".ow-pattern {
+            background-image: none;
+        }"
+        .to_string()
     }
 }

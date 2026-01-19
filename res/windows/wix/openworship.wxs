@@ -41,7 +41,7 @@
 
         <Package Id='*'
             Keywords='Installer'
-            Description='Openworship is an opinionated GUI application for farming on Autonomys Network'
+            Description='Openworship is a free and open-source worship presentation software designed to help churches plan and lead worship service'
             Manufacturer='Micah Effiong'
             InstallerVersion='450'
             Languages='1033'
@@ -296,12 +296,12 @@
             <Component Id="AppStart" Guid="ddbbc45d-1558-41ff-b1fb-0569df38f7aa">
                 <Shortcut Id="AppStartShortcut"
                     Name="Openworship"
-                    Description="Openworship is an opinionated GUI application for farming on Autonomys Network"
+                    Description="Openworship is a free and open-source worship presentation software designed to help churches plan and lead worship service"
                     Target="[APPLICATIONFOLDER]bin\openworship.exe"
                     WorkingDirectory="APPLICATIONROOTDIRECTORY"
                     Icon="ProductICO"/>
                 <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall"/>
-                <RegistryValue Root="HKCU" Key="Software\autonomys\openworship" Name="StartShortcut" Type="integer" Value="1" KeyPath="yes"/>
+                <RegistryValue Root="HKCU" Key="Software\openworship" Name="StartShortcut" Type="integer" Value="1" KeyPath="yes"/>
             </Component>
         </DirectoryRef>
 
@@ -309,13 +309,13 @@
             <Component Id="AppStartup" Guid="5666cacf-0b49-4c51-826d-1c3f57fd2c64">
                 <Shortcut Id="AppStartupShortcut"
                     Name="Openworship"
-                    Description="Openworship is an opinionated GUI application for farming on Autonomys Network"
+                    Description="Openworship is a free and open-source worship presentation software designed to help churches plan and lead worship service"
                     Target="[APPLICATIONFOLDER]bin\openworship.exe"
                     Arguments="--startup"
                     WorkingDirectory="APPLICATIONROOTDIRECTORY"
                     Icon="ProductICO"/>
                 <RemoveFolder Id="StartupFolder" On="uninstall"/>
-                <RegistryValue Root="HKCU" Key="Software\autonomys\openworship" Name="StartupShortcut" Type="integer" Value="1" KeyPath="yes"/>
+                <RegistryValue Root="HKCU" Key="Software\openworship" Name="StartupShortcut" Type="integer" Value="1" KeyPath="yes"/>
             </Component>
         </DirectoryRef>
 
@@ -323,12 +323,12 @@
             <Component Id="AppDesk" Guid="1b8cc500-275d-4420-888e-fc2d789db869">
             <Shortcut Id="AppDeskShortcut"
               Name="Openworship"
-              Description="Openworship is an opinionated GUI application for farming on Autonomys Network"
+              Description="Openworship is a free and open-source worship presentation software designed to help churches plan and lead worship service"
               Target="[APPLICATIONFOLDER]bin\openworship.exe"
               WorkingDirectory="APPLICATIONROOTDIRECTORY"
               Icon="ProductICO"/>
             <RemoveFolder Id="DesktopFolder" On="uninstall"/>
-            <RegistryValue Root="HKCU" Key="Software\autonomys\openworship" Name="DeskShortcut" Type="integer" Value="1" KeyPath="yes"/>
+            <RegistryValue Root="HKCU" Key="Software\openworship" Name="DeskShortcut" Type="integer" Value="1" KeyPath="yes"/>
           </Component>
         </DirectoryRef>
 
@@ -458,7 +458,7 @@
         <Icon Id='ProductICO' SourceFile='res\windows\openworship.ico'/>
         <Property Id='ARPPRODUCTICON' Value='ProductICO' />
 
-        <Property Id='ARPHELPLINK' Value='https://github.com/autonomys/openworship'/>
+        <Property Id='ARPHELPLINK' Value='https://github.com/micaiah-effiong/open-worship'/>
 
         <UI>
             <UIRef Id='WixUI_FeatureTree'/>

@@ -1,6 +1,6 @@
 [package]
 name = "openworship"
-description = "Openworship is an opinionated GUI application for farming on Autonomys Network"
+description = "Openworship is a free and open-source worship presentation software designed to help churches plan and lead worship service"
 license = "MIT"
 version = "0.0.1"
 authors = ["Micah Effiong <micaiah.effiong@gmail.com>"]
@@ -14,10 +14,10 @@ include = [
 [package.metadata.deb]
 section = "net"
 assets = [
-    # Name must match application ID or else it has a strange behavior
-    # ["res/linux/openworship-autostart.desktop", "/etc/xdg/autostart/openworship.desktop", "644"],
+    # ["res/linux/openworship-autostart.desktop", "/etc/xdg/autostart/com.openworship.app.desktop", "644"],
     ["target/release/openworship", "/usr/bin/openworship", "755"],
-    ["res/linux/openworship.desktop", "/usr/share/applications/openworship.desktop", "644"],
+    # Name must match application ID or else it has a strange behavior
+    ["res/linux/com.openworship.app.desktop", "/usr/share/applications/com.openworship.app.desktop", "644"],
     ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/openworship.png", "644"],
 ]
 
@@ -46,11 +46,7 @@ serde_json = "1.0.138"
 reqwest = { version = "0.12.12", features = ["json","stream"] }
 futures-util = "0.3.31"
 pangocairo = "0.20"
-
-[dependencies.gtk]
-features = ["v4_12"]
-package = "gtk4"
-version = "0.9.0"
+gtk = { version = "0.9.0", features = ["v4_14"], package = "gtk4" }
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"
@@ -58,6 +54,7 @@ tracing-panic = "0.1.2"
 
 [target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
 tray-icon = "0.19.2"
+
 
 [build-dependencies]
 relm4-icons-build = "0.10.0-beta.2"

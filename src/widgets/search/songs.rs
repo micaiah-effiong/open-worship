@@ -1,27 +1,26 @@
-mod edit_modal;
-mod edit_modal_list_item;
+pub mod edit_modal;
 mod list_item;
+mod song_editor_toolbar;
 
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use edit_modal::{EditModel, EditModelInit, EditModelInputMsg, EditModelOutputMsg};
+use gtk::SingleSelection;
 use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
 use gtk::glib::clone;
 use gtk::prelude::*;
-use gtk::SingleSelection;
 use list_item::SongListItemModel;
 use relm4::prelude::*;
 use relm4::typed_view::list::TypedListView;
 
-use crate::db::connection::DatabaseConnection;
 use crate::db::query::Query;
-use crate::dto::{self, Song};
+use crate::dto::{self, SongData, SongObject};
+use crate::widgets::search::songs::edit_modal::SongEditWindow;
 
 #[derive(Debug)]
 pub enum SearchSongInput {
-    OpenEditModel(Option<Song>),
-    NewSong(Song),
+    OpenEditModel(Option<SongObject>), // NOTE: should use SongData
+    NewSong(SongData),
     RemoveSong(u32),
 }
 
@@ -35,24 +34,20 @@ pub enum SearchSongOutput {
 pub struct SearchSongModel {
     list_view_wrapper: Rc<RefCell<TypedListView<SongListItemModel, SingleSelection>>>,
     search_field: gtk::SearchEntry,
-    edit_song_dialog: relm4::Controller<EditModel>,
-    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
+    edit_song_dialog: RefCell<SongEditWindow>,
 }
 
 impl SearchSongModel {
     fn register_search_field_events(&self) {
         let search = self.search_field.clone();
         let list = self.list_view_wrapper.clone();
-        let db = self.db_connection.clone();
 
         search.connect_search_changed(clone!(
-            #[strong]
-            db,
             #[strong]
             list,
             move |se| {
                 //
-                let songs = match Query::get_songs(db.clone(), se.text().to_string()) {
+                let songs = match Query::get_songs(se.text().to_string()) {
                     Ok(q) => q,
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
@@ -63,7 +58,7 @@ impl SearchSongModel {
                 let mut lw = list.borrow_mut();
                 lw.clear();
                 songs.iter().for_each(|s| {
-                    lw.append(SongListItemModel::new(s.clone()));
+                    lw.append(SongListItemModel::new(s.clone().into()));
                 });
             }
         ));
@@ -124,6 +119,9 @@ impl SearchSongModel {
                         None => return,
                     };
 
+                    let song: SongData = song_list_item.clone().song.into();
+                    println!("song_list_item {:?}", song);
+
                     sender.input(SearchSongInput::OpenEditModel(Some(song_list_item.song)));
                 }
             ))
@@ -139,7 +137,7 @@ impl SearchSongModel {
                 wrapper,
                 move |_g: &SimpleActionGroup, _sa, _v| {
                     if let Some(li) = wrapper.borrow().get(model.selection().nth(0)) {
-                        let song = li.borrow().song.clone();
+                        let song: SongData = li.borrow().song.clone().into();
                         let _ = sender.output(SearchSongOutput::SendToSchedule(dto::ListPayload {
                             text: song.title,
                             position: 0,
@@ -211,7 +209,6 @@ impl SearchSongModel {
             #[strong]
             sender,
             move |_lv, pos| {
-                println!("P ACTIVATE");
                 let song_list_item = match wrapper.borrow().get(pos) {
                     Some(item) => item.borrow().clone(),
                     None => return,
@@ -219,29 +216,28 @@ impl SearchSongModel {
 
                 let verse_list = song_list_item
                     .song
-                    .verses
+                    .verses()
                     .into_iter()
                     .map(|s| s.text)
                     .collect::<Vec<String>>();
+
                 let list_payload =
-                    dto::ListPayload::new(song_list_item.song.title, 0, verse_list, None);
+                    dto::ListPayload::new(song_list_item.song.title(), 0, verse_list, None);
                 let _ = sender.output(SearchSongOutput::SendToPreview(list_payload));
             }
         ));
     }
 
-    fn convert_edit_model_response(res: EditModelOutputMsg) -> SearchSongInput {
-        match res {
-            EditModelOutputMsg::Save(song) => SearchSongInput::NewSong(song),
-        }
-    }
+    // fn convert_edit_model_response(res: EditModelOutputMsg) -> SearchSongInput {
+    //     match res {
+    //         EditModelOutputMsg::Save(song) => SearchSongInput::NewSong(song),
+    //     }
+    // }
 }
 
 impl SearchSongModel {}
 
-pub struct SearchSongInit {
-    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
-}
+pub struct SearchSongInit {}
 
 impl SearchSongModel {}
 
@@ -300,11 +296,11 @@ impl SimpleComponent for SearchSongModel {
     ) -> relm4::ComponentParts<Self> {
         let mut list_view_wrapper = TypedListView::new();
 
-        let initial_songs = Query::get_songs(init.db_connection.clone(), "".to_string());
+        let initial_songs = Query::get_songs("".into());
         match initial_songs {
             Ok(songs) => {
                 for song in songs {
-                    list_view_wrapper.append(SongListItemModel::new(song));
+                    list_view_wrapper.append(SongListItemModel::new(song.into()));
                 }
             }
             Err(e) => eprintln!("SQL ERROR: {:?}", e),
@@ -312,15 +308,7 @@ impl SimpleComponent for SearchSongModel {
 
         let list_view_wrapper = Rc::new(RefCell::new(list_view_wrapper));
 
-        let edit_song_dialog = EditModel::builder()
-            .transient_for(&root)
-            .launch(EditModelInit {
-                db_connection: init.db_connection.clone(),
-            })
-            .forward(
-                sender.input_sender(),
-                SearchSongModel::convert_edit_model_response,
-            );
+        let edit_song_dialog = RefCell::new(SongEditWindow::new());
 
         let search_field = gtk::SearchEntry::new();
 
@@ -328,8 +316,8 @@ impl SimpleComponent for SearchSongModel {
             list_view_wrapper,
             search_field: search_field.clone(),
             edit_song_dialog,
-            db_connection: init.db_connection.clone(),
         };
+
         let list_view = &model.list_view_wrapper.borrow().view.clone();
         model.register_listview_activate(&sender);
         model.register_context_menu(&sender);
@@ -340,20 +328,31 @@ impl SimpleComponent for SearchSongModel {
     }
 
     // TODO: Invalidate songs list
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
+    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
         match message {
             SearchSongInput::OpenEditModel(song) => {
-                self.edit_song_dialog.emit(EditModelInputMsg::Show(song));
+                let sew = SongEditWindow::new();
+                self.edit_song_dialog.replace(sew.clone());
+
+                self.edit_song_dialog.borrow().clone().connect_save({
+                    let sender = sender.clone();
+                    move |_, song_obj| {
+                        println!("SONG saved");
+                        sender.input(SearchSongInput::NewSong(song_obj.clone().into()));
+                    }
+                });
+                sew.show(song);
             }
             SearchSongInput::NewSong(song) => {
-                let songs = Query::get_songs(self.db_connection.clone(), "".to_string());
+                println!("SONG saved NEW SONG");
+                let songs = Query::get_songs("".to_string());
 
                 match songs {
                     Ok(songs) => {
                         self.list_view_wrapper.borrow_mut().clear();
                         let mut lw = self.list_view_wrapper.borrow_mut();
                         songs.iter().for_each(|s| {
-                            lw.append(SongListItemModel::new(s.clone()));
+                            lw.append(SongListItemModel::new(s.clone().into()));
                         });
                     }
                     Err(e) => eprintln!("SQL ERROR: {:?}", e),
@@ -365,7 +364,7 @@ impl SimpleComponent for SearchSongModel {
                     None => return,
                 };
 
-                match Query::delete_song(self.db_connection.clone(), song_item) {
+                match Query::delete_song(song_item.into()) {
                     Ok(_) => (),
                     Err(e) => {
                         eprintln!("SQL ERROR: {:?}", e);
@@ -373,12 +372,12 @@ impl SimpleComponent for SearchSongModel {
                     }
                 };
 
-                match Query::get_songs(self.db_connection.clone(), "".to_string()) {
+                match Query::get_songs("".to_string()) {
                     Ok(songs) => {
                         self.list_view_wrapper.borrow_mut().clear();
                         let mut lw = self.list_view_wrapper.borrow_mut();
                         songs.iter().for_each(|s| {
-                            lw.append(SongListItemModel::new(s.clone()));
+                            lw.append(SongListItemModel::new(s.clone().into()));
                         });
                     }
                     Err(e) => {

@@ -8,7 +8,7 @@ use download::download_modal::{
     DownloadBibleInit, DownloadBibleInput, DownloadBibleModel, DownloadBibleOutput,
 };
 use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
-use gtk::glib::{clone, SignalHandlerId};
+use gtk::glib::{SignalHandlerId, clone};
 use gtk::prelude::*;
 use gtk::{BitsetIter, ListView, MultiSelection, StringObject};
 use list_item::ScriptureListItem;
@@ -43,7 +43,6 @@ pub struct SearchScriptureModel {
     search_text: gtk::SearchEntry,
     dropdown: gtk::DropDown,
     translation: Rc<RefCell<String>>,
-    db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
     download_bible_modal: relm4::Controller<DownloadBibleModel>,
     selection_signal_handler: Rc<RefCell<Option<SignalHandlerId>>>,
     search_signal_handler: Rc<RefCell<Option<SignalHandlerId>>>,
@@ -51,15 +50,11 @@ pub struct SearchScriptureModel {
 
 impl SearchScriptureModel {}
 
-pub struct SearchScriptureInit {
-    pub db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
-}
+pub struct SearchScriptureInit {}
 
 impl SearchScriptureModel {
-    fn get_bible_translations(
-        db: Rc<RefCell<Option<DatabaseConnection>>>,
-    ) -> Vec<std::string::String> {
-        match Query::get_translations(db) {
+    fn get_bible_translations() -> Vec<std::string::String> {
+        match Query::get_translations() {
             Ok(l) => l,
             Err(e) => {
                 eprintln!(
@@ -148,7 +143,6 @@ impl SearchScriptureModel {
     fn search_bible(
         search_text: String,
         bible_translation: &str,
-        db: Rc<RefCell<Option<DatabaseConnection>>>,
         list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
     ) -> std::vec::Vec<u32> {
         let mut verse_index = Vec::new();
@@ -162,7 +156,6 @@ impl SearchScriptureModel {
             Some(evaluated) => {
                 println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
                 let verses = Query::search_by_chapter_query(
-                    db,
                     t.clone(),
                     evaluated.book.clone(),
                     evaluated.chapter,
@@ -170,7 +163,7 @@ impl SearchScriptureModel {
                 (verses, Some(evaluated))
             }
             None => {
-                let verses = Query::search_by_partial_text_query(db, t.clone(), search_text);
+                let verses = Query::search_by_partial_text_query(t.clone(), search_text);
                 (verses, None)
             }
         };
@@ -227,11 +220,7 @@ impl SearchScriptureModel {
         }
     }
 
-    fn register_search_change(
-        &mut self,
-        db: Rc<RefCell<Option<DatabaseConnection>>>,
-        sender: ComponentSender<Self>,
-    ) {
+    fn register_search_change(&mut self, sender: ComponentSender<Self>) {
         let search_field = self.search_text.clone();
         let list_view_wrapper = self.list_view_wrapper.clone();
         let bible_translation = self.translation.clone();
@@ -240,8 +229,6 @@ impl SearchScriptureModel {
         let handle_id = search_field.connect_changed(clone!(
             #[strong]
             bible_translation,
-            #[strong]
-            db,
             #[strong]
             list_view_wrapper,
             #[strong]
@@ -252,7 +239,6 @@ impl SearchScriptureModel {
                 let verses = SearchScriptureModel::search_bible(
                     se.text().to_string(),
                     &bible_translation.borrow(),
-                    db.clone(),
                     list_view_wrapper.clone(),
                 );
 
@@ -407,11 +393,8 @@ impl SearchScriptureModel {
         *self.selection_signal_handler.borrow_mut() = Some(handle_id);
     }
 
-    fn get_initial_scriptures(
-        db: Rc<RefCell<Option<DatabaseConnection>>>,
-        translation: String,
-    ) -> Result<Vec<BibleVerse>, rusqlite::Error> {
-        Query::search_by_chapter_query(db, translation, String::from("Genesis"), 1)
+    fn get_initial_scriptures(translation: String) -> Result<Vec<BibleVerse>, rusqlite::Error> {
+        Query::search_by_chapter_query(translation, String::from("Genesis"), 1)
     }
 
     fn get_selected_scripture(
@@ -434,16 +417,11 @@ impl SearchScriptureModel {
         selected_verses
     }
 
-    fn load_initial_verses(
-        &mut self,
-        db_connection: Rc<RefCell<Option<DatabaseConnection>>>,
-        translation: String,
-    ) {
+    fn load_initial_verses(&mut self, translation: String) {
         let list_view_wrapper = self.list_view_wrapper.clone();
 
         let verses =
-            SearchScriptureModel::get_initial_scriptures(db_connection, translation.clone())
-                .unwrap_or_default();
+            SearchScriptureModel::get_initial_scriptures(translation.clone()).unwrap_or_default();
 
         list_view_wrapper.borrow_mut().clear();
         for (i, verse) in verses.iter().enumerate() {
@@ -568,10 +546,7 @@ impl SimpleComponent for SearchScriptureModel {
 
         let download_modal = DownloadBibleModel::builder()
             .launch(DownloadBibleInit {
-                db_connection: init.db_connection.clone(),
-                installed_translations: SearchScriptureModel::get_bible_translations(
-                    init.db_connection.clone(),
-                ),
+                installed_translations: SearchScriptureModel::get_bible_translations(),
             })
             .forward(
                 sender.input_sender(),
@@ -582,7 +557,6 @@ impl SimpleComponent for SearchScriptureModel {
             list_view_wrapper: list_view_wrapper.clone(),
             search_text: gtk::SearchEntry::new(),
             translation: Rc::new(RefCell::new(String::new())),
-            db_connection: init.db_connection.clone(),
             dropdown: dropdown.clone(),
             download_bible_modal: download_modal,
             selection_signal_handler: Rc::new(RefCell::new(None)),
@@ -593,17 +567,15 @@ impl SimpleComponent for SearchScriptureModel {
         let search_text = model.search_text.clone();
         let widgets = view_output!();
 
-        let db = init.db_connection.clone();
-
         model.register_activate_selected(&sender);
         model.register_context_menu(&sender);
 
-        let translations = SearchScriptureModel::get_bible_translations(init.db_connection.clone());
+        let translations = SearchScriptureModel::get_bible_translations();
         if let Some(first) = translations.first() {
-            model.load_initial_verses(init.db_connection.clone(), first.to_string());
+            model.load_initial_verses(first.to_string());
         }
 
-        model.register_search_change(db.clone(), sender.clone());
+        model.register_search_change(sender.clone());
         model.load_bible_translations(&widgets.dropdown, translations);
         model.register_translation_change(&widgets.dropdown, &sender);
 
@@ -620,19 +592,18 @@ impl SimpleComponent for SearchScriptureModel {
                 SearchScriptureModel::search_bible(
                     self.search_text.text().to_string(),
                     &self.translation.borrow(),
-                    self.db_connection.clone(),
                     self.list_view_wrapper.clone(),
                 );
             }
             SearchScriptureInput::ReloadTranlations => {
-                let t = SearchScriptureModel::get_bible_translations(self.db_connection.clone());
+                let t = SearchScriptureModel::get_bible_translations();
                 self.load_bible_translations(&self.dropdown.clone(), t);
             }
 
             SearchScriptureInput::NewTranslation(t) => {
                 if self.translation.borrow().is_empty() {
-                    *self.translation.borrow_mut() = t.clone();
-                    self.load_initial_verses(self.db_connection.clone(), t);
+                    self.translation.replace(t.clone());
+                    self.load_initial_verses(t);
                 }
                 sender.input(SearchScriptureInput::ReloadTranlations);
             }

@@ -4,7 +4,7 @@ use gtk::{
     glib::clone,
     prelude::{ButtonExt, WidgetExt},
 };
-use relm4::{gtk, typed_view::list::RelmListItem, view, ComponentSender, RelmWidgetExt};
+use relm4::{ComponentSender, RelmWidgetExt, gtk, typed_view::list::RelmListItem, view};
 
 use crate::db::{connection::DatabaseConnection, query::Query};
 
@@ -16,7 +16,6 @@ use super::{
 #[derive(Debug, Clone)]
 pub struct BibleDownloadListItem {
     pub data: BibleDownload,
-    pub conn: Rc<RefCell<Option<DatabaseConnection>>>,
     pub already_added: bool,
     pub parent_sender: ComponentSender<DownloadBibleModel>,
 }
@@ -72,7 +71,6 @@ impl RelmListItem for BibleDownloadListItem {
             };
         }
 
-        let conn = self.conn.clone();
         let data = self.data.clone();
         let already_added = self.already_added;
         let sender = self.parent_sender.clone();
@@ -83,8 +81,6 @@ impl RelmListItem for BibleDownloadListItem {
                 btn,
                 #[strong]
                 data,
-                #[strong]
-                conn,
                 #[strong]
                 already_added,
                 #[strong]
@@ -97,7 +93,7 @@ impl RelmListItem for BibleDownloadListItem {
                             let name = data.name.split(".").collect::<Vec<&str>>();
                             if let Some(name) = name.first() {
                                 let name = name.to_string();
-                                let delete_result = Query::delete_bible_translation(conn, name);
+                                let delete_result = Query::delete_bible_translation(name);
 
                                 match delete_result {
                                     Ok(_) => {
@@ -114,10 +110,9 @@ impl RelmListItem for BibleDownloadListItem {
                         false => {
                             btn.set_label("Installing");
 
-                            let installed_translation = utils::import_bible(conn, &data, |msg| {
-                                btn.set_label(&msg.to_string())
-                            })
-                            .await;
+                            let installed_translation =
+                                utils::import_bible(&data, |msg| btn.set_label(&msg.to_string()))
+                                    .await;
                             if let Some(installed_t) = installed_translation {
                                 sender.input(DownloadBibleInput::NewTranslation(installed_t));
                             }

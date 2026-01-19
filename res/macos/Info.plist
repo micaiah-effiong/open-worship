@@ -11,7 +11,7 @@
         <key>CFBundleIconFile</key>
         <string>openworship.icns</string>
         <key>CFBundleIdentifier</key>
-        <string>openworship</string>
+        <string>com.openworship.app</string>
         <key>CFBundleInfoDictionaryVersion</key>
         <string>6.0</string>
         <key>CFBundleName</key>

@@ -7,10 +7,12 @@ use gtk::glib::object::IsA;
 use gtk::glib::prelude::*;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{
-    AccessibleExt, BoxExt, ButtonExt, GtkWindowExt, TextBufferExt, TextViewExt, WidgetExt,
+    AccessibleExt, BoxExt, ButtonExt, GtkApplicationExt, GtkWindowExt, TextBufferExt, TextViewExt,
+    WidgetExt,
 };
+use gtk::subclass::window;
 use gtk::{CssProvider, pango};
-use relm4::RelmWidgetExt;
+use relm4::{RelmRemoveAllExt, RelmWidgetExt};
 use serde::Serialize;
 
 use crate::services::slide::Slide;
@@ -19,12 +21,15 @@ use crate::utils::WidgetChildrenExt;
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use crate::widgets::canvas::text_item::{self, TextItem};
-use crate::widgets::{self, canvas};
+use crate::widgets::{self, canvas, search};
 
 pub fn init_app() {
     let _ = gtk::init();
 
+    const APP_ID: &str = "com.openworship.app";
+    const RESOURECE_PATH: &str = "/com/openworship/app";
     {
+        //
         gtk::glib::set_application_name("Open worship");
         gtk::gio::resources_register_include!("resources.gresource")
             .expect("could not find app resources");
@@ -47,12 +52,22 @@ pub fn init_app() {
         };
     }
 
-    let app = gtk::Application::new(
-        Some("com.openworship.app"),
-        gtk::gio::ApplicationFlags::FLAGS_NONE,
-    );
+    let app = gtk::Application::new(Some(APP_ID), gtk::gio::ApplicationFlags::FLAGS_NONE);
+    app.set_resource_base_path(Some(RESOURECE_PATH));
 
-    app.connect_activate(build_ui);
+    // app.connect_activate(build_ui);
+    app.connect_activate(|app| {
+        {
+            let win = search::songs::edit_modal::SongEditWindow::new();
+            app.add_window(&win);
+            win.show(None);
+            println!("PRESENT");
+            // SongEditWindow::new().present();
+        }
+
+        // build_ui(&app);
+    });
+
     app.run();
 }
 
@@ -67,7 +82,7 @@ fn build_ui(app: &gtk::Application) {
     v_box.append(&aspect_frame);
 
     let load_data = r##"{
-        "transition": 0,
+        "transition": 3,
         "items": [
             {
                 "x": -602,
@@ -78,10 +93,13 @@ fn build_ui(app: &gtk::Application) {
                 "text-data": "UGFnZSAx",
                 "font": "Open Sans",
                 "font-size": 16,
-                "font-style": "Regular",
+                "font-style": "normal",
                 "justification": 1,
                 "align": 1,
-                "color": "#fff"
+                "color": "#fff",
+                "text-underline": false,
+                "text-outline": false,
+                "text-shadow": true
             }
         ],
         "preview": "",
@@ -92,11 +110,16 @@ fn build_ui(app: &gtk::Application) {
         serde_json::from_str(load_data).expect("Could not parse load_data");
 
     let sm = {
-        let slide = Slide::new(serde_json::from_str(load_data).ok());
-        let mut slides = Vec::new();
-        slides.push(slide.clone());
+        // let slide = Slide::new(serde_json::from_str(load_data).ok());
+        // slide.set_presentation_mode(false);
+        // let mut slides = Vec::new();
+        // slides.push(slide.clone());
         let sm = SlideManager::new();
         sm.load_data(SlideManagerData::new(0, 0, [_slide_data]));
+        for s in sm.slides() {
+            s.set_presentation_mode(true);
+            println!("mode {}", s.presentation_mode());
+        }
         sm
     };
 
@@ -199,6 +222,47 @@ fn build_ui(app: &gtk::Application) {
         t_box.append(&new_slide);
         t_box.append(&next_slide);
         t_box.append(&previous_slide);
+
+        let add_window = gtk::Button::with_label("Live");
+        add_window.connect_clicked({
+            let app = app.downgrade().clone();
+            let sm = sm.clone();
+
+            move |_| {
+                let Some(app) = app.upgrade() else {
+                    println!("App Upgrade failed");
+                    return;
+                };
+
+                let window = add_app_window();
+                let aspect_frame = gtk::AspectFrame::new(0.5, 0.5, 16.0 / 9.0, false);
+
+                app.add_window(&window);
+
+                let load_window_slide = {
+                    let window = aspect_frame.clone();
+                    move |slide: &Slide| {
+                        //
+                        let data = slide.serialise();
+
+                        let slide = Slide::new(Some(data));
+                        slide.set_presentation_mode(true);
+                        slide.load_slide();
+                        window.remove_all();
+                        window.set_child(slide.canvas().as_ref());
+                    }
+                };
+
+                if let Some(s) = sm.current_slide() {
+                    load_window_slide(&s);
+                }
+                sm.connect_current_slide_changed(load_window_slide);
+
+                window.set_child(Some(&aspect_frame));
+                window.present();
+            }
+        });
+        t_box.append(&add_window);
     }
 
     v_box.append(&t_box);
@@ -212,8 +276,15 @@ fn build_ui(app: &gtk::Application) {
     app_window.present();
 }
 
-// MAX = 1000
-// val = 30
-// scale = min(MAX/val)
-// scaled_val = scale * val
-//
+fn add_app_window() -> gtk::Window {
+    let window = gtk::Window::new();
+    let size = 500.0;
+
+    window.set_width_request(size as i32);
+    window.set_height_request((size / (16.0 / 9.0)) as i32);
+
+    window.set_decorated(false);
+    // window.fullscreen();
+
+    window
+}

@@ -57,7 +57,6 @@ impl SearchBackgroundModel {
             path_list.push(entry.path().display().to_string());
         }
 
-        println!("load dir {:?}", &path_list);
         path_list
     }
 
