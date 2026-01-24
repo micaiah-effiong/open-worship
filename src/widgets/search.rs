@@ -11,7 +11,9 @@ use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundMo
 use scriptures::{SearchScriptureInit, SearchScriptureModel, SearchScriptureOutput};
 use songs::{SearchSongInit, SearchSongModel, SearchSongOutput};
 
-use crate::{db::connection::DatabaseConnection, dto};
+use crate::{
+    db::connection::DatabaseConnection, dto, widgets::canvas::serialise::SlideManagerData,
+};
 
 const MIN_GRID_HEIGHT: i32 = 300;
 // const MIN_GRID_WIDTH: i32 = 300;
@@ -21,16 +23,16 @@ const MIN_GRID_HEIGHT: i32 = 300;
 pub enum SearchModelInput {
     PreviewBackground(String),
     PreviewScriptures(dto::ListPayload),
-    PreviewSongs(dto::ListPayload),
-    AddToSchedule(dto::ListPayload),
+    PreviewSongs(SlideManagerData),
+    AddToSchedule(SlideManagerData),
 }
 
 #[derive(Debug)]
 pub enum SearchOutput {
     PreviewBackground(String),
     PreviewScriptures(dto::ListPayload),
-    PreviewSongs(dto::ListPayload),
-    AddToSchedule(dto::ListPayload),
+    PreviewSongs(SlideManagerData),
+    AddToSchedule(SlideManagerData),
 }
 
 #[derive(Debug)]
@@ -164,29 +166,31 @@ impl SimpleComponent for SearchModel {
                 );
                 let _ = sender.output(SearchOutput::PreviewScriptures(item));
             }
-            SearchModelInput::PreviewSongs(list) => {
-                let item = dto::ListPayload::new(
-                    list.text,
-                    list.position,
-                    list.list,
-                    match list.background_image {
-                        Some(bg) => Some(bg),
-                        None => self.background_image.borrow().clone(),
-                    },
-                );
-                let _ = sender.output(SearchOutput::PreviewSongs(item));
+            SearchModelInput::PreviewSongs(mut list) => {
+                // let item = dto::ListPayload::new(
+                //     list.text,
+                //     list.position,
+                //     list.list,
+                //     match list.background_image {
+                //         Some(bg) => Some(bg),
+                //         None => self.background_image.borrow().clone(),
+                //     },
+                // );
+
+                list.slides.iter_mut().for_each(|v| {
+                    let Some(bg) = self.background_image.borrow().clone() else {
+                        return;
+                    };
+
+                    if v.canvas_data.background_pattern.is_empty() {
+                        v.canvas_data.background_pattern = bg;
+                    }
+                });
+
+                let _ = sender.output(SearchOutput::PreviewSongs(list));
             }
             SearchModelInput::AddToSchedule(list) => {
-                let item = dto::ListPayload::new(
-                    list.text,
-                    list.position,
-                    list.list,
-                    match list.background_image {
-                        Some(bg) => Some(bg),
-                        None => self.background_image.borrow().clone(),
-                    },
-                );
-                let _ = sender.output(SearchOutput::AddToSchedule(item));
+                let _ = sender.output(SearchOutput::AddToSchedule(list));
             }
         };
     }

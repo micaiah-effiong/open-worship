@@ -1,6 +1,12 @@
 use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 
+use crate::{
+    dto::schedule_data::ScheduleData,
+    services::slide,
+    widgets::canvas::serialise::{self, SlideData, SlideManagerData},
+};
+
 #[derive(Debug, Clone)]
 pub struct Payload {
     pub text: String,
@@ -8,7 +14,8 @@ pub struct Payload {
     pub background_image: Option<String>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, glib::Boxed)]
+#[boxed_type(name = "ListPayload")]
 pub struct ListPayload {
     pub text: String,
     pub position: u32,
@@ -29,6 +36,66 @@ impl ListPayload {
             list,
             background_image,
         }
+    }
+}
+
+impl Into<SlideManagerData> for ListPayload {
+    fn into(self) -> SlideManagerData {
+        let slides = self
+            .list
+            .iter()
+            .map(|v| {
+                let mut s = SlideData::from_default();
+
+                s.canvas_data.background_pattern =
+                    self.background_image.clone().unwrap_or_default();
+                for i in &mut s.items {
+                    match &mut i.item_type {
+                        serialise::CanvasItemType::Text(text) => {
+                            text.text_data = glib::base64_encode(v.clone().as_bytes()).to_string();
+                            break;
+                        }
+                        _ => continue,
+                    }
+                }
+
+                s
+            })
+            .collect::<Vec<_>>();
+
+        let mut sm_data = SlideManagerData::new(self.position, 0, slides);
+        sm_data.title = self.text;
+        sm_data
+    }
+}
+impl Into<schedule_data::ScheduleData> for ListPayload {
+    fn into(self) -> schedule_data::ScheduleData {
+        let slides = self
+            .list
+            .iter()
+            .map(|v| {
+                let mut s = SlideData::from_default();
+
+                s.canvas_data.background_pattern =
+                    self.background_image.clone().unwrap_or_default();
+                for i in &mut s.items {
+                    match &mut i.item_type {
+                        serialise::CanvasItemType::Text(text) => {
+                            text.text_data = glib::base64_encode(v.clone().as_bytes()).to_string();
+                            break;
+                        }
+                        _ => continue,
+                    }
+                }
+
+                s
+            })
+            .collect::<Vec<_>>();
+
+        let mut sm_data = SlideManagerData::new(self.position, 0, slides);
+        sm_data.title = self.text.clone();
+
+        ScheduleData::new(self.text, sm_data)
     }
 }
 
@@ -192,5 +259,66 @@ impl Scripture {
             self.text, self.book, self.chapter, self.verse, self.translation
         );
         text
+    }
+}
+
+//
+// ScheduleActivityViewer
+pub mod schedule_data {
+    use super::*;
+
+    pub mod imp {
+        use std::cell::RefCell;
+
+        use gtk::glib::{
+            Properties,
+            subclass::{object::ObjectImpl, types::ObjectSubclass},
+        };
+
+        use gtk::prelude::ObjectExt;
+        use gtk::subclass::prelude::DerivedObjectProperties;
+
+        use crate::widgets::canvas::serialise::SlideManagerData;
+
+        use super::*;
+
+        #[derive(Default, Properties)]
+        #[properties(wrapper_type=super::ScheduleData)]
+        pub struct ScheduleData {
+            #[property(set, get, construct)]
+            pub slide_data: RefCell<SlideManagerData>,
+            #[property(set, get, construct)]
+            pub title: RefCell<String>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for ScheduleData {
+            const NAME: &'static str = "ScheduleData";
+            type Type = super::ScheduleData;
+        }
+
+        #[glib::derived_properties]
+        impl ObjectImpl for ScheduleData {}
+    }
+
+    glib::wrapper! {
+        pub struct ScheduleData(ObjectSubclass<imp::ScheduleData>);
+    }
+
+    impl Default for ScheduleData {
+        fn default() -> Self {
+            glib::Object::new()
+        }
+    }
+
+    impl ScheduleData {
+        pub fn new(title: String, data: SlideManagerData) -> Self {
+            let obj: Self = glib::Object::builder()
+                .property("title", title)
+                .property("slide_data", data)
+                .build();
+
+            obj
+        }
     }
 }

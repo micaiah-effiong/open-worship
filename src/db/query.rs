@@ -1,8 +1,10 @@
+use gtk::glib;
 use rusqlite::{Result as RuResult, params};
 
 use crate::{
     db::connection::BibleVerse,
-    dto::{SongData, SongObject, SongVerse},
+    dto::{SongData, SongVerse},
+    widgets::canvas::serialise::{CanvasItemType, SlideData},
 };
 
 use super::connection::{BibleTranslation, DatabaseConnection};
@@ -188,10 +190,33 @@ impl Query {
             let mut songs = Vec::new();
             for song in db_songs {
                 let verses_query = songs_verses_sql.query_map([&song.0], |r| {
+                    let text = r.get::<_, Option<String>>(1)?;
                     let tag = r.get::<_, Option<String>>(2)?;
                     let slide = r.get::<_, Option<String>>(3)?;
 
-                    Ok(SongVerse::new(r.get::<_, String>(1)?, tag, slide))
+                    let default_slide = serde_json::to_string(&SlideData::from_default()).ok();
+
+                    let slide = slide.as_ref().or(default_slide.as_ref()).and_then(|s| {
+                        serde_json::from_str::<SlideData>(s)
+                            .ok()
+                            .and_then(|mut ss| {
+                                ss.items
+                                    .iter_mut()
+                                    .find_map(|item| match &mut item.item_type {
+                                        CanvasItemType::Text(text_item) => {
+                                            text_item.text_data = glib::base64_encode(
+                                                text.clone().unwrap_or_default().as_bytes(),
+                                            )
+                                            .into();
+                                            Some(())
+                                        }
+                                        _ => None,
+                                    })?;
+                                serde_json::to_string(&ss).ok()
+                            })
+                    });
+
+                    Ok(SongVerse::new(text.unwrap_or_default(), tag, slide))
                 })?;
 
                 let verses = verses_query.map(|v| v.unwrap()).collect::<Vec<SongVerse>>();

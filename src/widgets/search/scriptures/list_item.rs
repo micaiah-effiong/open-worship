@@ -35,7 +35,7 @@ impl RelmListItem for ScriptureListItem {
         (list_box, widgets)
     }
 
-    fn bind(&mut self, _widgets: &mut Self::Widgets, _root: &mut Self::Root) {
+    fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {
         let book_reference = format!(
             "{}:{} \t{}",
             self.data.chapter, self.data.verse, self.data.text
@@ -44,6 +44,6 @@ impl RelmListItem for ScriptureListItem {
             true => format!("{} {book_reference}", self.data.book),
             false => book_reference,
         };
-        _widgets.text.set_label(&text);
+        widgets.text.set_label(&text);
     }
 }

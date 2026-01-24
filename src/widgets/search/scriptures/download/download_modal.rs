@@ -100,7 +100,6 @@ impl SimpleComponent for DownloadBibleModel {
             set_visible: model.is_active,
 
             connect_close_request[sender] => move |m| {
-                println!("destroy {:?}", m);
                 sender.input(DownloadBibleInput::Close);
                 gtk::glib::Propagation::Stop
             },

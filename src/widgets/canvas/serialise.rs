@@ -35,7 +35,7 @@ pub struct TextItemData {
     pub text_shadow: bool,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct CanvasItemData {
     pub x: i32,
     pub y: i32,
@@ -65,7 +65,7 @@ pub struct CanvasData {
     pub background_pattern: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(tag = "type")]
 pub enum CanvasItemType {
     #[serde(rename = "text")]
@@ -76,7 +76,8 @@ pub enum CanvasItemType {
 
 const DEFAULT_SLIDE: &str = services::slide::EMPTY_SLIDE;
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, glib::Boxed)]
+#[boxed_type(name = "SlideData")]
 pub struct SlideData {
     pub transition: u32,
     pub items: Vec<CanvasItemData>,
@@ -86,15 +87,15 @@ pub struct SlideData {
 }
 
 impl SlideData {
-    pub fn new(
+    pub fn new<I: IntoIterator<Item = CanvasItemData>>(
         transition: u32,
-        items: Vec<CanvasItemData>,
+        items: I,
         preview: String,
         canvas_data: CanvasData,
     ) -> Self {
         Self {
             transition,
-            items,
+            items: items.into_iter().collect(),
             preview,
             canvas_data,
         }
@@ -114,22 +115,29 @@ impl From<SlideData> for CanvasData {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, glib::Boxed)]
+#[boxed_type(name = "SlideManagerData")]
 pub struct SlideManagerData {
     #[serde(rename = "current-slide")]
     pub current_slide: u32,
     #[serde(rename = "preview-slide")]
     pub preview_slide: u32,
+    pub title: String,
     // aspect_ratio
     pub slides: Vec<SlideData>,
 }
 
 impl SlideManagerData {
-    pub fn new(current_slide: u32, preview_slide: u32, slides: impl Into<Vec<SlideData>>) -> Self {
+    pub fn new<I: IntoIterator<Item = SlideData>>(
+        current_slide: u32,
+        preview_slide: u32,
+        slides: I,
+    ) -> Self {
         Self {
             current_slide,
             preview_slide,
-            slides: slides.into(),
+            slides: slides.into_iter().collect(),
+            title: "".into(),
         }
     }
 }

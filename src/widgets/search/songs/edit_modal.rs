@@ -71,7 +71,6 @@ mod imp {
             self.parent_constructed();
             let obj = self.obj();
 
-            obj.set_title(Some("Add Song"));
             obj.set_default_width(WIDTH);
             obj.set_default_height(506);
             obj.set_modal(true);
@@ -348,9 +347,11 @@ impl SongEditWindow {
         if let Some(song) = song {
             self.load_song(&song);
             self.imp().is_new_song.set(false);
+            self.set_title(Some("Edit Song"));
         } else {
             self.imp().is_new_song.set(true);
             self.add_new_verse();
+            self.set_title(Some("Add Song"));
         }
 
         self.present();
@@ -364,7 +365,7 @@ impl SongEditWindow {
         let listview = self.imp().list_view.borrow().clone();
         let sm = self.imp().slide_manager.borrow();
         let slide = sm.new_slide(Some(SlideData::from_default()), true);
-        listview.append_item(slide);
+        listview.append_item(&slide);
 
         if let Some(model) = listview.model() {
             if model.n_items() > 0 {
@@ -416,6 +417,15 @@ impl SongEditWindow {
             let Some(slide_str) = serde_json::to_string(&s_data).ok() else {
                 return;
             };
+
+            let slide_str_data = {
+                let d = serde_json::to_string(&SlideData::from_default())
+                    .ok()
+                    .unwrap_or_default();
+
+                (d != slide_str).then_some(slide_str)
+            };
+
             let Some(buff) = slide.entry_buffer() else {
                 return;
             };
@@ -423,7 +433,7 @@ impl SongEditWindow {
             verses.push(SongVerse::new(
                 buff.full_text().into(),
                 None,
-                Some(slide_str),
+                slide_str_data,
             ));
         }
 
@@ -494,7 +504,7 @@ impl SongEditWindow {
                 }
             }
 
-            listview.append_item(slide.clone());
+            listview.append_item(&slide);
         }
 
         let title = song.title();

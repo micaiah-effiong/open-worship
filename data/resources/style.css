@@ -143,9 +143,18 @@ editablelabel.schedule-list-item-editable {
   border-color: white;
 }
 
-/* text-shadow:  */
-/* #000 -1px -1px 1px,   */
-/* #000 1px -1px 1px, */
-/* #000 -1px  1px 1px, */
-/* #000 1px  1px 1px; */
-/* -2px 2px 1px black; */
+.drop-zone {
+  border-radius: 8px;
+  background-color: #f5f5f5;
+}
+
+.drop-zone:drop(active) {
+  border-color: #4caf50;
+  background-color: #e8f5e9;
+  /* border: 2px dashed #ccc; */
+}
+
+.drop-hint {
+  color: #999;
+  font-style: italic;
+}

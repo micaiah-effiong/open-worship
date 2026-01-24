@@ -30,12 +30,12 @@ pub struct SearchBackgroundInit {}
 
 impl SearchBackgroundModel {
     fn load_backgrounds() -> Vec<String> {
-        let dir = match AppConfigDir::dir_path(AppConfigDir::BACKGROUNDS).read_dir() {
+        let dir = match AppConfigDir::dir_path(AppConfigDir::Backgrounds).read_dir() {
             Ok(d) => d,
             Err(_) => {
                 println!(
                     "ERROR: could not read {:?}",
-                    AppConfigDir::to(AppConfigDir::BACKGROUNDS)
+                    AppConfigDir::to(AppConfigDir::Backgrounds)
                 );
                 return [].to_vec();
             }
@@ -70,7 +70,7 @@ impl SearchBackgroundModel {
                 None => continue,
             };
 
-            let symlink_path = AppConfigDir::dir_path(AppConfigDir::BACKGROUNDS).join(filename);
+            let symlink_path = AppConfigDir::dir_path(AppConfigDir::Backgrounds).join(filename);
             println!("sym_path -> {:?}", symlink_path);
 
             match std::fs::hard_link(path, &symlink_path) {

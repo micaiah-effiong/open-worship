@@ -8,16 +8,17 @@ use download::download_modal::{
     DownloadBibleInit, DownloadBibleInput, DownloadBibleModel, DownloadBibleOutput,
 };
 use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
-use gtk::glib::{SignalHandlerId, clone};
+use gtk::glib::{self, SignalHandlerId, clone};
 use gtk::prelude::*;
 use gtk::{BitsetIter, ListView, MultiSelection, StringObject};
 use list_item::ScriptureListItem;
 use relm4::prelude::*;
 use relm4::typed_view::list::TypedListView;
 
-use crate::db::connection::{BibleVerse, DatabaseConnection};
+use crate::db::connection::BibleVerse;
 use crate::db::query::Query;
 use crate::parser::parser::{self, BibleReference};
+use crate::widgets::canvas::serialise::SlideManagerData;
 use crate::{dto, utils};
 
 #[derive(Debug)]
@@ -34,7 +35,7 @@ pub enum SearchScriptureInput {
 #[derive(Debug)]
 pub enum SearchScriptureOutput {
     SendScriptures(dto::ListPayload),
-    SendToSchedule(dto::ListPayload),
+    SendToSchedule(SlideManagerData),
 }
 
 #[derive(Debug)]
@@ -269,6 +270,39 @@ impl SearchScriptureModel {
         *self.search_signal_handler.borrow_mut() = Some(handle_id);
     }
 
+    fn register_drag(&self) {
+        let listview = self.list_view_wrapper.borrow().view.clone();
+        let list_view_wrapper = self.list_view_wrapper.clone();
+        let text_entry = self.search_text.clone();
+
+        let drag_source = gtk::DragSource::new();
+        drag_source.set_actions(gtk::gdk::DragAction::COPY);
+        drag_source.connect_prepare({
+            move |_, _, _| {
+                let payload =
+                    SearchScriptureModel::get_selected_scripture(&list_view_wrapper.borrow());
+
+                let payload: SlideManagerData = dto::ListPayload::new(
+                    text_entry.text().to_string(),
+                    0,
+                    payload.iter().map(|t| t.data.screen_display()).collect(),
+                    None,
+                )
+                .into();
+
+                let content = gtk::gdk::ContentProvider::for_value(&payload.to_value());
+                Some(content)
+            }
+        });
+
+        drag_source.connect_drag_begin(move |_, _| {
+            // let item_text = item_text.to_string();
+            // drag.set_icon_name(Some("document-properties"), 0, 0);
+        });
+
+        listview.add_controller(drag_source);
+    }
+
     fn register_context_menu(&mut self, sender: &ComponentSender<Self>) {
         let list_view_wrapper = self.list_view_wrapper.clone();
         let list_view = self.list_view_wrapper.borrow().view.clone();
@@ -294,7 +328,7 @@ impl SearchScriptureModel {
                         None,
                     );
 
-                    let _ = sender.output(SearchScriptureOutput::SendToSchedule(payload));
+                    let _ = sender.output(SearchScriptureOutput::SendToSchedule(payload.into()));
                 }
             ))
             .build();
@@ -575,6 +609,7 @@ impl SimpleComponent for SearchScriptureModel {
             model.load_initial_verses(first.to_string());
         }
 
+        model.register_drag();
         model.register_search_change(sender.clone());
         model.load_bible_translations(&widgets.dropdown, translations);
         model.register_translation_change(&widgets.dropdown, &sender);

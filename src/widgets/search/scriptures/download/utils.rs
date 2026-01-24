@@ -37,7 +37,7 @@ where
     let mut download_stream = response.bytes_stream();
 
     let mut downloaded_size: u64 = 0;
-    let path_str = AppConfigDir::dir_path(AppConfigDir::DOWNLOADS);
+    let path_str = AppConfigDir::dir_path(AppConfigDir::Downloads);
     let file_path = path_str.join(bible.name.clone());
     let file = std::fs::File::create_new(&file_path);
     let mut file = match file {

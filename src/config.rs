@@ -43,7 +43,7 @@ impl AppConfig {
     }
 
     pub fn get_db_path() -> String {
-        let db_path = AppConfigDir::dir_path(AppConfigDir::DATABASE)
+        let db_path = AppConfigDir::dir_path(AppConfigDir::Database)
             .join("db.sqlite")
             .display()
             .to_string();
@@ -53,29 +53,32 @@ impl AppConfig {
 }
 
 pub enum AppConfigDir {
-    DOWNLOADS,
-    DATABASE,
-    MEDIA,
-    BACKGROUNDS,
+    Downloads,
+    Database,
+    Media,
+    SlideMedia,
+    Backgrounds,
 }
 
 impl AppConfigDir {
     pub fn from(val: String) -> Option<AppConfigDir> {
         match val.as_str() {
-            "media" => Some(Self::MEDIA),
-            "database" => Some(Self::DATABASE),
-            "downloads" => Some(Self::DOWNLOADS),
-            "backgrounds" => Some(Self::BACKGROUNDS),
+            "media" => Some(Self::Media),
+            "database" => Some(Self::Database),
+            "downloads" => Some(Self::Downloads),
+            "backgrounds" => Some(Self::Backgrounds),
+            "slide_media" => Some(Self::SlideMedia),
             _ => None,
         }
     }
 
     pub fn to(val: AppConfigDir) -> String {
         match val {
-            Self::MEDIA => String::from("media"),
-            Self::DATABASE => String::from("database"),
-            Self::DOWNLOADS => String::from("downloads"),
-            Self::BACKGROUNDS => String::from("backgrounds"),
+            Self::Media => String::from("media"),
+            Self::Database => String::from("database"),
+            Self::Downloads => String::from("downloads"),
+            Self::Backgrounds => String::from("backgrounds"),
+            Self::SlideMedia => String::from("slide_media"),
         }
     }
 

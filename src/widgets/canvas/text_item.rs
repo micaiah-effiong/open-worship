@@ -94,8 +94,6 @@ mod imp {
                 _ => return,
             };
 
-            println!("TEXT_DATA {:?}", text_data);
-
             let t = text_data.text_data.clone();
             if !t.is_empty()
                 && let Ok(t) = String::from_utf8(glib::base64_decode(&t))
@@ -158,19 +156,20 @@ mod imp {
             let obj = self.obj().clone();
 
             {
-                let ci: CanvasItem = obj.clone().upcast();
-                let Some(canvas) = ci.canvas() else { return };
-                let tv = obj.imp().entry.borrow();
-
-                let f = Self::calculate_font_scale(
-                    &tv,
-                    tv.buffer().full_text().to_string(),
-                    obj.font_size() as f32,
-                    canvas.current_ratio() as f32,
-                    ci.rectangle(),
-                ) as u32;
-
-                obj.imp().alt_font_size.set(f);
+                // let ci: CanvasItem = obj.clone().upcast();
+                // let Some(canvas) = ci.canvas() else { return };
+                // let tv = obj.imp().entry.borrow();
+                //
+                // let f = Self::calculate_font_scale(
+                //     &tv,
+                //     tv.buffer().full_text().to_string(),
+                //     obj.font_size() as f32,
+                //     canvas.current_ratio() as f32,
+                //     ci.rectangle(),
+                // ) as u32;
+                //
+                // TODO:
+                // obj.imp().alt_font_size.set(f);
             }
             // glib::g_message!("TextItem", "FONT CSS \n{css}");
 
@@ -285,7 +284,6 @@ mod imp {
                 obj.font_color(),
                 obj.font_color(),
             );
-            glib::g_message!("TextItem", "FONT CSS \n{css}");
 
             css
         }
@@ -508,12 +506,6 @@ impl TextItem {
             #[weak]
             ti,
             move |_| {
-                glib::g_log!(
-                    "TextItem",
-                    glib::LogLevel::Message,
-                    "RUNING connect_clicked"
-                );
-
                 let binding = ti.clone();
                 let imp = binding.imp();
 
@@ -525,7 +517,6 @@ impl TextItem {
                     let buf = entry.buffer();
                     let text = buf.full_text();
 
-                    glib::g_message!("TextItem", "{text}");
                     if text.as_str() == PLACEHOLDER_TEXT {
                         entry.buffer().set_text("");
                     }
@@ -534,12 +525,6 @@ impl TextItem {
 
                     let w = imp.label.borrow().width();
                     let h = imp.label.borrow().height();
-                    glib::g_message!(
-                        "TextItem",
-                        "width: {w}, height: {h}\na_width: {}, a_height: {}",
-                        imp.label.borrow().width(),
-                        imp.label.borrow().height()
-                    );
 
                     entry.set_size_request(w, h);
 

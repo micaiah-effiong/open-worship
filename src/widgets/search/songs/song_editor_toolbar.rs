@@ -14,7 +14,6 @@ mod imp {
     use std::cell::RefCell;
 
     use gtk::{
-        gio::prelude::FileExt,
         glib::{
             self,
             object::CastNone,
@@ -26,6 +25,7 @@ mod imp {
     use relm4::RelmWidgetExt;
 
     use crate::{
+        config::AppConfigDir,
         services::{file_manager::FileManager, slide_manager::SlideManager},
         widgets::canvas::canvas_item::CanvasItemExt,
     };
@@ -34,7 +34,6 @@ mod imp {
     pub struct SongEditorToolbar {
         pub slide_manager: RefCell<SlideManager>,
         pub stack: RefCell<gtk::Stack>,
-        // pub editor_window: glib::WeakRef<SongEditWindow>,
     }
 
     #[glib::object_subclass]
@@ -368,6 +367,82 @@ mod imp {
             font_btn
         }
 
+        fn build_transition_btn(&self) -> gtk::DropDown {
+            let transition_btn = gtk::DropDown::from_strings(&[
+                "None",
+                "Crossfade",
+                "SlideRight",
+                "SlideLeft",
+                "SlideUp",
+                "SlideDown",
+                "SlideLeftRight",
+                "SlideUpDown",
+                "OverUp",
+                "OverDown",
+                "OverLeft",
+                "OverRight",
+                "UnderUp",
+                "UnderDown",
+                "UnderLeft",
+                "UnderRight",
+                "OverUpDown",
+                "OverDownUp",
+                "OverLeftRight",
+                "OverRightLeft",
+                "RotateLeft",
+                "RotateRight",
+                "RotateLeftRight",
+            ]);
+
+            transition_btn.connect_selected_item_notify({
+                let sm = self.slide_manager.borrow().clone();
+                move |m| {
+                    let item = m.selected_item();
+                    let Some(str_obj) = item.and_downcast::<gtk::StringObject>() else {
+                        return;
+                    };
+                    let transition_type = str_obj.string().to_string();
+
+                    let transition = match transition_type.as_str() {
+                        "None" => gtk::StackTransitionType::None,
+                        "Crossfade" => gtk::StackTransitionType::Crossfade,
+                        "SlideRight" => gtk::StackTransitionType::SlideRight,
+                        "SlideLeft" => gtk::StackTransitionType::SlideLeft,
+                        "SlideUp" => gtk::StackTransitionType::SlideUp,
+                        "SlideDown" => gtk::StackTransitionType::SlideDown,
+                        "SlideLeftRight" => gtk::StackTransitionType::SlideLeftRight,
+                        "SlideUpDown" => gtk::StackTransitionType::SlideUpDown,
+                        "OverUp" => gtk::StackTransitionType::OverUp,
+                        "OverDown" => gtk::StackTransitionType::OverDown,
+                        "OverLeft" => gtk::StackTransitionType::OverLeft,
+                        "OverRight" => gtk::StackTransitionType::OverRight,
+                        "UnderUp" => gtk::StackTransitionType::UnderUp,
+                        "UnderDown" => gtk::StackTransitionType::UnderDown,
+                        "UnderLeft" => gtk::StackTransitionType::UnderLeft,
+                        "UnderRight" => gtk::StackTransitionType::UnderRight,
+                        "OverUpDown" => gtk::StackTransitionType::OverUpDown,
+                        "OverDownUp" => gtk::StackTransitionType::OverDownUp,
+                        "OverLeftRight" => gtk::StackTransitionType::OverLeftRight,
+                        "OverRightLeft" => gtk::StackTransitionType::OverRightLeft,
+                        "RotateLeft" => gtk::StackTransitionType::RotateLeft,
+                        "RotateRight" => gtk::StackTransitionType::RotateRight,
+                        "RotateLeftRight" => gtk::StackTransitionType::RotateLeftRight,
+                        _ => gtk::StackTransitionType::None,
+                    };
+
+                    let Some(slide) = sm.current_slide() else {
+                        return;
+                    };
+                    slide.set_transition(transition);
+                    //
+                    // ti.set_font_size(size);
+                    // ti.style();
+                }
+            });
+
+            transition_btn
+        }
+
         pub(super) fn build_canvas_toolbar(&self) -> gtk::Box {
             let toolbar = gtk::Box::builder()
                 .height_request(35)
@@ -409,26 +484,24 @@ mod imp {
                         let Some(image_file) = FileManager::open_image() else {
                             return;
                         };
-                        let url = image_file.clone().uri();
-                        let Some(ext) = url.split(".").last() else {
+
+                        let Some(path) =
+                            FileManager::file_to_link(&image_file, AppConfigDir::SlideMedia)
+                        else {
                             return;
                         };
-
-                        let Some(img_b64) = FileManager::file_to_base64(&image_file) else {
-                            return;
-                        };
-
-                        let img_b64 = format!("data:image/{ext};base64,{img_b64}");
 
                         let Some(canvas) = sm.current_slide().and_then(|v| v.canvas()) else {
                             return;
                         };
 
-                        canvas.set_background_pattern(img_b64);
+                        canvas.set_background_pattern(path);
                         canvas.style();
                     }
                 });
             }
+
+            toolbar.append(&self.build_transition_btn());
 
             toolbar
         }
@@ -458,8 +531,7 @@ impl SongEditorToolbar {
         slide_manager.connect_item_clicked(glib::clone!(
             #[weak]
             obj,
-            move |sm, item| {
-                println!("item clicked {:?}  {:?}", item, sm.current_item());
+            move |_, item| {
                 let stack = obj.imp().stack.borrow();
                 let Some(_item) = item else {
                     stack.set_visible_child_name(views::CANVAS);

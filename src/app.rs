@@ -1,21 +1,14 @@
 use std::cell::RefCell;
-use std::rc::Rc;
 
 use crate::config::AppConfig;
-use crate::db::connection::DatabaseConnection;
-use crate::widgets::activity_screen::ActivityScreen;
-use crate::widgets::live_activity_viewer::{
-    LiveViewerInit, LiveViewerInput, LiveViewerModel, LiveViewerOutput,
-};
-use crate::widgets::preview_activity_viewer::{
-    PreviewViewerInit, PreviewViewerInput, PreviewViewerModel, PreviewViewerOutput,
-};
-use crate::widgets::schedule_activity_viewer::{
-    ScheduleViewerInput, ScheduleViewerModel, ScheduleViewerOutput,
-};
-use crate::{db, dto};
+use crate::dto;
+use crate::widgets::activity_viewer::ActivityViewer;
+use crate::widgets::canvas::serialise::SlideManagerData;
+use crate::widgets::schedule_activity_viewer::ScheduleActivityViewer;
+
 #[cfg(not(target_os = "macos"))]
 use gtk::PopoverMenuBar;
+use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::*;
 use relm4::prelude::*;
 
@@ -26,62 +19,33 @@ use crate::widgets::search::{SearchInit, SearchModel, SearchOutput};
 
 #[derive(Debug)]
 enum AppInput {
-    ScheduleActivityActivated(dto::ListPayload),
-    ScheduleActivityAddNew(dto::ListPayload),
-    PreviewActivitySelected(dto::Payload),
-    PreviewActivityActivated(dto::ListPayload),
-    LiveActivitySelected(dto::Payload),
-    // LiveActivityActivated(String),
+    ScheduleActivityAddNew(SlideManagerData),
     ClearLiveDisplay(bool),
     PreviewGoLive,
 
     //
     SearchPreviewBackground(String),
-    SearchPreviewActivity(dto::ListPayload),
+    SearchPreviewActivity(SlideManagerData),
 }
 
 struct AppModel {
-    schedule_activity_viewer: relm4::Controller<ScheduleViewerModel>,
-    preview_activity_viewer: relm4::Controller<PreviewViewerModel>,
-    live_activity_viewer: relm4::Controller<LiveViewerModel>,
-
-    preview_activity_screen: RefCell<ActivityScreen>,
-    live_activity_screen: RefCell<ActivityScreen>,
+    schedule_viewer: RefCell<ScheduleActivityViewer>,
     search_viewer: relm4::Controller<SearchModel>,
+    preview_viewer: RefCell<ActivityViewer>,
+    live_viewer: RefCell<ActivityViewer>,
 }
 
 impl AppModel {
-    fn convert_schedule_activity_response(res: ScheduleViewerOutput) -> AppInput {
-        match res {
-            ScheduleViewerOutput::Activated(payload) => {
-                AppInput::ScheduleActivityActivated(payload)
-            }
-        }
-    }
-    fn convert_live_activity_response(res: LiveViewerOutput) -> AppInput {
-        match res {
-            LiveViewerOutput::Selected(payload) => AppInput::LiveActivitySelected(payload),
-            // LiveViewerOutput::Activated(txt) => AppInput::LiveActivityActivated(txt),
-        }
-    }
-    fn convert_preview_activity_response(res: PreviewViewerOutput) -> AppInput {
-        match res {
-            PreviewViewerOutput::Selected(payload) => {
-                println!("app preview {:?}", payload);
-                AppInput::PreviewActivitySelected(payload)
-            }
-            PreviewViewerOutput::Activated(text) => AppInput::PreviewActivityActivated(text),
-        }
-    }
-
     fn convert_search_response(res: SearchOutput) -> AppInput {
         match res {
             SearchOutput::PreviewBackground(image_src) => {
                 AppInput::SearchPreviewBackground(image_src)
             }
-            SearchOutput::PreviewScriptures(list) => AppInput::SearchPreviewActivity(list),
             SearchOutput::PreviewSongs(list) => AppInput::SearchPreviewActivity(list),
             SearchOutput::AddToSchedule(list) => AppInput::ScheduleActivityAddNew(list),
+            // SearchOutput::PreviewScriptures(list_payload) => todo!(),
+            // TODO:
+            SearchOutput::PreviewScriptures(list) => AppInput::SearchPreviewActivity(list.into()),
         }
     }
 }
@@ -164,7 +128,8 @@ impl SimpleComponent for AppModel {
                                     set_shrink_end_child: false,
 
                                     // schedule box
-                                    set_start_child = Some(model.schedule_activity_viewer.widget()),
+                                    set_start_child = Some(&model.schedule_viewer.borrow().clone()),
+                                    // set_start_child = Some(model.schedule_activity_viewer.widget()),
                                     // set_start_child = &gtk::Box {
                                     //     set_orientation: gtk::Orientation::Vertical,
                                     //     set_height_request: MIN_GRID_HEIGHT,
@@ -188,37 +153,39 @@ impl SimpleComponent for AppModel {
                                 set_shrink_start_child: false,
                                 set_shrink_end_child: false,
 
-                                #[wrap(Some)]
-                                set_start_child = &gtk::Box {
-                                    set_homogeneous: true,
-                                    set_orientation: gtk::Orientation::Vertical,
-                                    set_vexpand: true,
-                                    set_width_request: MIN_GRID_WIDTH,
+                                set_start_child = Some(&model.preview_viewer.borrow().clone()),
+                                // #[wrap(Some)]
+                                // set_start_child = &gtk::Box {
+                                //     set_homogeneous: true,
+                                //     set_orientation: gtk::Orientation::Vertical,
+                                //     set_vexpand: true,
+                                //     set_width_request: MIN_GRID_WIDTH,
+                                //
+                                //     gtk::Paned {
+                                //         set_orientation: gtk::Orientation::Vertical,
+                                //         set_shrink_start_child: false,
+                                //         set_shrink_end_child: false,
+                                //         set_start_child = Some(model.preview_activity_viewer.widget()),
+                                //         set_end_child = Some(&model.preview_activity_screen.borrow().clone()),
+                                //     }
+                                // },
 
-                                    gtk::Paned {
-                                        set_orientation: gtk::Orientation::Vertical,
-                                        set_shrink_start_child: false,
-                                        set_shrink_end_child: false,
-                                        set_start_child = Some(model.preview_activity_viewer.widget()),
-                                        set_end_child = Some(&model.preview_activity_screen.borrow().clone()),
-                                    }
-                                },
-
-                                #[wrap(Some)]
-                                set_end_child = &gtk::Box {
-                                    set_homogeneous: true,
-                                    set_orientation: gtk::Orientation::Vertical,
-                                    set_vexpand: true,
-                                    set_width_request: MIN_GRID_WIDTH,
-
-                                    gtk::Paned {
-                                        set_orientation: gtk::Orientation::Vertical,
-                                        set_shrink_start_child: false,
-                                        set_shrink_end_child: false,
-                                        set_start_child = Some(model.live_activity_viewer.widget()),
-                                        set_end_child = Some(&model.live_activity_screen.borrow().clone()),
-                                    }
-                                }
+                                set_end_child =Some(&model.live_viewer.borrow().clone()),
+                                // #[wrap(Some)]
+                                // set_end_child = &gtk::Box {
+                                //     set_homogeneous: true,
+                                //     set_orientation: gtk::Orientation::Vertical,
+                                //     set_vexpand: true,
+                                //     set_width_request: MIN_GRID_WIDTH,
+                                //
+                                //     gtk::Paned {
+                                //         set_orientation: gtk::Orientation::Vertical,
+                                //         set_shrink_start_child: false,
+                                //         set_shrink_end_child: false,
+                                //         set_start_child = Some(model.live_activity_viewer.widget()),
+                                //         set_end_child = Some(&model.live_activity_screen.borrow().clone()),
+                                //     }
+                                // }
                             }
 
                         }
@@ -246,50 +213,40 @@ impl SimpleComponent for AppModel {
         window: Self::Root,
         sender: ComponentSender<Self>,
     ) -> relm4::ComponentParts<Self> {
-        // db
-        // let db_connection = Rc::new(RefCell::new(db::connection::DatabaseConnection::open(
-        //     AppConfig::get_db_path(),
-        // )));
-
-        // let db_connection = Rc::new(RefCell::new(Some(
-        //     db::connection::DatabaseConnection::open(AppConfig::get_db_path()),
-        // )));
-
-        let schedule_activity_viewer = ScheduleViewerModel::builder().launch(()).forward(
-            sender.input_sender(),
-            AppModel::convert_schedule_activity_response,
-        );
-        let preview_activity_viewer = PreviewViewerModel::builder()
-            .launch(PreviewViewerInit {})
-            .forward(
-                sender.input_sender(),
-                AppModel::convert_preview_activity_response,
-            );
-        let live_activity_viewer = LiveViewerModel::builder()
-            .launch(LiveViewerInit {
-                title: String::from("Live"),
-                list: Vec::new(),
-                selected_index: None,
-            })
-            .forward(
-                sender.input_sender(),
-                AppModel::convert_live_activity_response,
-            );
         let search_viewer = SearchModel::builder()
             .launch(SearchInit {})
             .forward(sender.input_sender(), AppModel::convert_search_response);
 
-        let preview_activity_screen = RefCell::new(ActivityScreen::new());
+        let schedule_viewer = ScheduleActivityViewer::new();
 
-        let live_activity_screen = RefCell::new(ActivityScreen::new());
+        let preview_viewer = ActivityViewer::new("Preview");
+        preview_viewer.set_widget_name("pv");
+        preview_viewer
+            .imp()
+            .slide_manager
+            .borrow()
+            .set_animation(true);
+        let live_viewer = ActivityViewer::new("Live");
+        live_viewer.set_widget_name("lv");
+
+        schedule_viewer.connect_activate({
+            let preview_viewer = preview_viewer.clone();
+            move |_, data| {
+                preview_viewer.load_data(data);
+            }
+        });
+        preview_viewer.connect_activate_slide({
+            let live_viewer = live_viewer.clone();
+            move |_, data| {
+                live_viewer.load_data(data);
+            }
+        });
 
         let model = AppModel {
-            schedule_activity_viewer,
-            preview_activity_viewer,
-            live_activity_viewer,
+            schedule_viewer: RefCell::new(schedule_viewer),
             search_viewer,
-            preview_activity_screen,
-            live_activity_screen,
+            preview_viewer: RefCell::new(preview_viewer),
+            live_viewer: RefCell::new(live_viewer),
         };
         let widgets = view_output!();
 
@@ -313,78 +270,21 @@ impl SimpleComponent for AppModel {
 
     fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
         match message {
-            // schedule
-            AppInput::ScheduleActivityActivated(payload) => {
-                self.preview_activity_viewer
-                    .emit(PreviewViewerInput::NewList(payload.clone()));
-                if let Some(text) = payload.list.first() {
-                    let slide = dto::DisplayPayload {
-                        background_image: payload.background_image,
-                        text: text.to_string(),
-                    };
-                    self.preview_activity_screen.borrow().display_update(slide);
-                }
-            }
             AppInput::ScheduleActivityAddNew(payload) => {
-                self.schedule_activity_viewer
-                    .emit(ScheduleViewerInput::NewItem(payload));
-            }
-
-            // live
-            // AppInput::LiveActivityActivated(_) => return,
-            AppInput::LiveActivitySelected(payload) => {
-                self.live_activity_screen
-                    .borrow()
-                    .display_update(dto::DisplayPayload::new(payload.text));
-            }
-
-            // preview
-            AppInput::PreviewActivitySelected(payload) => {
-                self.preview_activity_screen
-                    .borrow()
-                    .display_update(dto::DisplayPayload::new(payload.text));
-            }
-            AppInput::PreviewActivityActivated(list_payload) => {
-                self.live_activity_viewer
-                    .emit(LiveViewerInput::NewList(list_payload.clone())); //
-                self.preview_activity_screen
-                    .borrow()
-                    .display_update(dto::DisplayPayload::new(list_payload.text.clone()));
-                self.live_activity_screen
-                    .borrow()
-                    .display_update(dto::DisplayPayload::new(list_payload.text.clone()));
-
-                if let Some(image_src) = list_payload.background_image {
-                    self.live_activity_screen
-                        .borrow()
-                        .display_background(image_src);
-                }
+                self.schedule_viewer.borrow().add_new_item(&payload);
             }
 
             // search model
             AppInput::SearchPreviewBackground(image_src) => {
-                self.preview_activity_screen
+                self.preview_viewer
                     .borrow()
-                    .display_background(image_src.clone());
-                // .emit(ActivityScreenInput::DisplayBackground(image_src.clone()));
-                self.preview_activity_viewer
-                    .emit(PreviewViewerInput::Background(image_src));
+                    .update_background(image_src.clone());
             }
             AppInput::SearchPreviewActivity(list_payload) => {
-                if let Some(item) = list_payload.list.first() {
-                    self.preview_activity_screen
-                        .borrow()
-                        .display_update(dto::DisplayPayload::new(item.clone()));
-                }
-                self.preview_activity_viewer
-                    .emit(PreviewViewerInput::NewList(list_payload));
+                self.preview_viewer.borrow().load_data(&list_payload);
             }
-            AppInput::ClearLiveDisplay(cleared) => {
-                self.live_activity_screen.borrow().clear_display(cleared)
-            }
-            AppInput::PreviewGoLive => self
-                .preview_activity_viewer
-                .emit(PreviewViewerInput::GoLive),
+            AppInput::ClearLiveDisplay(cleared) => self.live_viewer.borrow().clear_display(cleared),
+            AppInput::PreviewGoLive => self.preview_viewer.borrow().emit_activate_slide(),
         };
     }
 }
@@ -501,7 +401,7 @@ fn add_app_actions(app: &gtk::Application) {
         .activate(|app: &gtk::Application, _, _| app.quit())
         .build();
     let about_action = gtk::gio::ActionEntry::builder("about")
-        .activate(|app: &gtk::Application, _, _| add_app_about())
+        .activate(|_: &gtk::Application, _, _| add_app_about())
         .build();
 
     app.add_action_entries([quit_action, about_action]);
@@ -538,7 +438,7 @@ fn app_init() {
         .expect("could not find app resources");
 
     let provider = gtk::CssProvider::new();
-    provider.load_from_resource("/com/openworship/app/style.css");
+    provider.load_from_resource("/com/openworship/app/styles/style.css");
 
     if let Some(display) = gtk::gdk::Display::default() {
         gtk::style_context_add_provider_for_display(

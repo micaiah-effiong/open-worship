@@ -60,7 +60,7 @@ mod imp {
         #[property(set, get, default_value = "")]
         pub notes: RefCell<String>,
         #[property(set, get, builder(gtk::StackTransitionType::None))]
-        pub trasition: RefCell<gtk::StackTransitionType>,
+        pub transition: RefCell<gtk::StackTransitionType>,
 
         #[property(get, set/* =Self::set_visible_ */, default_value=true, construct)]
         pub visible: Cell<bool>,
@@ -97,7 +97,7 @@ mod imp {
                 preview: RefCell::new(gtk::Picture::default()),
                 preview_data: RefCell::new(String::default()),
                 notes: RefCell::new(String::default()),
-                trasition: RefCell::new(StackTransitionType::None),
+                transition: RefCell::new(StackTransitionType::None),
                 visible: Cell::new(true),
                 presentation_mode: Cell::new(false),
             }
@@ -238,7 +238,7 @@ impl Slide {
             }
         }
 
-        self.set_trasition(utils::int_to_transition(save_data.transition));
+        self.set_transition(utils::int_to_transition(save_data.transition));
 
         self.imp().save_data.replace(None);
     }
@@ -290,7 +290,7 @@ impl Slide {
         //     self.preview_data()
         // );
         SlideData::new(
-            utils::transition_to_int(self.trasition()),
+            utils::transition_to_int(self.transition()),
             c_item_data,
             self.preview_data(),
             canvas.serialise(),
@@ -315,7 +315,6 @@ impl Slide {
 
     pub fn destroy(&self) {
         if let Some(c) = self.imp().canvas.borrow().clone() {
-            // TODO: dispose canvas
             c.unparent();
         }
     }
@@ -376,7 +375,7 @@ impl Slide {
             // }
         }
 
-        self.set_trasition(utils::int_to_transition(save_data.transition));
+        self.set_transition(utils::int_to_transition(save_data.transition));
         // self.set_notes(save_data.notes);
     }
 

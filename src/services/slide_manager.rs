@@ -1,4 +1,4 @@
-use std::{sync::Mutex, usize};
+use std::{collections::HashSet, sync::Mutex, usize};
 
 use gtk::{
     glib::{
@@ -60,6 +60,8 @@ mod imp {
         // pub window: glib::WeakRef<SpiceWindow>,
         #[property(get, set)]
         pub slideshow: RefCell<gtk::Stack>,
+        #[property(get, set)]
+        pub animation: Cell<bool>,
 
         #[doc = "property setter is private "]
         pub(super) slides: RefCell<Vec<Slide>>,
@@ -168,67 +170,25 @@ mod imp {
                 canvas.unselect_all(None);
             }
 
-            // let Some(window) = obj.window() else {
-            //     eprintln!("Error: could not get window to set-current-slide");
-            //     return;
-            // };
-
-            // if !window.is_presenting()
-            //     && let Some(current_slide) = self.current_slide.borrow().clone()
-            // {
-            //     current_slide.reload_preview_data();
-            // }
-
-            // if window.is_presenting() {
-            //     obj.slideshow().set_transition_duration(600);
-            //
-            //     let transition = value
-            //         .clone()
-            //         .map_or(SlideStackTransitionType::None, |v| v.trasition());
-            //     obj.slideshow().set_transition_type(transition.into());
-            //
-            //     glib::idle_add_local({
-            //         let self_ = self.downgrade();
-            //         move || {
-            //             let Some(self_) = self_.upgrade() else {
-            //                 return glib::ControlFlow::Continue;
-            //             };
-            //
-            //             if let Some(slide) = self_.current_slide.borrow().clone()
-            //                 && let Some(next_slide) = self_.obj().get_next_slide(&slide)
-            //             {
-            //                 next_slide.load_slide();
-            //             }
-            //             glib::ControlFlow::Break
-            //         }
-            //     });
-            // } else {
-            // }
-
             let Some(val) = value else { return };
-            obj.slideshow().set_transition_type(val.trasition());
-            obj.slideshow().set_transition_duration(500);
+            if obj.animation() {
+                obj.slideshow().set_transition_type(val.transition());
+                obj.slideshow().set_transition_duration(500);
+            }
 
             if self.slides.borrow().contains(&val) {
-                self.current_slide.replace(Some(val.clone()));
                 obj.set_current_item(None::<CanvasItem>);
-                val.load_slide();
-
-                if let Some(canvas) = val.imp().canvas.borrow().clone() {
-                    obj.slideshow().set_visible_child(&canvas);
-                }
-
-                obj.emit_current_slide_changed(&val);
             } else if val == self.end_presentation_slide.borrow().clone() {
-                val.load_slide();
-
-                if let Some(canvas) = val.imp().canvas.borrow().clone() {
-                    obj.slideshow().set_visible_child(&canvas);
-                }
-
-                obj.emit_current_slide_changed(&val);
-                self.current_slide.replace(Some(val.clone()));
+                val.set_visible(true);
+                val.set_presentation_mode(true);
             }
+
+            val.load_slide();
+            self.current_slide.replace(Some(val.clone()));
+            if let Some(canvas) = val.canvas() {
+                obj.slideshow().set_visible_child(&canvas);
+            }
+            obj.emit_current_slide_changed(&val);
         }
     }
 }
@@ -239,7 +199,39 @@ glib::wrapper! {
 
 impl Default for SlideManager {
     fn default() -> Self {
-        glib::Object::builder::<SlideManager>().build()
+        let slide_manager = glib::Object::builder::<SlideManager>()
+            // .property("window", window.clone())
+            .build();
+
+        let stack = gtk::Stack::builder()
+            .hhomogeneous(false)
+            .vhomogeneous(false)
+            .build();
+        slide_manager.set_slideshow(stack);
+
+        slide_manager.imp().slides.replace(Vec::new());
+
+        let empty_slide = Slide::empty(/* &window */ );
+        slide_manager
+            .imp()
+            .end_presentation_slide
+            .replace(empty_slide.clone());
+
+        if let Some(canvas) = empty_slide.canvas() {
+            canvas.connect_next_slide(glib::clone!(
+                #[weak]
+                slide_manager,
+                move || slide_manager.next_slide()
+            ));
+            canvas.connect_previous_slide(glib::clone!(
+                #[weak]
+                slide_manager,
+                move || slide_manager.previous_slide()
+            ));
+            slide_manager.slideshow().add_child(&canvas);
+        }
+
+        slide_manager
     }
 }
 
@@ -323,39 +315,7 @@ impl SlideManager {
     }
 
     pub fn new(/* window: SpiceWindow */) -> Self {
-        let slide_manager = glib::Object::builder::<SlideManager>()
-            // .property("window", window.clone())
-            .build();
-
-        let stack = gtk::Stack::builder()
-            .hhomogeneous(false)
-            .vhomogeneous(false)
-            .build();
-        slide_manager.set_slideshow(stack);
-
-        slide_manager.imp().slides.replace(Vec::new());
-
-        let empty_slide = Slide::empty(/* &window */ );
-        slide_manager
-            .imp()
-            .end_presentation_slide
-            .replace(empty_slide.clone());
-
-        if let Some(canvas) = empty_slide.canvas() {
-            canvas.connect_next_slide(glib::clone!(
-                #[weak]
-                slide_manager,
-                move || slide_manager.next_slide()
-            ));
-            canvas.connect_previous_slide(glib::clone!(
-                #[weak]
-                slide_manager,
-                move || slide_manager.previous_slide()
-            ));
-            slide_manager.slideshow().add_child(&canvas);
-        }
-
-        slide_manager
+        Self::default()
     }
 
     pub fn reset(&self) {
@@ -370,8 +330,6 @@ impl SlideManager {
         }
 
         self.imp().slides.borrow_mut().clear();
-
-        // ImageHandler::reset_file_id();
 
         self.emit_reseted();
     }
@@ -451,13 +409,17 @@ impl SlideManager {
             self.new_slide(Some(slide_object.clone()), false);
         }
 
-        if self.slides().len() > data.current_slide as usize {
-            self.set_current_slide(self.slides().get(data.current_slide as usize).cloned());
-            if let Some(current_slide) = self.current_slide() {
-                current_slide.reload_preview_data();
-            }
-        } else {
-            self.set_current_slide(self.slides().get(0).cloned());
+        // if self.slides().len() > data.current_slide as usize {
+        //     self.set_current_slide(self.slides().get(data.current_slide as usize).cloned());
+        //     if let Some(current_slide) = self.current_slide() {
+        //         current_slide.reload_preview_data();
+        //     }
+        // } else {
+        self.set_current_slide(self.slides().get(0).cloned());
+        // }
+
+        if let Some(slide) = self.current_slide() {
+            println!("Slide {:?}", slide.transition());
         }
 
         let slide = match self.slides().len() > data.preview_slide as usize {
@@ -758,6 +720,11 @@ impl SlideManager {
         {
             self.set_current_slide(self.get_previous_slide(&current_slide));
         }
+    }
+
+    pub fn show_end_presentation_slide(&self) {
+        let end_presentation_slide = self.imp().end_presentation_slide.borrow().clone();
+        self.set_current_slide(Some(end_presentation_slide));
     }
 
     pub fn move_up_request(&self) {

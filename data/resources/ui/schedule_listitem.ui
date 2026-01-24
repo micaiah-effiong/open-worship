@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="ScheduleListItem" parent="GtkBox">
+    <property name="margin_top">6</property>
+    <property name="margin_bottom">6</property>
+    <property name="margin_start">6</property>
+    <property name="margin_end">6</property>
+
+    <child>
+      <object class="GtkBox" id="preview_box">
+        <property name="margin_end">10</property>
+        <property name="height_request">30</property>
+        <property name="width_request">70</property>
+        <style>
+          <class name="schedule-list-item-preview"/>
+        </style>
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+
+        <child>
+          <object class="GtkLabel" id="label">
+            <property name="xalign">0.0</property>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkBox">
+            <property name="width_request">50</property>
+            <property name="margin_start">10</property>
+            <style>
+              <class name="schedule-list-item-editable"/>
+            </style>
+
+
+            <child>
+              <object class="GtkEditableLabel">
+                <property name="text">No item</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        
+      </object>
+    </child>
+  </template>
+</interface>

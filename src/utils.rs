@@ -298,13 +298,13 @@ fn get_list_store(list_view: &gtk::ListView) -> Option<gio::ListStore> {
 }
 
 pub trait ListViewExtra: IsA<gtk::ListView> {
-    fn append_item(&self, item: impl IsA<glib::Object>) {
+    fn append_item(&self, item: &impl IsA<glib::Object>) {
         let list_view = self.upcast_ref::<gtk::ListView>();
         let Some(list_store) = get_list_store(&list_view) else {
             return;
         };
 
-        list_store.append(&item);
+        list_store.append(item);
     }
     fn get_items(&self) -> Vec<glib::Object> {
         let list_view = self.upcast_ref::<gtk::ListView>();
@@ -387,6 +387,14 @@ pub trait WidgetExtrasExt: IsA<gtk::Widget> {
     fn set_expand(&self, value: bool) {
         self.set_hexpand(value);
         self.set_vexpand(value);
+        // glib::dgettext("myapp", $msg)
     }
 }
 impl<O: IsA<gtk::Widget>> WidgetExtrasExt for O {}
+
+//
+macro_rules! tr {
+    ($msg:expr) => {
+        glib::dgettext(Some("myapp"), $msg)
+    };
+}

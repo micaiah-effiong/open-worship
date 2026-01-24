@@ -14,7 +14,8 @@ use relm4::prelude::*;
 use relm4::typed_view::list::TypedListView;
 
 use crate::db::query::Query;
-use crate::dto::{self, SongData, SongObject};
+use crate::dto::{SongData, SongObject};
+use crate::widgets::canvas::serialise::SlideManagerData;
 use crate::widgets::search::songs::edit_modal::SongEditWindow;
 
 #[derive(Debug)]
@@ -26,8 +27,8 @@ pub enum SearchSongInput {
 
 #[derive(Debug)]
 pub enum SearchSongOutput {
-    SendToPreview(dto::ListPayload),
-    SendToSchedule(dto::ListPayload),
+    SendToPreview(SlideManagerData),
+    SendToSchedule(SlideManagerData),
 }
 
 #[derive(Debug)]
@@ -119,9 +120,6 @@ impl SearchSongModel {
                         None => return,
                     };
 
-                    let song: SongData = song_list_item.clone().song.into();
-                    println!("song_list_item {:?}", song);
-
                     sender.input(SearchSongInput::OpenEditModel(Some(song_list_item.song)));
                 }
             ))
@@ -136,15 +134,14 @@ impl SearchSongModel {
                 #[strong]
                 wrapper,
                 move |_g: &SimpleActionGroup, _sa, _v| {
-                    if let Some(li) = wrapper.borrow().get(model.selection().nth(0)) {
-                        let song: SongData = li.borrow().song.clone().into();
-                        let _ = sender.output(SearchSongOutput::SendToSchedule(dto::ListPayload {
-                            text: song.title,
-                            position: 0,
-                            list: song.verses.iter().map(|elt| elt.text.clone()).collect(),
-                            background_image: None,
-                        }));
-                    }
+                    let song_list_item = match wrapper.borrow().get(model.selection().nth(0)) {
+                        Some(item) => item.borrow().clone(),
+                        None => return,
+                    };
+
+                    let _ = sender.output(SearchSongOutput::SendToSchedule(
+                        song_list_item.clone().into(),
+                    ));
                 }
             ))
             .build();
@@ -214,16 +211,11 @@ impl SearchSongModel {
                     None => return,
                 };
 
-                let verse_list = song_list_item
-                    .song
-                    .verses()
-                    .into_iter()
-                    .map(|s| s.text)
-                    .collect::<Vec<String>>();
-
-                let list_payload =
-                    dto::ListPayload::new(song_list_item.song.title(), 0, verse_list, None);
-                let _ = sender.output(SearchSongOutput::SendToPreview(list_payload));
+                // let list_payload =
+                //     dto::ListPayload::new(song_list_item.song.title(), 0, verse_list, None);
+                let _ = sender.output(SearchSongOutput::SendToPreview(
+                    song_list_item.clone().into(),
+                ));
             }
         ));
     }

@@ -7,6 +7,8 @@ use gtk::{
     glib,
 };
 
+use crate::config::AppConfigDir;
+
 mod imp {
 
     use gtk::glib::{
@@ -132,5 +134,42 @@ impl FileManager {
         };
 
         String::from(filename)
+    }
+
+    pub fn file_to_link(file: &gio::File, dir: AppConfigDir) -> Option<String> {
+        if !file.query_exists(gio::Cancellable::NONE) {
+            return None;
+        };
+
+        let Some(url) = file
+            .clone()
+            .path()
+            .as_ref()
+            .and_then(|v| v.to_str())
+            .map(|s| s.to_string())
+        else {
+            return None;
+        };
+
+        let Some(filename) = std::path::Path::new(&url).file_name() else {
+            return None;
+        };
+
+        let symlink_path = AppConfigDir::dir_path(dir).join(filename);
+        let path = symlink_path.display().to_string();
+
+        if symlink_path.exists() {
+            return Some(path);
+        }
+
+        match std::fs::hard_link(url.clone(), &symlink_path) {
+            Ok(path) => path,
+            Err(err) => {
+                eprintln!("Error creating sysmlink. {}", err);
+                return None;
+            }
+        };
+
+        Some(path)
     }
 }

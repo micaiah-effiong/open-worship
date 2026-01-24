@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/com/openworship/app">
-    <file compressed="true">style.css</file>
     <file compressed="true">icons/drag-symbolic.svg</file>
     <file compressed="true">icons/drag-square-symbolic.svg</file>
     <file compressed="true">icons/screen-symbolic.svg</file>
@@ -28,5 +27,14 @@
     <file compressed="true">icons/picture-symbolic.svg</file>
 
     <file compressed="true">icons/openworship-symbolic.png</file>
+  </gresource>
+
+  <gresource prefix="/com/openworship/app/styles">
+    <file compressed="true">style.css</file>
+  </gresource>
+
+  <gresource prefix="/com/openworship/app">
+    <file compressed="true">ui/schedule_activity_viewer.ui</file>
+    <file compressed="true">ui/schedule_listitem.ui</file>
   </gresource>
 </gresources>

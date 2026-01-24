@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="ScheduleActivityViewer" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <property name="hexpand">true</property>
+    <property name="vexpand">true</property>
+    <property name="height_request">300</property>
+    <style>
+      <class name="pink_box"/>
+      <class name="ow-listview"/>
+    </style>
+
+    <child>
+      <object class="GtkLabel">
+        <property name="label">Schedule</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkScrolledWindow">
+        <property name="vexpand">true</property>
+        <child>
+          <object class="GtkListView" id="listview">
+            <style>
+              <class name="drop-zone"/>
+            </style>
+          </object>
+        </child>
+      </object>
+    </child> 
+  </template>
+</interface>

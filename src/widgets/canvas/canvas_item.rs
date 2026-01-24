@@ -7,15 +7,14 @@ mod imp {
     use glib::subclass::types::ObjectSubclass;
     use gtk::glib::subclass::Signal;
     use gtk::glib::{self, Properties};
+    use gtk::prelude::*;
     use gtk::subclass::prelude::*;
-    use gtk::{TextView, prelude::*};
-    use serde_json::Value as JsonValue;
 
-    use crate::{utils, widgets};
+    use crate::utils;
     // use crate::services::history_manager::history_action::{HistoryAction, TypedHistoryAction};
     // use crate::services::utils::{self, rect};
     use crate::widgets::canvas::canvas::Canvas;
-    use crate::widgets::canvas::grabber::{self, Grabber};
+    use crate::widgets::canvas::grabber::Grabber;
     use crate::widgets::canvas::serialise::CanvasItemData;
 
     use super::*;
@@ -144,7 +143,7 @@ mod imp {
                 let grabber_list = grabber_list.clone();
                 let grabber_grid = grabber_grid.clone();
                 move |obj| {
-                    println!("obj.connect_clicked");
+                    // println!("obj.connect_clicked");
                     if obj.imp().is_presentation_mode() {
                         return;
                     }
@@ -159,8 +158,8 @@ mod imp {
             obj.connect_unselect({
                 let grabber_list = grabber_list.clone();
                 let grabber_grid = grabber_grid.clone();
-                move |obj| {
-                    println!("obj.connect_unselect");
+                move |_| {
+                    // println!("obj.connect_unselect");
                     // if obj.imp().is_presentation_mode() {
                     //     return;
                     // }
@@ -451,7 +450,7 @@ mod imp {
         }
 
         fn button_press_event(&self, _event: &gtk::GestureClick) -> bool {
-            let Some(canvas) = self.canvas.upgrade() else {
+            let Some(_) = self.canvas.upgrade() else {
                 return false;
             };
 
@@ -631,7 +630,7 @@ mod imp {
         }
 
         pub fn delete(&self) {
-            let Some(canvas) = self.canvas.upgrade() else {
+            let Some(_) = self.canvas.upgrade() else {
                 return;
             };
             // let Some(window) = canvas.imp().window.upgrade() else {
