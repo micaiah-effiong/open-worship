@@ -21,7 +21,7 @@ NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
 	--appdir AppDir \
 	--plugin gtk \
 	--executable target/$target/release/openworship \
-	--desktop-file res/linux/openworship.desktop \
+	--desktop-file res/linux/com.openworship.app.desktop \
 	--icon-file res/linux/openworship.png \
 	--output appimage
 
