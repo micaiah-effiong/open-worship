@@ -78,7 +78,7 @@ jobs:
       - name: Build app (macOS, normal)
         env:
           RUSTFLAGS: ${{ matrix.build.rustflags }}
-        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+        run: cargo build --locked --target ${{ matrix.build.target }} --profile production
         if: runner.os == 'macOS'
 
       - name: Create bundle (macOS)
