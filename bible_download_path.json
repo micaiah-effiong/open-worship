@@ -1,7 +1,8 @@
 [
   {
     "name": "ACV.db",
-    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ACV.db"
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ACV.db",
+    "active": true
   },
   {
     "name": "AKJV.db",
@@ -9,7 +10,8 @@
   },
   {
     "name": "ASV.db",
-    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ASV.db"
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/ASV.db",
+    "active": true
   },
   {
     "name": "Alb.db",
@@ -265,7 +267,8 @@
   },
   {
     "name": "KJV.db",
-    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KJV.db"
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/KJV.db",
+    "active": true
   },
   {
     "name": "KJVA.db",
@@ -549,7 +552,8 @@
   },
   {
     "name": "YLT.db",
-    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/YLT.db"
+    "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/YLT.db",
+    "active": true
   },
   {
     "name": "extras",

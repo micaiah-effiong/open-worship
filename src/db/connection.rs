@@ -50,7 +50,7 @@ static DB: OnceLock<Mutex<DatabaseConnection>> = OnceLock::new();
 /// open db
 /// run setup sql
 /// close db
-pub fn load_db(path: String) {
+pub fn load_db() {
     create_songs_table();
     create_song_verses_table();
     create_bible_books_table();

@@ -639,6 +639,8 @@ impl TextItem {
     }
 
     fn check_font_size(&self) -> u32 {
-        self.imp().alt_font_size.get().min(self.font_size())
+        self.font_size()
+        // TODO:
+        // self.imp().alt_font_size.get().min(self.font_size())
     }
 }

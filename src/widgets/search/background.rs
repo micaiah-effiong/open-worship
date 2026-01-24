@@ -30,18 +30,19 @@ pub struct SearchBackgroundInit {}
 
 impl SearchBackgroundModel {
     fn load_backgrounds() -> Vec<String> {
+        let mut path_list = Vec::new();
         let dir = match AppConfigDir::dir_path(AppConfigDir::Backgrounds).read_dir() {
             Ok(d) => d,
-            Err(_) => {
+            Err(e) => {
                 println!(
-                    "ERROR: could not read {:?}",
-                    AppConfigDir::to(AppConfigDir::Backgrounds)
+                    "ERROR: could not read {:?} = {:?}",
+                    AppConfigDir::Backgrounds,
+                    e
                 );
-                return [].to_vec();
+                return path_list;
             }
         };
 
-        let mut path_list = Vec::new();
         for entry in dir {
             let entry = match entry {
                 Ok(f) => f,

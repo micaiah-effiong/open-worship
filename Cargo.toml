@@ -47,6 +47,8 @@ reqwest = { version = "0.12.12", features = ["json","stream"] }
 futures-util = "0.3.31"
 pangocairo = "0.20"
 gtk = { version = "0.9.0", features = ["v4_14"], package = "gtk4" }
+strum = "0.27"
+strum_macros = "0.27"
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"

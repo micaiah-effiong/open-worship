@@ -14,6 +14,7 @@ use super::download_list_item::BibleDownloadListItem;
 pub struct BibleDownload {
     pub name: String,
     pub download_url: Option<String>,
+    pub active: Option<bool>,
 }
 
 #[derive(Debug)]
@@ -57,12 +58,17 @@ impl DownloadBibleModel {
             translations
         );
 
+        // TODO: add this file to resource
         let bible_src = include_str!("../../../../../bible_download_path.json");
         let download_list_result = serde_json::from_str::<Vec<BibleDownload>>(bible_src);
         let mut list = self.list.borrow_mut();
 
         if let Ok(download_list) = download_list_result {
             for item in download_list {
+                if !item.active.unwrap_or(false) {
+                    continue;
+                }
+
                 if item.download_url.is_some() {
                     let item_name = item.name.clone();
                     let item_name = item_name.split(".").collect::<Vec<&str>>();

@@ -1,9 +1,11 @@
 use std::{fs, path::PathBuf};
 
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+
 use crate::db;
 
 const APP_DIR_NAME: &str = "openworship";
-const APP_DATA_DIRS: [&str; 4] = ["backgrounds", "database", "media", "downloads"];
 
 pub struct AppConfig {
     //
@@ -25,21 +27,18 @@ impl AppConfig {
                 .expect("An error occurred while creating app directory");
         }
 
-        for dir in APP_DATA_DIRS {
-            if AppConfigDir::from(dir.to_string()).is_none() {
-                eprintln!("ERROR: Invalid File/Dir, name: {}", &dir);
-                continue;
-            }
+        for dir in AppConfigDir::iter() {
+            let path: String = dir.into();
 
-            let err_msg = format!("ERROR: Could not create {:?}", app_config_path.join(dir));
-            if !app_config_path.join(dir).exists() {
-                fs::create_dir_all(app_config_path.join(dir)).expect(&err_msg);
+            let err_msg = format!("ERROR: Could not create {:?}", app_config_path.join(&path));
+            if !app_config_path.join(&path).exists() {
+                fs::create_dir_all(app_config_path.join(path)).expect(&err_msg);
             }
         }
     }
 
     fn setup_database() {
-        db::connection::load_db(AppConfig::get_db_path()); //.expect("Error setting up database");
+        db::connection::load_db();
     }
 
     pub fn get_db_path() -> String {
@@ -52,6 +51,7 @@ impl AppConfig {
     }
 }
 
+#[derive(Debug, EnumIter)]
 pub enum AppConfigDir {
     Downloads,
     Database,
@@ -60,20 +60,9 @@ pub enum AppConfigDir {
     Backgrounds,
 }
 
-impl AppConfigDir {
-    pub fn from(val: String) -> Option<AppConfigDir> {
-        match val.as_str() {
-            "media" => Some(Self::Media),
-            "database" => Some(Self::Database),
-            "downloads" => Some(Self::Downloads),
-            "backgrounds" => Some(Self::Backgrounds),
-            "slide_media" => Some(Self::SlideMedia),
-            _ => None,
-        }
-    }
-
-    pub fn to(val: AppConfigDir) -> String {
-        match val {
+impl Into<String> for AppConfigDir {
+    fn into(self) -> String {
+        match self {
             Self::Media => String::from("media"),
             Self::Database => String::from("database"),
             Self::Downloads => String::from("downloads"),
@@ -81,11 +70,28 @@ impl AppConfigDir {
             Self::SlideMedia => String::from("slide_media"),
         }
     }
+}
+impl TryFrom<String> for AppConfigDir {
+    type Error = ();
 
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "media" => Ok(Self::Media),
+            "database" => Ok(Self::Database),
+            "downloads" => Ok(Self::Downloads),
+            "backgrounds" => Ok(Self::Backgrounds),
+            "slide_media" => Ok(Self::SlideMedia),
+            _ => Err(()),
+        }
+    }
+}
+impl AppConfigDir {
     pub fn dir_path(val: AppConfigDir) -> PathBuf {
         let sys_config_dir = dirs::config_dir()
             .expect("Could not get config directory")
             .join(APP_DIR_NAME);
-        sys_config_dir.join(AppConfigDir::to(val))
+
+        let path: String = val.into();
+        sys_config_dir.join(path)
     }
 }
