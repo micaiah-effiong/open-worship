@@ -52,7 +52,7 @@ mod imp {
         // pub display_font_size: Cell<u32>,
         #[property(get, set, default_value = "Open Sans", construct)]
         pub font: RefCell<String>,
-        #[property(get, set, default_value = "#fff", construct)]
+        #[property(get, set, default_value = "#ffffffff", construct)]
         pub font_color: RefCell<String>,
         #[property(get, set, default_value = "normal", construct)]
         pub font_style: RefCell<String>,
@@ -567,8 +567,6 @@ impl TextItem {
                 if ti.imp().setting_text.get() {
                     return;
                 }
-
-                ti.style();
 
                 // let action = TypedHistoryAction::item_changed(&ti, "text");
                 // let Some(window) = ci.canvas().and_then(|c| c.imp().window.upgrade()) else {

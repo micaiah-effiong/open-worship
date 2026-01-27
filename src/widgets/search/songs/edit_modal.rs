@@ -12,7 +12,7 @@ use crate::{
     widgets::search::songs::list_item::SongListItemModel,
 };
 
-const WIDTH: i32 = 900;
+const WIDTH: i32 = 1000;
 
 mod signals {
     pub const SAVE: &str = "save";
@@ -24,6 +24,7 @@ mod imp {
     };
 
     use gtk::{
+        gdk,
         glib::{
             self, Properties,
             object::{Cast, CastNone},
@@ -34,8 +35,7 @@ mod imp {
             },
         },
         prelude::{
-            AccessibleExt, BoxExt, EntryExt, FrameExt, GtkWindowExt, ListItemExt, TextViewExt,
-            WidgetExt,
+            AccessibleExt, BoxExt, EntryExt, GtkWindowExt, ListItemExt, TextViewExt, WidgetExt,
         },
         subclass::{widget::WidgetImpl, window::WindowImpl},
     };
@@ -43,7 +43,7 @@ mod imp {
     use super::*;
     use crate::{
         services::slide_manager::SlideManager, utils::WidgetExtrasExt,
-        widgets::search::songs::song_editor_toolbar::SongEditorToolbar,
+        widgets::search::songs::toolbar::song_editor_toolbar::SongEditorToolbar,
     };
 
     #[derive(Default, Properties)]
@@ -72,7 +72,7 @@ mod imp {
             let obj = self.obj();
 
             obj.set_default_width(WIDTH);
-            obj.set_default_height(506);
+            obj.set_default_height(562);
             obj.set_modal(true);
             obj.set_focus_visible(true);
             obj.set_resizable(false);
@@ -83,25 +83,31 @@ mod imp {
             let model = gtk::gio::ListStore::new::<Slide>();
             let selection_model = gtk::SingleSelection::new(Some(model));
             let factory = gtk::SignalListItemFactory::new();
-            factory.connect_setup(move |_, list_item| {
-                let tv = gtk::TextView::new();
-                tv.set_margin_all(8);
-                tv.set_height_request(40);
-                let li = list_item
-                    .downcast_ref::<gtk::ListItem>()
-                    .expect("Needs to be ListItem");
 
-                // let group = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-                // let index_group = gtk::Box::new(gtk::Orientation::Horizontal, 2);
-                // group.append(&index_group);
-                // group.append(&tv);
-                //
-                // let pos = 1;
-                // println!("pos={:?}", pos);
-                // let label = gtk::Label::new(Some(&pos.to_string()));
-                // index_group.append(&label);
-                // index_group.append(&gtk::Image::from_icon_name("screen-symbolic"));
-                li.set_child(Some(&tv));
+            let listview = gtk::ListView::builder()
+                .vexpand(true)
+                .factory(&factory)
+                .model(&selection_model)
+                .show_separators(true)
+                .build();
+
+            factory.connect_setup({
+                let listview = listview.clone();
+                let obj = obj.downgrade();
+                move |_, list_item| {
+                    let tv = gtk::TextView::new();
+                    tv.set_margin_all(8);
+                    tv.set_height_request(40);
+                    let li = list_item
+                        .downcast_ref::<gtk::ListItem>()
+                        .expect("Needs to be ListItem");
+
+                    li.set_child(Some(&tv));
+
+                    if let Some(obj) = obj.upgrade() {
+                        obj.imp().setup_key_controller(&tv, &listview);
+                    };
+                }
             });
 
             factory.connect_bind(move |_, list_item| {
@@ -119,17 +125,13 @@ mod imp {
                     .and_downcast::<gtk::TextView>()
                     .expect("The child has to be a `TextView`.");
 
+                textview.set_margin_all(0);
+
                 if let Some(buf) = slide.entry_buffer() {
                     textview.set_buffer(Some(&buf));
                 }
             });
 
-            let listview = gtk::ListView::builder()
-                .vexpand(true)
-                .factory(&factory)
-                .model(&selection_model)
-                .css_name("blue_box")
-                .build();
             self.list_view.replace(listview.clone());
 
             let box_ui = gtk::Box::builder()
@@ -142,13 +144,11 @@ mod imp {
 
             let box_header = {
                 let box_header = gtk::Box::builder()
-                    .height_request(80)
+                    .height_request(30)
                     .name("header-box")
-                    .css_classes(["brown_box"])
                     .build();
 
                 let entry_box = gtk::Box::builder()
-                    .height_request(80)
                     .margin_top(13)
                     .margin_bottom(13)
                     .margin_start(6)
@@ -162,17 +162,15 @@ mod imp {
                 let title_entry = gtk::Entry::new();
                 self.title_entry.replace(title_entry.clone());
                 title_entry.set_placeholder_text(Some("Enter song title"));
-                // title_entry.connect_insert_text(move |l, m, n| {
-                //     println!("song_title: \n{:?} \n{:?} \n{:?}", l, m, n);
-                // });
                 entry_box.append(&title_label);
                 entry_box.append(&title_entry);
 
                 box_header
             };
             box_ui.append(&box_header);
-
+            box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
             box_ui.append(&SongEditorToolbar::new(&self.slide_manager.borrow()));
+            box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
 
             let editor_box = {
                 // EDITOR SECTION
@@ -185,7 +183,8 @@ mod imp {
                     .build();
                 editor_box.append(&pane);
 
-                let editor_frame = gtk::Frame::builder().vexpand(true).build();
+                let editor_frame = gtk::Box::builder().vexpand(true).build();
+                editor_frame.set_size_request(300, -1);
                 pane.set_start_child(Some(&editor_frame));
 
                 let screen = self.slide_manager.borrow().slideshow();
@@ -197,13 +196,14 @@ mod imp {
                     .obey_child(false)
                     .child(&screen)
                     .build();
+                aspect_frame.set_size_request(300, -1);
                 pane.set_end_child(Some(&aspect_frame));
 
                 let frame_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
                     .hexpand(true)
                     .build();
-                editor_frame.set_child(Some(&frame_box));
+                editor_frame.append(&frame_box);
 
                 let slide_scrolled = gtk::ScrolledWindow::builder().vexpand(true).build();
                 frame_box.append(&slide_scrolled);
@@ -247,8 +247,12 @@ mod imp {
             let footer_box = {
                 // FOOTER
                 let footer_box = gtk::Box::builder()
-                    .height_request(50)
-                    .css_name("brown_box")
+                    .height_request(36)
+                    .margin_top(3)
+                    .margin_bottom(3)
+                    .margin_start(3)
+                    .margin_end(3)
+                    .spacing(3)
                     .build();
 
                 let footer_spacer_box = gtk::Box::builder().hexpand(true).build();
@@ -257,48 +261,60 @@ mod imp {
                 let footer_action_box = gtk::Box::new(gtk::Orientation::Horizontal, 5);
                 footer_box.append(&footer_action_box);
 
-                let ok_btn = gtk::Button::with_label("Ok");
                 let text_entry = obj.imp().title_entry.borrow().clone();
+
+                let notify_no_title = move |title: &gtk::Entry| {
+                    if title.buffer().text().is_empty() {
+                        let label = gtk::Label::builder().label("Title cannot be empty").build();
+                        let win = gtk::Window::builder()
+                            .default_width(300)
+                            .default_height(100)
+                            .modal(true)
+                            .focus_visible(true)
+                            .child(&label)
+                            .build();
+                        win.set_visible(true);
+                        return;
+                    }
+                };
+
+                let save_change_btn = gtk::Button::with_label("Apply");
+                save_change_btn.connect_clicked(glib::clone!(
+                    #[weak]
+                    obj,
+                    #[strong]
+                    text_entry,
+                    move |_| {
+                        notify_no_title(&text_entry);
+                        obj.save_changes();
+                    }
+                ));
+
+                let ok_btn = gtk::Button::with_label("Ok");
                 ok_btn.connect_clicked(glib::clone!(
                     #[weak]
                     obj,
                     #[strong]
                     text_entry,
                     move |_| {
-                        if text_entry.buffer().text().is_empty() {
-                            let label =
-                                gtk::Label::builder().label("Title cannot be empty").build();
-                            let win = gtk::Window::builder()
-                                .default_width(300)
-                                .default_height(100)
-                                .modal(true)
-                                .focus_visible(true)
-                                .child(&label)
-                                .build();
-                            win.set_visible(true);
-                            return;
-                        }
-
+                        notify_no_title(&text_entry);
                         obj.ok_reponse();
                     }
                 ));
-                // TODO: implement ok
 
                 let cancel_btn = gtk::Button::with_label("Cancel");
                 cancel_btn.connect_clicked(glib::clone!(
                     #[weak]
                     obj,
-                    move |_| {
-                        // TODO:
-                        // obj.cancel();
-                        obj.close();
-                    }
+                    move |_| obj.cancel_reponse()
                 ));
+                footer_box.append(&save_change_btn);
                 footer_box.append(&ok_btn);
                 footer_box.append(&cancel_btn);
 
                 footer_box
             };
+            box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
             box_ui.append(&footer_box);
         }
 
@@ -315,10 +331,100 @@ mod imp {
         }
     }
     impl WidgetImpl for SongEditWindow {}
-
     impl WindowImpl for SongEditWindow {}
 
-    impl SongEditWindow {}
+    impl SongEditWindow {
+        fn setup_key_controller(&self, tv: &gtk::TextView, listview: &gtk::ListView) {
+            let obj = self.obj();
+
+            let ctl_ent = gtk::EventControllerKey::new();
+            // ctl_ent.set_propagation_phase(gtk::PropagationPhase::Bubble);
+            ctl_ent.connect_key_pressed(glib::clone!(
+                #[weak]
+                obj,
+                #[weak]
+                listview,
+                #[strong]
+                tv,
+                #[upgrade_or]
+                glib::Propagation::Proceed,
+                move |_, k, _, m| {
+                    if k == gdk::Key::Return && m == gdk::ModifierType::SHIFT_MASK {
+                        return Self::shift_enter_action(&obj, &listview);
+                    }
+
+                    if k == gdk::Key::Up || k == gdk::Key::Down {
+                        let is_up = k == gdk::Key::Up;
+                        return Self::direction_action(&tv, &listview, is_up);
+                    }
+
+                    return glib::Propagation::Proceed;
+                }
+            ));
+            tv.add_controller(ctl_ent);
+        }
+
+        fn shift_enter_action(
+            obj: &super::SongEditWindow,
+            listview: &gtk::ListView,
+        ) -> glib::Propagation {
+            let Some(model) = listview.model().and_downcast::<gtk::SingleSelection>() else {
+                return glib::Propagation::Proceed;
+            };
+
+            if model.selected() + 1 == model.n_items() {
+                obj.add_new_verse();
+            } else {
+                Self::select_nth(listview, &model, model.selected() + 1);
+            }
+
+            glib::Propagation::Stop
+        }
+
+        fn direction_action(
+            tv: &gtk::TextView,
+            listview: &gtk::ListView,
+            is_up: bool,
+        ) -> glib::Propagation {
+            let Some(model) = listview.model().and_downcast::<gtk::SingleSelection>() else {
+                return glib::Propagation::Proceed;
+            };
+
+            let buffer = tv.buffer();
+            let cursor_mark = buffer.get_insert();
+            let cursor_iter = buffer.iter_at_mark(&cursor_mark);
+            let end_iter = buffer.end_iter();
+
+            let top = cursor_iter.line() == 0;
+            let start = cursor_iter.offset() == 0;
+            let bottom = cursor_iter.line() == end_iter.line();
+            let end = cursor_iter.offset() == end_iter.offset();
+
+            let at_top = top && start;
+            let at_bottom = bottom && end;
+
+            let selected = model.selected();
+
+            if at_top && selected != 0 && is_up {
+                Self::select_nth(listview, &model, selected.saturating_sub(1));
+                return glib::Propagation::Stop;
+            }
+
+            if at_bottom && selected != model.n_items().saturating_sub(1) && !is_up {
+                Self::select_nth(listview, &model, selected.saturating_add(1));
+                return glib::Propagation::Stop;
+            }
+
+            glib::Propagation::Proceed
+        }
+
+        fn select_nth(list: &gtk::ListView, model: &impl IsA<gtk::SelectionModel>, position: u32) {
+            model.select_item(position, true);
+            if let Some(child) = list.children().nth(position as usize) {
+                child.grab_focus();
+            }
+        }
+    }
 }
 
 glib::wrapper! {
@@ -394,6 +500,12 @@ impl SongEditWindow {
     }
 
     pub fn ok_reponse(&self) {
+        self.save_changes();
+        self.imp().list_view.borrow_mut().remove_all();
+        self.close();
+    }
+
+    fn save_changes(&self) {
         let mut verses: Vec<SongVerse> = Vec::new();
         let imp = self.imp();
 
@@ -414,17 +526,12 @@ impl SongEditWindow {
                     _ => (),
                 }
             }
+
             let Some(slide_str) = serde_json::to_string(&s_data).ok() else {
                 return;
             };
 
-            let slide_str_data = {
-                let d = serde_json::to_string(&SlideData::from_default())
-                    .ok()
-                    .unwrap_or_default();
-
-                (d != slide_str).then_some(slide_str)
-            };
+            let slide_str_data = (s_data != SlideData::from_default()).then_some(slide_str);
 
             let Some(buff) = slide.entry_buffer() else {
                 return;
@@ -453,16 +560,11 @@ impl SongEditWindow {
             false => Query::update_song(song.into()),
         };
         let _ = match res {
-            Ok(()) => (),
+            Ok(()) => imp.is_new_song.set(false),
             Err(x) => println!("SQL ERROR: {:?}", x),
         };
 
-        // NOTE: implement save signal
         self.emit_save(&song_model.song);
-
-        list_view.remove_all();
-
-        self.close();
     }
     pub fn cancel_reponse(&self) {
         self.close();
@@ -543,7 +645,6 @@ impl SongEditWindow {
             }
         ));
 
-        list_model.unselect_all();
         if list_model.n_items() > 0 {
             list_model.select_item(1, true);
         }

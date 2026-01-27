@@ -3,13 +3,15 @@ use std::{fs, path::PathBuf};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::db;
+use crate::{db, format_resource};
 
 const APP_DIR_NAME: &str = "openworship";
 
 pub struct AppConfig {
     //
 }
+pub const APP_ID: &str = "com.openworship.app";
+pub const RESOURCE_PATH: &str = format_resource!("");
 
 impl AppConfig {
     pub fn init() {

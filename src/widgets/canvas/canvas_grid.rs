@@ -94,7 +94,7 @@ impl CanvasGrid {
             r##".ow-pattern {{
                 background-size: cover;
                 background-position: center center;
-                box-shadow: inset 0 0 0 2px alpha(#fff, 0.05);
+                box-shadow: inset 0 0 0 2px alpha(#ffffffff, 0.05);
                 background-image: url("{url}{path}");
                 border-radius: 6px;
             }}"##

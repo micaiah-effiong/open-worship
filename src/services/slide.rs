@@ -23,14 +23,14 @@ pub const EMPTY_SLIDE: &str = r##"{
             "font-style": "normal",
             "justification": 1,
             "align": 1,
-            "color": "#fff",
+            "color": "#ffffffff",
             "text-underline": false,
             "text-outline": false,
             "text-shadow": false
         }
     ],
     "preview": "",
-    "background-color": "#383E41",
+    "background-color": "#383e41ff",
     "background-pattern": ""
 }
 "##;
@@ -232,7 +232,7 @@ impl Slide {
 
         for raw in save_data.items {
             if let Some(item) = utils::canvas_item_from_data(raw.clone(), Some(&canvas)) {
-                self.add_item(item, false, false);
+                self.add_item(item, true, false);
             } else {
                 println!("> ITEM ERROR: could not create canvas item from");
             }

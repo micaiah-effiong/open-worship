@@ -47,7 +47,7 @@ mod imp {
 
     use super::*;
     use crate::services::slide::Slide;
-    use crate::utils;
+    use crate::utils::{self, WidgetChildrenExt};
     use crate::widgets::canvas::canvas_item::CanvasItem;
     // use crate::services::utils::{self, AspectRatio};
     // use crate::spice_window::SpiceWindow;
@@ -164,20 +164,24 @@ mod imp {
         #[doc(alias = "set_current_slide")]
         pub fn set_current_slide_(&self, value: Option<Slide>) {
             let obj = self.obj();
-            if let Some(slide) = self.current_slide.borrow().clone()
-                && let Some(canvas) = slide.imp().canvas.borrow().clone()
-            {
-                canvas.unselect_all(None);
-            }
+            // if let Some(slide) = self.current_slide.borrow().clone()
+            //     && let Some(canvas) = slide.canvas()
+            // {
+            //     canvas.unselect_all(None);
+            // }
 
             let Some(val) = value else { return };
+
             if obj.animation() {
                 obj.slideshow().set_transition_type(val.transition());
                 obj.slideshow().set_transition_duration(500);
             }
 
             if self.slides.borrow().contains(&val) {
-                obj.set_current_item(None::<CanvasItem>);
+                if let Some(c) = val.canvas() {
+                    let item = c.widget().get_children::<CanvasItem>().nth(0);
+                    obj.set_current_item(item);
+                }
             } else if val == self.end_presentation_slide.borrow().clone() {
                 val.set_visible(true);
                 val.set_presentation_mode(true);
@@ -276,11 +280,11 @@ impl SlideManager {
         );
     }
 
-    pub fn connect_current_slide_changed<F: Fn(&Slide) -> () + 'static>(&self, f: F) {
+    pub fn connect_current_slide_changed<F: Fn(&Self, &Slide) -> () + 'static>(&self, f: F) {
         self.connect_closure(
             signals::CURRENT_SLIDE_CHANGED,
             false,
-            glib::closure_local!(move |_: &Self, slide: &Slide| f(slide)),
+            glib::closure_local!(move |sm: &Self, slide: &Slide| f(sm, slide)),
         );
     }
 
@@ -292,11 +296,11 @@ impl SlideManager {
         );
     }
 
-    pub fn connect_item_clicked<F: Fn(&Self, Option<&CanvasItem>) -> () + 'static>(&self, f: F) {
+    pub fn connect_item_clicked<F: Fn(&Self, Option<CanvasItem>) -> () + 'static>(&self, f: F) {
         self.connect_closure(
             signals::ITEM_CLICKED,
             false,
-            glib::closure_local!(move |sm: &Self, item: Option<&CanvasItem>| f(sm, item)),
+            glib::closure_local!(move |sm: &Self, item: Option<CanvasItem>| f(sm, item)),
         );
     }
 
@@ -417,10 +421,6 @@ impl SlideManager {
         // } else {
         self.set_current_slide(self.slides().get(0).cloned());
         // }
-
-        if let Some(slide) = self.current_slide() {
-            println!("Slide {:?}", slide.transition());
-        }
 
         let slide = match self.slides().len() > data.preview_slide as usize {
             true => self.slides().get(data.preview_slide as usize).cloned(),

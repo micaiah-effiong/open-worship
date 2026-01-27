@@ -1,26 +1,30 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use gtk::gdk::Device;
+use gtk::gdk::prelude::DisplayExt;
 use gtk::gio::prelude::{ApplicationExt, ApplicationExtManual};
 use gtk::glib::collections::slist;
 use gtk::glib::object::IsA;
 use gtk::glib::prelude::*;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{
-    AccessibleExt, BoxExt, ButtonExt, GtkApplicationExt, GtkWindowExt, TextBufferExt, TextViewExt,
-    WidgetExt,
+    AccessibleExt, BoxExt, ButtonExt, GtkApplicationExt, GtkWindowExt, StyleContextExt,
+    TextBufferExt, TextViewExt, WidgetExt,
 };
 use gtk::subclass::window;
 use gtk::{CssProvider, pango};
 use relm4::{RelmRemoveAllExt, RelmWidgetExt};
 use serde::Serialize;
 
+use crate::format_resource;
 use crate::services::slide::Slide;
 use crate::services::slide_manager::SlideManager;
-use crate::utils::WidgetChildrenExt;
+use crate::utils::{WidgetChildrenExt, setup_theme_listener};
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use crate::widgets::canvas::text_item::{self, TextItem};
+use crate::widgets::entry_combo::EntryCombo;
 use crate::widgets::{self, canvas, search};
 
 pub fn init_app() {
@@ -29,25 +33,27 @@ pub fn init_app() {
     const APP_ID: &str = "com.openworship.app";
     const RESOURECE_PATH: &str = "/com/openworship/app";
     {
-        // if let Some(g_settings) = gtk::Settings::default() {
-        //     g_settings.set_gtk_application_prefer_dark_theme(true);
-        // }
+        if let Some(g_settings) = gtk::Settings::default() {
+            g_settings.set_gtk_application_prefer_dark_theme(true);
+        }
 
         //
         gtk::glib::set_application_name("Open worship");
         gtk::gio::resources_register_include!("resources.gresource")
             .expect("could not find app resources");
 
-        let provider = gtk::CssProvider::new();
-        provider.load_from_resource("/com/openworship/app/styles/style.css");
+        setup_theme_listener();
 
-        if let Some(display) = gtk::gdk::Display::default() {
-            gtk::style_context_add_provider_for_display(
-                &display,
-                &provider,
-                gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-            );
-        }
+        // let provider = gtk::CssProvider::new();
+        // provider.load_from_resource(format_resource!("styles", "style.css"));
+        //
+        // if let Some(display) = gtk::gdk::Display::default() {
+        //     gtk::style_context_add_provider_for_display(
+        //         &display,
+        //         &provider,
+        //         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+        //     );
+        // }
         match gtk::glib::setenv("GTK_CSD", "0", false) {
             Ok(_) => (),
             Err(e) => {
@@ -101,7 +107,7 @@ fn build_ui(app: &gtk::Application) {
                 "font-style": "normal",
                 "justification": 1,
                 "align": 1,
-                "color": "#fff",
+                "color": "#ffffffff",
                 "text-underline": false,
                 "text-outline": false,
                 "text-shadow": true
@@ -123,7 +129,7 @@ fn build_ui(app: &gtk::Application) {
         sm.load_data(SlideManagerData::new(0, 0, [_slide_data]));
         for s in sm.slides() {
             s.set_presentation_mode(true);
-            println!("mode {}", s.presentation_mode());
+            println!("presentation_mode {}", s.presentation_mode());
         }
         sm
     };
@@ -183,7 +189,7 @@ fn build_ui(app: &gtk::Application) {
     let buff_tv = gtk::TextView::new();
     sm.connect_current_slide_changed({
         let buff_tv = buff_tv.clone();
-        move |slide| {
+        move |_, slide| {
             if let Some(canvas) = slide.canvas() {
                 for t in canvas.widget().get_children::<TextItem>() {
                     let buff = t.buffer();
@@ -246,7 +252,7 @@ fn build_ui(app: &gtk::Application) {
 
                 let load_window_slide = {
                     let window = aspect_frame.clone();
-                    move |slide: &Slide| {
+                    move |_: &SlideManager, slide: &Slide| {
                         //
                         let data = slide.serialise();
 
@@ -259,7 +265,7 @@ fn build_ui(app: &gtk::Application) {
                 };
 
                 if let Some(s) = sm.current_slide() {
-                    load_window_slide(&s);
+                    load_window_slide(&sm, &s);
                 }
                 sm.connect_current_slide_changed(load_window_slide);
 
@@ -268,6 +274,18 @@ fn build_ui(app: &gtk::Application) {
             }
         });
         t_box.append(&add_window);
+
+        let m = gtk::StringList::new(&["4", "8", "12"]);
+        let combo = EntryCombo::new(Some(&m));
+        combo.set_text("2");
+        combo.set_input_purpose(gtk::InputPurpose::Digits);
+        t_box.append(&combo);
+
+        let label = gtk::Label::new(None);
+        t_box.append(&label);
+        combo.connect_changed(move |_, t| {
+            label.set_text(&t);
+        });
     }
 
     v_box.append(&t_box);

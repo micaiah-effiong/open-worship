@@ -1,10 +1,11 @@
 use std::cell::RefCell;
 
-use crate::config::AppConfig;
-use crate::dto;
+use crate::config::{self, AppConfig};
+use crate::utils::setup_theme_listener;
 use crate::widgets::activity_viewer::ActivityViewer;
 use crate::widgets::canvas::serialise::SlideManagerData;
 use crate::widgets::schedule_activity_viewer::ScheduleActivityViewer;
+use crate::{dto, format_resource};
 
 #[cfg(not(target_os = "macos"))]
 use gtk::PopoverMenuBar;
@@ -289,17 +290,14 @@ impl SimpleComponent for AppModel {
     }
 }
 
-const APP_ID: &str = "com.openworship.app";
-const RESOURECE_PATH: &str = "/com/openworship/app";
-
 // const MIN_GRID_HEIGHT: i32 = 300;
 const MIN_GRID_WIDTH: i32 = 300;
 
 pub fn run() {
     gtk::glib::set_application_name("Open worship");
     let app = relm4::main_application();
-    app.set_application_id(Some(APP_ID));
-    app.set_resource_base_path(Some(RESOURECE_PATH));
+    app.set_application_id(Some(config::APP_ID));
+    app.set_resource_base_path(Some(config::RESOURCE_PATH));
     // relm4_icons::initialize_icons(icon_names::GRESOURCE_BYTES, icon_names::RESOURCE_PREFIX);
 
     let app = relm4::RelmApp::from_app(app);
@@ -437,15 +435,9 @@ fn app_init() {
     gtk::gio::resources_register_include!("resources.gresource")
         .expect("could not find app resources");
 
-    let provider = gtk::CssProvider::new();
-    provider.load_from_resource("/com/openworship/app/styles/style.css");
-
-    if let Some(display) = gtk::gdk::Display::default() {
-        gtk::style_context_add_provider_for_display(
-            &display,
-            &provider,
-            gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-        );
+    setup_theme_listener();
+    if let Some(g_settings) = gtk::Settings::default() {
+        g_settings.set_gtk_application_prefer_dark_theme(true);
     }
     match gtk::glib::setenv("GTK_CSD", "0", false) {
         Ok(_) => (),

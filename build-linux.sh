@@ -16,8 +16,23 @@ if [ ! -f linuxdeploy-plugin-gtk.sh ]; then
 	wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
 fi
 
+# chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
+# NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
+# 	--appdir AppDir \
+# 	--plugin gtk \
+# 	--executable target/$target/release/openworship \
+# 	--desktop-file res/linux/com.openworship.app.desktop \
+# 	--icon-file res/linux/openworship.png \
+# 	--output appimage
+
 chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
-NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
+    
+# Extract the AppImage
+LINUXDEPLOY_BINARY="linuxdeploy-$(uname -m).AppImage"
+./$LINUXDEPLOY_BINARY --appimage-extract
+
+# Use the extracted binary
+NO_STRIP=1 ./squashfs-root/AppRun \
 	--appdir AppDir \
 	--plugin gtk \
 	--executable target/$target/release/openworship \

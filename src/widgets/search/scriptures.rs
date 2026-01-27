@@ -18,6 +18,7 @@ use relm4::typed_view::list::TypedListView;
 use crate::db::connection::BibleVerse;
 use crate::db::query::Query;
 use crate::parser::parser::{self, BibleReference};
+use crate::utils::WidgetChildrenExt;
 use crate::widgets::canvas::serialise::SlideManagerData;
 use crate::{dto, utils};
 
@@ -207,10 +208,7 @@ impl SearchScriptureModel {
         }
 
         let list_view = list_view.clone();
-        let list = match list_view.first_child() {
-            Some(li) => utils::widget_to_vec(&li),
-            None => return,
-        };
+        let list = list_view.children().collect::<Vec<_>>();
 
         if let Some(vli) = items.first() {
             // subtract here since list.get uses zero based index

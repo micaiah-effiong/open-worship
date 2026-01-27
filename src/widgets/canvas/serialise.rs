@@ -76,7 +76,7 @@ pub enum CanvasItemType {
 
 const DEFAULT_SLIDE: &str = services::slide::EMPTY_SLIDE;
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, glib::Boxed)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "SlideData")]
 pub struct SlideData {
     pub transition: u32,
@@ -115,7 +115,7 @@ impl From<SlideData> for CanvasData {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone, glib::Boxed)]
+#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "SlideManagerData")]
 pub struct SlideManagerData {
     #[serde(rename = "current-slide")]

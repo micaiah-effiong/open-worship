@@ -2,9 +2,7 @@ use std::sync::atomic::{self, AtomicBool};
 
 use gtk::glib::object::{Cast, IsA, ObjectExt};
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
-use gtk::prelude::{
-    AccessibleExt, BoxExt, EventControllerExt, GestureExt, GestureSingleExt, WidgetExt,
-};
+use gtk::prelude::{BoxExt, EventControllerExt, GestureExt, WidgetExt};
 
 use gtk::{EventControllerKey, GestureClick, Overlay, gdk, glib};
 
@@ -12,7 +10,6 @@ use crate::utils::{self, WidgetChildrenExt};
 use crate::widgets::canvas::canvas_grid::CanvasGrid;
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::CanvasData;
-use crate::widgets::canvas::text_item::TextItem;
 
 mod imp {
     use gtk::glib::Properties;
@@ -315,16 +312,12 @@ impl Canvas {
         esc.set_propagation_phase(gtk::PropagationPhase::Bubble);
         esc.connect_key_pressed({
             let obj = obj.clone();
-            move |_, k, c, _| {
-                // NOTE: according to macos
-                // 53 is the keycode for ESC
-                // not yet tested on other devices
-                if c == 53 {
+            move |_, k, _, _| {
+                if k == gdk::Key::Escape {
                     obj.unselect_all(None);
                 }
 
                 glib::Propagation::Proceed
-                //
             }
         });
         obj.add_controller(esc);

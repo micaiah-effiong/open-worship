@@ -1,6 +1,6 @@
 pub mod edit_modal;
 mod list_item;
-mod song_editor_toolbar;
+mod toolbar;
 
 use std::cell::RefCell;
 use std::rc::Rc;

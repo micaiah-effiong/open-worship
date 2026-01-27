@@ -25,12 +25,16 @@
     <file compressed="true">icons/align-top-symbolic.svg</file>
 
     <file compressed="true">icons/picture-symbolic.svg</file>
+    <file compressed="true">icons/close-symbolic.svg</file>
+  </gresource>
 
+  <gresource prefix="/com/openworship/app">
     <file compressed="true">icons/openworship-symbolic.png</file>
   </gresource>
 
   <gresource prefix="/com/openworship/app/styles">
     <file compressed="true">style.css</file>
+    <file compressed="true">style-dark.css</file>
   </gresource>
 
   <gresource prefix="/com/openworship/app">

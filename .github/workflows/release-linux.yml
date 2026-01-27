@@ -10,14 +10,16 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
+    container:
+      image: kalilinux/kali-rolling
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Install GTK4 and libfuse2 (Linux)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
+          apt-get update
+          apt-get install -y curl wget git libssl-dev file pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
 
       - name: Configure cache
         uses: actions/cache@v4
@@ -37,6 +39,7 @@ jobs:
           echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
           echo "[PKG]: $(which pkg-config)"
           echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
+          apt search libgtk-4-dev
 
       - name: Cargo build
         run: |

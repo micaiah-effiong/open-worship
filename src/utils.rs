@@ -1,49 +1,14 @@
+use gtk::gdk::prelude::DisplayExt;
 use gtk::gdk_pixbuf::prelude::PixbufLoaderExt;
 use gtk::gio::prelude::ListModelExt;
-use gtk::glib::object::{Cast, CastNone, IsA};
+use gtk::glib::object::{self, Cast, CastNone, IsA};
 use gtk::prelude::{SelectionModelExt, StyleContextExt, TextBufferExt, WidgetExt};
 use gtk::{CssProvider, gio, glib};
 
 use crate::widgets::canvas::canvas::Canvas;
 use crate::widgets::canvas::canvas_item::CanvasItem;
-use crate::widgets::canvas::serialise::{
-    CanvasData, CanvasItemData, CanvasItemType, SlideData, TextItemData,
-};
+use crate::widgets::canvas::serialise::{CanvasItemData, CanvasItemType};
 use crate::widgets::canvas::text_item::TextItem;
-
-/// Returns a vector of widgets
-/// useful for iterating over childern in listview
-pub fn widget_to_vec(_w: &gtk::Widget) -> Vec<gtk::Widget> {
-    let mut v = Vec::new();
-
-    let mut w = _w.clone();
-
-    loop {
-        v.push(w.clone());
-
-        if let Some(next_s) = w.next_sibling() {
-            w = next_s;
-        } else {
-            break;
-        }
-    }
-
-    v
-}
-// pub trait WidgetExtrasExt: IsA<gtk::Widget> {
-//     fn set_margin(&self, value: i32) {
-//         self.set_margin_start(value);
-//         self.set_margin_end(value);
-//         self.set_margin_top(value);
-//         self.set_margin_bottom(value);
-//     }
-//
-//     fn set_expand(&self, value: bool) {
-//         self.set_hexpand(value);
-//         self.set_vexpand(value);
-//     }
-// }
-// impl<O: IsA<gtk::Widget>> WidgetExtrasExt for O {}
 
 pub trait TextBufferExtraExt: IsA<gtk::TextBuffer> {
     fn full_text(&self) -> glib::GString {
@@ -389,12 +354,105 @@ pub trait WidgetExtrasExt: IsA<gtk::Widget> {
         self.set_vexpand(value);
         // glib::dgettext("myapp", $msg)
     }
+    fn set_tooltip(&self, text: &str) {
+        self.set_has_tooltip(true);
+        self.set_tooltip_text(Some(text));
+    }
 }
 impl<O: IsA<gtk::Widget>> WidgetExtrasExt for O {}
 
+pub trait ColorDialogButtonExtra: IsA<gtk::ColorDialogButton> {
+    fn hex(&self) -> String {
+        let obj = self.upcast_ref::<gtk::ColorDialogButton>();
+        let rgba = obj.rgba();
+        let r = (rgba.red() * 255.0) as u8;
+        let g = (rgba.green() * 255.0) as u8;
+        let b = (rgba.blue() * 255.0) as u8;
+        let a = (rgba.alpha() * 255.0) as u8;
+        format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a).to_lowercase()
+    }
+}
+impl<O: IsA<gtk::ColorDialogButton>> ColorDialogButtonExtra for O {}
+
 //
+#[macro_export]
 macro_rules! tr {
     ($msg:expr) => {
         glib::dgettext(Some("myapp"), $msg)
     };
+}
+
+/// Constructs a resource path for the Openworship.
+///
+/// This macro simplifies resource path construction by prepending the standard
+/// application resource base path `/com/openworship/app/` to the provided path segments.
+///
+/// # Examples
+///
+/// Basic usage with a single path:
+///
+/// ```rust
+/// let path = format_resource!("ui/main.ui");
+/// assert_eq!(path, "/com/openworship/app/ui/main.ui");
+/// ```
+///
+/// Usage with directory and file separated:
+///
+/// ```rust
+/// let path = format_resource!("ui", "main.ui");
+/// assert_eq!(path, "/com/openworship/app/ui/main.ui");
+///
+/// ```
+///
+/// # Arguments
+///
+/// * `$path` - A string literal representing the full relative path
+/// * `$dir` - A string literal representing the directory
+/// * `$file` - A string literal representing the filename
+#[macro_export]
+macro_rules! format_resource {
+    ($path:literal) => {
+        concat!("/com/openworship/app/", $path)
+    };
+    ($dir:literal, $file:literal) => {
+        concat!("/com/openworship/app/", $dir, "/", $file)
+    };
+}
+
+pub fn setup_theme_listener() {
+    let Some(settings) = gtk::Settings::default() else {
+        return;
+    };
+    let css_provider = gtk::CssProvider::new();
+
+    let Some(display) = gtk::gdk::Display::default() else {
+        return;
+    };
+
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &css_provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+
+    // Apply initial theme
+    update_css(
+        &css_provider,
+        settings.is_gtk_application_prefer_dark_theme(),
+    );
+
+    // Listen for changes
+    display.connect_setting_changed(move |_, _| {
+        update_css(
+            &css_provider,
+            settings.is_gtk_application_prefer_dark_theme(),
+        );
+    });
+}
+fn update_css(provider: &gtk::CssProvider, is_dark: bool) {
+    let light = format_resource!("styles", "style.css");
+    let dark = format_resource!("styles", "style-dark.css");
+
+    let css = if is_dark { dark } else { light };
+    provider.load_from_resource(css);
 }
