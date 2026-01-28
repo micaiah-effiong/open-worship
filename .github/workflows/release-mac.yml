@@ -152,6 +152,7 @@ jobs:
           # 4. Fix loaders
           for loader in $APP_PREFIX/$target/Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so; do
             process_dependencies $target $destDir $loader "@executable_path/../Resources/lib"
+            install_name_tool -add_rpath  "@executable_path/../Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders" $loader
           done
 
           cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0
