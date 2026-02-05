@@ -1,9 +1,16 @@
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::PathBuf,
+    sync::{Mutex, OnceLock},
+};
 
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use crate::{db, format_resource};
+use crate::{
+    db::{self, connection::DatabaseConnection},
+    format_resource,
+};
 
 const APP_DIR_NAME: &str = "openworship";
 
@@ -12,6 +19,8 @@ pub struct AppConfig {
 }
 pub const APP_ID: &str = "com.openworship.app";
 pub const RESOURCE_PATH: &str = format_resource!("");
+
+static ASPECT_RATIO: OnceLock<Mutex<f32>> = OnceLock::new();
 
 impl AppConfig {
     pub fn init() {
@@ -50,6 +59,22 @@ impl AppConfig {
             .to_string();
 
         db_path
+    }
+
+    pub fn aspect_ratio() -> f32 {
+        *ASPECT_RATIO
+            .get_or_init(|| Mutex::new(16.0 / 9.0))
+            // .get_or_init(|| Mutex::new(1.0))
+            .lock()
+            .unwrap()
+    }
+    pub fn set_aspect_ratio(new_val: f32) -> Result<(), String> {
+        ASPECT_RATIO
+            .get()
+            .ok_or("OnceLock not initialized")?
+            .lock()
+            .map(|mut val| *val = new_val)
+            .map_err(|e| format!("Mutex error: {}", e))
     }
 }
 

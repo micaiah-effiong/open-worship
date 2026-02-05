@@ -11,7 +11,7 @@
     </style>
 
     <child>
-      <object class="GtkLabel">
+      <object class="GtkLabel" id="title_label">
         <property name="label">Schedule</property>
       </object>
     </child>

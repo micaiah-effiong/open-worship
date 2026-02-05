@@ -1,43 +1,3 @@
-.btn {
-  /* color: red; */
-}
-
-.btn-blue {
-  background: blue;
-}
-
-.body_box {
-  border: 6px double red;
-}
-
-.blue_box {
-  border: 6px solid blue;
-}
-
-.green_box {
-  border: 6px solid green;
-}
-
-.red_box {
-  border: 6px solid red;
-}
-
-.pink_box {
-  border: 6px double pink;
-}
-
-.yellow_box {
-  border: 6px double yellow;
-}
-
-.green_double_box {
-  border: 6px double green;
-}
-
-.brown_box {
-  border: 6px double brown;
-}
-
 .gray_bg_box {
   background-color: gray;
 }
@@ -144,7 +104,6 @@ editablelabel.schedule-list-item-editable {
 }
 
 .drop-zone {
-  border-radius: 8px;
 }
 
 .drop-zone:drop(active) {
@@ -161,4 +120,9 @@ editablelabel.schedule-list-item-editable {
   background-color: #dbd6d2;
   border-radius: 6px;
   padding: 0px 0px 0px 6px;
+}
+
+/* indicate drop location */
+.drop-over {
+  border-top: 2px solid black;
 }

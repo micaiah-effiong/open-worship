@@ -159,7 +159,7 @@ mod imp {
             );
         }
 
-        pub(super) fn load_data(&self) {
+        pub fn load_data(&self) {
             let save_data = match self.sava_data.borrow().clone() {
                 Some(save_data) => save_data,
                 None => return,
@@ -197,7 +197,7 @@ mod imp {
             self.obj().snapshot_child(&self.widget.borrow().clone(), &s);
             super::Canvas::set_drawing_preview(false);
 
-            let Some((_, _, w, h)) = self.obj().bounds() else {
+            let Some((_, _, _w, _h)) = self.obj().bounds() else {
                 glib::g_log!(
                     "Canvas Snapshot",
                     glib::LogLevel::Warning,
@@ -206,7 +206,7 @@ mod imp {
                 return;
             };
 
-            let Some(node) = s.clone().to_node() else {
+            let Some(_node) = s.clone().to_node() else {
                 glib::g_log!(
                     "Canvas Snapshot",
                     glib::LogLevel::Warning,
@@ -345,7 +345,7 @@ impl Canvas {
         self.emit_request_draw_preview();
     }
 
-    pub fn move_up(&self, item_: &CanvasItem, add_undo_action: Option<bool>) {
+    pub fn move_up(&self, item_: &CanvasItem, _add_undo_action: Option<bool>) {
         let mut index = 0;
 
         for child in self.widget().get_children::<CanvasItem>() {
@@ -367,7 +367,7 @@ impl Canvas {
         self.imp().reorder_overlay(item_, index + 1);
     }
 
-    pub fn move_down(&self, item_: &CanvasItem, add_undo_action: Option<bool>) {
+    pub fn move_down(&self, item_: &CanvasItem, _add_undo_action: Option<bool>) {
         let overlay = self.widget();
         // let mut index: i32 = 0;
 
@@ -399,7 +399,7 @@ impl Canvas {
         }
     }
 
-    pub fn add_item(&self, canvas_item: CanvasItem, undoable_action: bool) -> CanvasItem {
+    pub fn add_item(&self, canvas_item: CanvasItem, _undoable_action: bool) -> CanvasItem {
         self.widget().add_overlay(&canvas_item);
 
         canvas_item.connect_checkposition({
@@ -503,7 +503,7 @@ impl Canvas {
         self.emit_request_draw_preview();
     }
 
-    fn button_press_event(&self, event: &GestureClick) {
+    fn button_press_event(&self, _event: &GestureClick) {
         if self.presentation_mode() {
             return;
         }
@@ -595,7 +595,7 @@ impl Canvas {
     ) -> Option<gtk::gdk::Rectangle> {
         let c = self.clone();
         if c.imp().current_allocated_width.get() != ov.width() as f64
-            && c.imp().current_allocated_height.get() != ov.height() as f64
+            || c.imp().current_allocated_height.get() != ov.height() as f64
         {
             c.imp().calculate_ratio();
         }

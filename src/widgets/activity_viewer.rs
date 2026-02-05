@@ -5,7 +5,6 @@ use gtk::{
 };
 
 use crate::{
-    services::slide,
     utils::{ListViewExtra, WidgetChildrenExt},
     widgets::canvas::{serialise::SlideManagerData, text_item::TextItem},
 };
@@ -15,6 +14,7 @@ const MIN_GRID_HEIGHT: i32 = 300;
 
 mod signals {
     pub const ACTIVATE_SLIDE: &str = "activate-slide";
+    pub const SLIDE_CHANGE: &str = "slide-change";
 }
 
 mod imp {
@@ -39,6 +39,7 @@ mod imp {
     };
 
     use crate::{
+        config::AppConfig,
         services::{slide::Slide, slide_manager::SlideManager},
         utils::{TextBufferExtraExt, WidgetExtrasExt},
         widgets::{activity_viewer::signals, canvas::serialise::SlideManagerData},
@@ -51,6 +52,7 @@ mod imp {
 
         //
         pub title_label: RefCell<gtk::Label>,
+        pub title: RefCell<String>,
         pub clear: Cell<bool>,
     }
 
@@ -170,6 +172,7 @@ mod imp {
                         };
 
                         sm.set_current_slide(Some(slide.clone()));
+                        obj.emit_slide_change(pos);
                     }
                 ));
             }
@@ -187,7 +190,9 @@ mod imp {
                     .child(&listview)
                     .build();
 
-                base.append(&self.title_label.borrow().clone());
+                let title_label = self.title_label.borrow().clone();
+                title_label.set_halign(gtk::Align::Start);
+                base.append(&title_label);
                 base.append(&scrolled);
                 base
             };
@@ -197,18 +202,18 @@ mod imp {
                 let aspect_frame = gtk::AspectFrame::builder()
                     .css_name("pink_box")
                     .height_request(super::MIN_GRID_HEIGHT)
-                    .ratio(16.0 / 9.0)
+                    .ratio(AppConfig::aspect_ratio())
                     .obey_child(false)
                     .build();
 
                 aspect_frame.set_child(Some(&self.slide_manager.borrow().slideshow()));
 
-                let frame = gtk::Frame::builder()
+                let frame = gtk::Box::builder()
                     .height_request(super::MIN_GRID_HEIGHT)
                     .hexpand(true)
                     .vexpand(true)
-                    .child(&aspect_frame)
                     .build();
+                frame.append(&aspect_frame);
 
                 base.add_css_class("gray_bg_box");
                 base.append(&frame);
@@ -235,6 +240,9 @@ mod imp {
                     Signal::builder(signals::ACTIVATE_SLIDE)
                         .param_types([SlideManagerData::static_type()])
                         .build(),
+                    Signal::builder(signals::SLIDE_CHANGE)
+                        .param_types([u32::static_type()])
+                        .build(),
                 ]
             })
         }
@@ -258,6 +266,7 @@ impl ActivityViewer {
             .show_end_presentation_slide();
 
         obj.imp().title_label.borrow().set_label(title);
+        obj.imp().title.replace(title.to_string());
 
         obj
     }
@@ -265,6 +274,10 @@ impl ActivityViewer {
     pub fn load_data(&self, data: &SlideManagerData) {
         let imp = self.imp();
         let sm = imp.slide_manager.borrow();
+        sm.set_title(data.title.clone());
+        imp.title_label
+            .borrow()
+            .set_label(&format!("{} - {}", imp.title.borrow(), data.title));
         let listview = imp.listview.borrow();
 
         // sm.show_end_presentation_slide();
@@ -277,7 +290,7 @@ impl ActivityViewer {
             slide.set_presentation_mode(true);
             listview.append_item(slide);
         }
-        sm.set_current_slide(sm.slides().get(0));
+        sm.set_current_slide(sm.slides().get(data.current_slide as usize));
 
         let Some(model) = listview.model() else {
             return;
@@ -308,8 +321,25 @@ impl ActivityViewer {
     }
 
     pub fn emit_activate_slide(&self) {
-        let slide_data = self.imp().slide_manager.borrow().serialise();
+        let mut slide_data = self.imp().slide_manager.borrow().serialise();
+        slide_data.title = self.imp().slide_manager.borrow().title();
         self.emit_by_name::<()>(signals::ACTIVATE_SLIDE, &[&slide_data]);
+    }
+
+    pub fn connect_slide_change<F: Fn(&Self, &u32) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::SLIDE_CHANGE,
+            false,
+            glib::closure_local!(move |obj: &Self, position: u32| {
+                f(obj, &position);
+            }),
+        )
+    }
+    fn emit_slide_change(&self, position: u32) {
+        self.emit_by_name::<()>(signals::SLIDE_CHANGE, &[&position]);
     }
 
     pub fn update_background(&self, img: String) {

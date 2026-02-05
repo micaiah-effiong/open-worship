@@ -1,30 +1,36 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use cairo;
 use gtk::gdk::Device;
 use gtk::gdk::prelude::DisplayExt;
+use gtk::gdk_pixbuf;
+use gtk::gio;
 use gtk::gio::prelude::{ApplicationExt, ApplicationExtManual};
+use gtk::glib;
 use gtk::glib::collections::slist;
 use gtk::glib::object::IsA;
 use gtk::glib::prelude::*;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{
-    AccessibleExt, BoxExt, ButtonExt, GtkApplicationExt, GtkWindowExt, StyleContextExt,
-    TextBufferExt, TextViewExt, WidgetExt,
+    AccessibleExt, BoxExt, ButtonExt, GtkApplicationExt, GtkWindowExt, SnapshotExt,
+    StyleContextExt, TextBufferExt, TextViewExt, WidgetExt,
 };
 use gtk::subclass::window;
 use gtk::{CssProvider, pango};
 use relm4::{RelmRemoveAllExt, RelmWidgetExt};
 use serde::Serialize;
 
+use crate::config::AppConfig;
 use crate::format_resource;
 use crate::services::slide::Slide;
 use crate::services::slide_manager::SlideManager;
-use crate::utils::{WidgetChildrenExt, setup_theme_listener};
+use crate::utils::{WidgetChildrenExt, WidgetExtrasExt, setup_theme_listener};
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use crate::widgets::canvas::text_item::{self, TextItem};
 use crate::widgets::entry_combo::EntryCombo;
+use crate::widgets::extended_screen::ExtendedScreen;
 use crate::widgets::{self, canvas, search};
 
 pub fn init_app() {
@@ -68,14 +74,14 @@ pub fn init_app() {
     // app.connect_activate(build_ui);
     app.connect_activate(|app| {
         {
-            let win = search::songs::edit_modal::SongEditWindow::new();
-            app.add_window(&win);
-            win.show(None);
-            println!("PRESENT");
-            // SongEditWindow::new().present();
+            // let win = search::songs::edit_modal::SongEditWindow::new();
+            // app.add_window(&win);
+            // win.show(None);
+            // println!("PRESENT");
+            // // SongEditWindow::new().present();
         }
 
-        // build_ui(&app);
+        build_ui(&app);
         // build_dnd_ui(&app);
     });
 
@@ -89,7 +95,7 @@ fn build_ui(app: &gtk::Application) {
     app_window.set_default_height(500);
 
     let v_box = gtk::Box::new(gtk::Orientation::Vertical, 2);
-    let aspect_frame = gtk::AspectFrame::new(0.5, 0.5, 16.0 / 9.0, false);
+    let aspect_frame = gtk::AspectFrame::new(0.5, 0.5, AppConfig::aspect_ratio(), false);
     v_box.append(&aspect_frame);
 
     let load_data = r##"{
@@ -114,7 +120,7 @@ fn build_ui(app: &gtk::Application) {
             }
         ],
         "preview": "",
-        "background-color": "#383E41",
+        "background-color": "#383e41ff",
         "background-pattern": ""
     }"##;
     let _slide_data: SlideData =
@@ -128,7 +134,7 @@ fn build_ui(app: &gtk::Application) {
         let sm = SlideManager::new();
         sm.load_data(SlideManagerData::new(0, 0, [_slide_data]));
         for s in sm.slides() {
-            s.set_presentation_mode(true);
+            // s.set_presentation_mode(true);
             println!("presentation_mode {}", s.presentation_mode());
         }
         sm
@@ -207,6 +213,8 @@ fn build_ui(app: &gtk::Application) {
         }
     });
 
+    let picture = gtk::Picture::new();
+
     let t_box = gtk::Box::new(gtk::Orientation::Horizontal, 2);
     {
         let new_slide = gtk::Button::with_label("New slide");
@@ -234,8 +242,8 @@ fn build_ui(app: &gtk::Application) {
         t_box.append(&next_slide);
         t_box.append(&previous_slide);
 
-        let add_window = gtk::Button::with_label("Live");
-        add_window.connect_clicked({
+        let add_window_btn = gtk::Button::with_label("Live");
+        add_window_btn.connect_clicked({
             let app = app.downgrade().clone();
             let sm = sm.clone();
 
@@ -246,9 +254,12 @@ fn build_ui(app: &gtk::Application) {
                 };
 
                 let window = add_app_window();
-                let aspect_frame = gtk::AspectFrame::new(0.5, 0.5, 16.0 / 9.0, false);
+                let aspect_frame =
+                    gtk::AspectFrame::new(0.5, 0.5, AppConfig::aspect_ratio(), false);
 
                 app.add_window(&window);
+                let x_screen = ExtendedScreen::new();
+                app.add_window(&x_screen);
 
                 let load_window_slide = {
                     let window = aspect_frame.clone();
@@ -271,25 +282,26 @@ fn build_ui(app: &gtk::Application) {
 
                 window.set_child(Some(&aspect_frame));
                 window.present();
+                x_screen.present();
             }
         });
-        t_box.append(&add_window);
+        t_box.append(&add_window_btn);
 
-        let m = gtk::StringList::new(&["4", "8", "12"]);
-        let combo = EntryCombo::new(Some(&m));
-        combo.set_text("2");
-        combo.set_input_purpose(gtk::InputPurpose::Digits);
-        t_box.append(&combo);
-
-        let label = gtk::Label::new(None);
-        t_box.append(&label);
-        combo.connect_changed(move |_, t| {
-            label.set_text(&t);
+        let snap_btn = gtk::Button::with_label("Snap");
+        t_box.append(&snap_btn);
+        snap_btn.connect_clicked({
+            let tbox = t_box.clone();
+            let picture = picture.clone();
+            let sm = sm.clone();
+            move |btn| {
+                picture.set_paintable(sm.slideshow().snap().as_ref());
+            }
         });
     }
 
     v_box.append(&t_box);
     v_box.append(&buff_tv);
+    v_box.append(&picture);
 
     // sm.new_slide(None, false);
     // sm.next_slide();
@@ -304,9 +316,9 @@ fn add_app_window() -> gtk::Window {
     let size = 500.0;
 
     window.set_width_request(size as i32);
-    window.set_height_request((size / (16.0 / 9.0)) as i32);
+    window.set_height_request((size / AppConfig::aspect_ratio()) as i32);
 
-    window.set_decorated(false);
+    // window.set_decorated(false);
     // window.fullscreen_on_monitor(monitor);
     // window.fullscreen();
 

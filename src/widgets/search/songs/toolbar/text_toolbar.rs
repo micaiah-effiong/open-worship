@@ -64,7 +64,7 @@ mod imp {
             obj.set_height_request(35);
             obj.set_spacing(8);
             obj.set_widget_name("text-toolbar-box");
-            obj.set_css_classes(&[/* "brown_box", */ "edit-toolbar-box"]);
+            obj.set_css_classes(&["edit-toolbar-box"]);
             obj.set_margin_all(6);
 
             let Some(sm) = self.slide_manager.upgrade() else {

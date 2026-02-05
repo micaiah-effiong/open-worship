@@ -42,7 +42,7 @@ mod imp {
 
     use super::*;
     use crate::{
-        services::slide_manager::SlideManager, utils::WidgetExtrasExt,
+        config::AppConfig, services::slide_manager::SlideManager, utils::WidgetExtrasExt,
         widgets::search::songs::toolbar::song_editor_toolbar::SongEditorToolbar,
     };
 
@@ -192,7 +192,7 @@ mod imp {
                 screen.set_margin_all(4);
                 let aspect_frame = gtk::AspectFrame::builder()
                     .css_name("pink_box")
-                    .ratio(16.0 / 9.0)
+                    .ratio(AppConfig::aspect_ratio())
                     .obey_child(false)
                     .child(&screen)
                     .build();

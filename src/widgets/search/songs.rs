@@ -244,13 +244,11 @@ impl SimpleComponent for SearchSongModel {
         gtk::Box{
             set_orientation:gtk::Orientation::Vertical,
             set_vexpand: true,
-            add_css_class: "blue_box",
 
             gtk::Box {
                 set_orientation: gtk::Orientation::Horizontal,
                 set_spacing: 2,
                 set_height_request: 48,
-                add_css_class: "green_double_box",
 
                 // gtk::Label {
                 //     set_label: "Title",

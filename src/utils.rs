@@ -1,9 +1,11 @@
 use gtk::gdk::prelude::DisplayExt;
 use gtk::gdk_pixbuf::prelude::PixbufLoaderExt;
 use gtk::gio::prelude::ListModelExt;
-use gtk::glib::object::{self, Cast, CastNone, IsA};
-use gtk::prelude::{SelectionModelExt, StyleContextExt, TextBufferExt, WidgetExt};
-use gtk::{CssProvider, gio, glib};
+use gtk::glib::object::{Cast, CastNone, IsA};
+use gtk::prelude::{
+    AccessibleExt, SelectionModelExt, SnapshotExt, StyleContextExt, TextBufferExt, WidgetExt,
+};
+use gtk::{CssProvider, gdk_pixbuf, gio, glib};
 
 use crate::widgets::canvas::canvas::Canvas;
 use crate::widgets::canvas::canvas_item::CanvasItem;
@@ -271,6 +273,14 @@ pub trait ListViewExtra: IsA<gtk::ListView> {
 
         list_store.append(item);
     }
+    fn insert_item(&self, position: u32, item: &impl IsA<glib::Object>) {
+        let list_view = self.upcast_ref::<gtk::ListView>();
+        let Some(list_store) = get_list_store(&list_view) else {
+            return;
+        };
+
+        list_store.insert(position, item);
+    }
     fn get_items(&self) -> Vec<glib::Object> {
         let list_view = self.upcast_ref::<gtk::ListView>();
         let mut items = Vec::new();
@@ -331,6 +341,18 @@ pub trait ListViewExtra: IsA<gtk::ListView> {
         }
     }
 
+    fn remove_item(&self, item: &impl IsA<glib::Object>) {
+        let list_view = self.upcast_ref::<gtk::ListView>();
+
+        let Some(list_store) = get_list_store(&list_view) else {
+            return;
+        };
+
+        if let Some(position) = list_store.find(item) {
+            list_store.remove(position);
+        };
+    }
+
     fn remove_all(&self) {
         let list_view = self.upcast_ref::<gtk::ListView>();
         if let Some(list_store) = get_list_store(&list_view) {
@@ -357,6 +379,39 @@ pub trait WidgetExtrasExt: IsA<gtk::Widget> {
     fn set_tooltip(&self, text: &str) {
         self.set_has_tooltip(true);
         self.set_tooltip_text(Some(text));
+    }
+    fn snap_selected(
+        &self,
+        children: Vec<&impl IsA<gtk::Widget>>,
+    ) -> Option<impl IsA<gtk::gdk::Paintable>> {
+        let obj = self.upcast_ref::<gtk::Widget>();
+        let snap = gtk::Snapshot::new();
+        for c in children {
+            obj.snapshot_child(c, &snap);
+        }
+
+        let Some((_, _, w, h)) = obj.bounds() else {
+            glib::g_log!("Snapshot", glib::LogLevel::Warning, "Could not get bounds",);
+            return None;
+        };
+
+        let size = gtk::graphene::Size::new(w as f32, h as f32);
+        snap.to_paintable(Some(&size))
+    }
+    fn snap(&self) -> Option<impl IsA<gtk::gdk::Paintable>> {
+        let obj = self.upcast_ref::<gtk::Widget>();
+        let snap = gtk::Snapshot::new();
+        for c in obj.children() {
+            obj.snapshot_child(&c, &snap);
+        }
+
+        let Some((_, _, w, h)) = obj.bounds() else {
+            glib::g_log!("Snapshot", glib::LogLevel::Warning, "Could not get bounds",);
+            return None;
+        };
+
+        let size = gtk::graphene::Size::new(w as f32, h as f32);
+        snap.to_paintable(Some(&size))
     }
 }
 impl<O: IsA<gtk::Widget>> WidgetExtrasExt for O {}

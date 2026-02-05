@@ -18,7 +18,7 @@ use relm4::typed_view::list::TypedListView;
 use crate::db::connection::BibleVerse;
 use crate::db::query::Query;
 use crate::parser::parser::{self, BibleReference};
-use crate::utils::WidgetChildrenExt;
+use crate::utils::{WidgetChildrenExt, WidgetExtrasExt};
 use crate::widgets::canvas::serialise::SlideManagerData;
 use crate::{dto, utils};
 
@@ -293,9 +293,32 @@ impl SearchScriptureModel {
             }
         });
 
-        drag_source.connect_drag_begin(move |_, _| {
-            // let item_text = item_text.to_string();
-            // drag.set_icon_name(Some("document-properties"), 0, 0);
+        drag_source.connect_drag_begin({
+            let lv = listview.clone();
+            move |ds, drag| {
+                // let Some(model) = lv.model().and_downcast::<gtk::MultiSelection>() else {
+                //     return;
+                // };
+                //
+                // let li = lv
+                //     .children()
+                //     .filter_map(|v| {
+                //         (v.accessible_role() == gtk::AccessibleRole::ListItem).then_some(v)
+                //     })
+                //     .collect::<Vec<_>>();
+                //
+                // let selections = model.selection();
+                // let mut selected_w = Vec::new();
+                // for (i, w) in li.iter().enumerate() {
+                //     if selections.contains(i as u32) {
+                //         ds.set_icon(w.snap().as_ref(), 0, 0);
+                //         selected_w.push(w);
+                //     }
+                // }
+
+                // let item_text = item_text.to_string();
+                // drag.set_icon_name(Some("document-properties"), 0, 0);
+            }
         });
 
         listview.add_controller(drag_source);
@@ -524,13 +547,11 @@ impl SimpleComponent for SearchScriptureModel {
         gtk::Box{
             set_orientation:gtk::Orientation::Vertical,
             set_vexpand: true,
-            add_css_class: "blue_box",
 
             gtk::Box {
                 set_orientation: gtk::Orientation::Horizontal,
                 set_spacing: 2,
                 set_height_request: 48,
-                add_css_class: "green_double_box",
 
                 #[local_ref]
                 append = &search_text -> gtk::SearchEntry {

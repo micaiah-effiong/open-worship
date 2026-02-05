@@ -45,7 +45,6 @@ impl RelmGridItem for BackgroundGridListItem {
         view! {
             bg_grid_li_view = gtk::Box {
                 set_orientation: gtk::Orientation::Vertical,
-                // set_css_classes: &["border", "border-black"],
 
                 #[name="bg_picture"]
                 gtk::Picture {
@@ -60,7 +59,6 @@ impl RelmGridItem for BackgroundGridListItem {
                 gtk::Label{
                     set_vexpand: false,
                     set_ellipsize: gtk::pango::EllipsizeMode::End,
-                    // set_css_classes: &["border", "border-black"]
                 }
             }
         }

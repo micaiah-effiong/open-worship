@@ -35,8 +35,8 @@ ProductName = "Openworship"
 include = ["res/windows/wix/openworship.wxs"]
 
 [dependencies]
-relm4 = "0.9.0"
-relm4-components = "0.9.0"
+relm4 = "0.10"
+relm4-components = "0.10"
 # relm4-icons = "0.9.0"
 relm4-icons = "0.10.0-beta.2"
 dirs = "5.0.1"
@@ -46,7 +46,8 @@ serde_json = "1.0.138"
 reqwest = { version = "0.12.12", features = ["json","stream"] }
 futures-util = "0.3.31"
 pangocairo = "0.20"
-gtk = { version = "0.9.0", features = ["v4_18"], package = "gtk4" }
+gtk = { version = "0.10", features = ["v4_18"], package = "gtk4" }
+cairo-rs = { version = "0.21.2", features = ["png"] }
 strum = "0.27"
 strum_macros = "0.27"
 

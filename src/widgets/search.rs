@@ -97,7 +97,7 @@ impl SimpleComponent for SearchModel {
             gtk::Box {
                 set_orientation:gtk::Orientation::Horizontal,
                 set_spacing: 3,
-                set_css_classes: &["purple_box", "ow-listview"],
+                set_css_classes: &[ "ow-listview"],
                 set_height_request: 48,
 
                 gtk::Notebook {

@@ -143,7 +143,6 @@ impl SimpleComponent for SearchBackgroundModel {
         gtk::Box {
             set_orientation:gtk::Orientation::Vertical,
             set_vexpand: true,
-            add_css_class: "blue_box",
 
             // #[name="search_field"]
             gtk::Box {
@@ -151,7 +150,6 @@ impl SimpleComponent for SearchBackgroundModel {
                 set_spacing: 2,
                 set_height_request: 48,
                 set_width_request: 58,
-                add_css_class: "green_double_box",
 
                 gtk::SearchEntry {
                     set_placeholder_text: Some("Search..."),

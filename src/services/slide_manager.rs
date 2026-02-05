@@ -62,6 +62,8 @@ mod imp {
         pub slideshow: RefCell<gtk::Stack>,
         #[property(get, set)]
         pub animation: Cell<bool>,
+        #[property(get, set)]
+        pub title: RefCell<String>,
 
         #[doc = "property setter is private "]
         pub(super) slides: RefCell<Vec<Slide>>,
@@ -376,7 +378,9 @@ impl SlideManager {
             0
         } as u32;
 
-        SlideManagerData::new(current_slide_index, preview_slide_index, data)
+        let mut data = SlideManagerData::new(current_slide_index, preview_slide_index, data);
+        data.title = self.title();
+        data
 
         // return format!(
         //     "{{\"current-slide\":{}, \"preview-slide\":{}, \"aspect-ratio\":{}, \"slides\": [{}]}}",
