@@ -10,16 +10,32 @@ env:
 jobs:
   release:
     runs-on: ubuntu-latest
-    container:
-      image: kalilinux/kali-rolling
+    # container:
+    #   image: kalilinux/kali-rolling
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Replace Noble repos with Questing Ubuntu 25.04
+        run: |
+          sudo tee /etc/apt/sources.list > /dev/null <<EOF
+          deb http://archive.ubuntu.com/ubuntu questing main restricted universe multiverse
+          deb http://archive.ubuntu.com/ubuntu questing-updates main restricted universe multiverse
+          deb http://archive.ubuntu.com/ubuntu questing-security main restricted universe multiverse
+          EOF
+          sudo apt-get update
+
       - name: Install GTK4 and libfuse2 (Linux)
         run: |
-          apt-get update
-          apt-get install -y curl wget git libssl-dev file pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev
+          sudo apt-get update
+          sudo apt-get install -y  pkg-config build-essential libfuse2 librsvg2-dev libgtk-4-dev libgtk-4-1 gcc g++ binutils gir1.2-gtk-4.0
+          # sudo add-apt-repository ppa:canonical-desktop-team/sru-staging -y
+          # sudo apt-get install -y  pkg-config build-essential libfuse2 librsvg2-dev
+          # sudo apt-get install -y curl wget git libssl-dev libfontconfig1 file pkg-config libgtk-4-dev build-essential libfuse2 fuse librsvg2-dev
+
+          # - name: Install GTK4 build dependencies
+          #   run: |
+          # sudo apt-get install -y meson ninja-build libglib2.0-dev libcairo2-dev libgraphene-1.0-dev libpango1.0-dev libepoxy-dev libxkbcommon-dev libxkbcommon-x11-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev glslc libxrandr-dev libx11-dev libxext-dev libxi-dev libxinerama-dev libxcursor-dev libxfixes-dev libxdamage-dev libvulkan-dev vulkan-tools
 
       - name: Configure cache
         uses: actions/cache@v4
@@ -27,19 +43,56 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          key: linux-cargo-${{ hashFiles('gtk/meson.build') }}
+          restore-keys: linux-cargo-
 
-      - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      # - name: Configure cache
+      #   uses: actions/cache@v4
+      #   with:
+      #     path: /opt/gtk4
+      #     key: gtk-4-18-0-${{ hashFiles('**/Cargo.lock') }}
+      #     restore-keys: gtk-4-18-0-cargo-
+      #
+      # - name: Build GTK4 from source
+      #   run: |
+      #     git clone --branch 4.18.0 --single-branch https://github.com/GNOME/gtk.git
+      #     cd gtk
+      #     meson setup builddir \
+      #       --prefix=/opt/gtk4 \
+      #       --libdir=lib \
+      #       -Dbuild-tests=false \
+      #       -Dbuild-examples=false \
+      #       -Ddocumentation=false \
+      #       -Dintrospection=disabled
+      #
+      #     sudo ninja -C builddir -j$(nproc)
+      #     sudo ninja -C builddir install
+      #     sudo ldconfig
+      #
+      #     cd ..
+
+      # - name: Make GTK4 system default
+      #   run: |
+      #     set -eux
+      #
+      #     echo "/opt/gtk4/lib" | sudo tee /etc/ld.so.conf.d/gtk4.conf
+      #     sudo ldconfig
+      #
+      #     echo "PKG_CONFIG_PATH=/opt/gtk4/lib/pkgconfig:${PKG_CONFIG_PATH:-}" >> $GITHUB_ENV
+      #     echo "LD_LIBRARY_PATH=/opt/gtk4/lib:${LD_LIBRARY_PATH:-}" >> $GITHUB_ENV
+      #     echo "PATH=/opt/gtk4/bin:$PATH" >> $GITHUB_ENV
 
       - name: Check GTK
         run: |
-          echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
+          echo "[GTK_LAUNCH_VERSION]: $(gtk4-launch --version)"
+          echo "[GTK_PKG_VERSION]: $(pkg-config --modversion gtk4)"
+          echo "[LIB]: $(ldd $(which gtk4-launch) | grep gtk)"
           echo "[PKG]: $(which pkg-config)"
           echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
           apt search libgtk-4-dev
+
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Cargo build
         run: |
@@ -65,5 +118,5 @@ jobs:
           path: openworship*.deb
           if-no-files-found: error
 
-      # create release with
-      # https://github.com/softprops/action-gh-release
+      # # create release with
+      # # https://github.com/softprops/action-gh-release
