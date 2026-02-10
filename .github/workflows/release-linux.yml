@@ -86,6 +86,8 @@ jobs:
         run: |
           echo "[GTK_LAUNCH_VERSION]: $(gtk4-launch --version)"
           echo "[GTK_PKG_VERSION]: $(pkg-config --modversion gtk4)"
+          echo "[GTK_LIB]: $(pkg-config --variable=libdir gtk4)"
+          echo "[GTK_LIBS]: $(ls $(pkg-config --variable=libdir gtk4))"
           echo "[LIB]: $(ldd $(which gtk4-launch) | grep gtk)"
           echo "[PKG]: $(which pkg-config)"
           echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
