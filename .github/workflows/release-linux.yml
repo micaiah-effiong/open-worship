@@ -18,24 +18,37 @@ jobs:
 
       - name: Replace Noble repos with Questing Ubuntu 25.04
         run: |
-          sudo tee /etc/apt/sources.list > /dev/null <<EOF
-          deb http://archive.ubuntu.com/ubuntu questing main restricted universe multiverse
-          deb http://archive.ubuntu.com/ubuntu questing-updates main restricted universe multiverse
-          deb http://archive.ubuntu.com/ubuntu questing-security main restricted universe multiverse
+          sudo tee /etc/apt/sources.list.d/ubuntu.sources > /dev/null <<EOF
+          Types: deb
+          URIs: http://archive.ubuntu.com/ubuntu
+          Suites: resolute resolute-updates resolute-security
+          Components: main restricted universe multiverse
+          Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
           EOF
+
           sudo apt-get update
 
       - name: Install GTK4 and libfuse2 (Linux)
         run: |
           sudo apt-get update
-          sudo apt-get install -y  pkg-config build-essential libfuse2 librsvg2-dev libgtk-4-dev libgtk-4-1 gcc g++ binutils gir1.2-gtk-4.0
-          # sudo add-apt-repository ppa:canonical-desktop-team/sru-staging -y
-          # sudo apt-get install -y  pkg-config build-essential libfuse2 librsvg2-dev
-          # sudo apt-get install -y curl wget git libssl-dev libfontconfig1 file pkg-config libgtk-4-dev build-essential libfuse2 fuse librsvg2-dev
-
-          # - name: Install GTK4 build dependencies
-          #   run: |
-          # sudo apt-get install -y meson ninja-build libglib2.0-dev libcairo2-dev libgraphene-1.0-dev libpango1.0-dev libepoxy-dev libxkbcommon-dev libxkbcommon-x11-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev glslc libxrandr-dev libx11-dev libxext-dev libxi-dev libxinerama-dev libxcursor-dev libxfixes-dev libxdamage-dev libvulkan-dev vulkan-tools
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libfuse2 \
+            librsvg2-dev \
+            libgtk-4-dev \
+            libgtk-4-1 \
+            libgtk-4-bin \
+            gir1.2-gtk-4.0 \
+            libglib2.0-dev \
+            libglib2.0-0t64 \
+            libglib2.0-bin \
+            gcc \
+            g++ \
+            binutils \
+            appstream \
+            desktop-file-utils \
+            meson ninja-build libfontconfig1-dev libcairo2-dev libgraphene-1.0-dev libpango1.0-dev libepoxy-dev libxkbcommon-dev libxkbcommon-x11-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev glslc libxrandr-dev libx11-dev libxext-dev libxi-dev libxinerama-dev libxcursor-dev libxfixes-dev libxdamage-dev libvulkan-dev vulkan-tools
 
       - name: Configure cache
         uses: actions/cache@v4
@@ -87,37 +100,43 @@ jobs:
           echo "[GTK_LAUNCH_VERSION]: $(gtk4-launch --version)"
           echo "[GTK_PKG_VERSION]: $(pkg-config --modversion gtk4)"
           echo "[GTK_LIB]: $(pkg-config --variable=libdir gtk4)"
-          echo "[GTK_LIBS]: $(ls $(pkg-config --variable=libdir gtk4))"
+          # echo "[GTK_LIBS]: $(ls $(pkg-config --variable=libdir gtk4))"
+          # echo "[GTK_PC_FILE]: $(ls /usr/lib/x86_64-linux-gnu/pkgconfig/gtk4.pc)"
           echo "[LIB]: $(ldd $(which gtk4-launch) | grep gtk)"
           echo "[PKG]: $(which pkg-config)"
           echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
-          apt search libgtk-4-dev
 
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cargo build
-        run: |
-          cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
+      # - name: Cargo build
+      #   run: |
+      #     cargo build --target $(rustup target list | awk '/installed/ {print $1;}') --release
 
-      - name: Install cargo-deb (Linux)
+      - name: Install cargo-deb
         run: cargo install cargo-deb
 
-      - name: Package (Linux, with modern)
+      - name: Set cargo build target
+        run: cargo build --release
+
+      - name: Package appimage
         run: ./build-linux.sh
 
-      - name: Upload AppImage to artifacts (Linux)
+      - name: Build Deb
+        run: cargo deb --no-strip
+
+      - name: Upload AppImage to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: openworship-ubuntu-x86_64-appimage
-          path: openworship-*.AppImage
+          path: openworship*.AppImage
           if-no-files-found: error
 
-      - name: Upload installer to artifacts (Linux)
+      - name: Upload installer to artifacts
         uses: actions/upload-artifact@v4
         with:
           name: openworship-ubuntu-x86_64-deb
-          path: openworship*.deb
+          path: target/debian/openworship*.deb
           if-no-files-found: error
 
       # # create release with

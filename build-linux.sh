@@ -1,8 +1,6 @@
 # Build Debian package
 target=$(rustup target list | awk '/installed/ {print $1;}')
-cargo deb --target $target --no-strip --profile release
-echo "[DEB]: $(ls target/$target)"
-mv target/$target/debian/*.deb ./
+# cargo deb --target $target --no-strip --profile release
 
 # And build AppImage as well
 if [ ! -f ./linuxdeploy-$(uname -m).AppImage ]; then
@@ -17,12 +15,21 @@ fi
 
 # Set library paths for dependency detection (Ubuntu standard paths)
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH"
+
+echo "=== Copying libraries ==="
+cp /usr/lib/x86_64-linux-gnu/libfontconfig.so* AppDir/usr/lib/ 2>/dev/null || true
+cp /usr/lib/x86_64-linux-gnu/libpango*.so* AppDir/usr/lib/ 2>/dev/null || true
+cp /usr/lib/x86_64-linux-gnu/libfreetype.so* AppDir/usr/lib/ 2>/dev/null || true
+cp /usr/lib/x86_64-linux-gnu/libharfbuzz.so* AppDir/usr/lib/ 2>/dev/null || true
+cp /usr/lib/x86_64-linux-gnu/libcairo*.so* AppDir/usr/lib/ 2>/dev/null || true
+cp /usr/lib/x86_64-linux-gnu/libglib*.so* AppDir/usr/lib/ 2>/dev/null || true
+cp /usr/lib/x86_64-linux-gnu/libgtk-4.so* AppDir/usr/lib/ 2>/dev/null || true
     
 chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
 NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
 	--appdir AppDir \
 	--plugin gtk \
-	--executable target/$target/release/openworship \
+	--executable target/release/openworship \
 	--desktop-file res/linux/com.openworship.app.desktop \
 	--icon-file res/linux/openworship.png \
 	--output appimage

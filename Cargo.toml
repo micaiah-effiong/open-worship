@@ -21,6 +21,12 @@ assets = [
     ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/openworship.png", "644"],
 ]
 
+[package.metadata.appimage]
+assets = ["res/linux"]
+icon = "res/linux/openworship.png"
+desktop_entry = "res/linux/com.openworship.app.desktop"
+auto_link = true
+
 [package.metadata.deb.variants.modern]
 name = "openworship"
 merge-assets.append = [
