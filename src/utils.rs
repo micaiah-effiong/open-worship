@@ -2,10 +2,11 @@ use gtk::gdk::prelude::DisplayExt;
 use gtk::gdk_pixbuf::prelude::PixbufLoaderExt;
 use gtk::gio::prelude::ListModelExt;
 use gtk::glib::object::{Cast, CastNone, IsA};
+use gtk::glib::types::StaticType;
 use gtk::prelude::{
     AccessibleExt, SelectionModelExt, SnapshotExt, StyleContextExt, TextBufferExt, WidgetExt,
 };
-use gtk::{CssProvider, gdk_pixbuf, gio, glib};
+use gtk::{CssProvider, gio, glib};
 
 use crate::widgets::canvas::canvas::Canvas;
 use crate::widgets::canvas::canvas_item::CanvasItem;
@@ -59,7 +60,7 @@ impl<W: IsA<gtk::Widget> + IsA<glib::Object>> DoubleEndedIterator for ChildrenIt
 pub trait WidgetChildrenExt {
     fn get_children<W: IsA<gtk::Widget> + IsA<glib::Object>>(&self) -> ChildrenIterator<W>;
     fn children(&self) -> ChildrenIterator<gtk::Widget>;
-    fn get_all_children_iter<W: IsA<gtk::Widget>>(widget: &gtk::Widget) -> Vec<W>;
+    // fn get_all_children_iter<W: IsA<gtk::Widget>>(widget: &gtk::Widget) -> Vec<W>;
 }
 impl<O: IsA<gtk::Widget>> WidgetChildrenExt for O {
     fn get_children<W: IsA<gtk::Widget> + IsA<glib::Object>>(&self) -> ChildrenIterator<W> {
@@ -75,26 +76,26 @@ impl<O: IsA<gtk::Widget>> WidgetChildrenExt for O {
     fn children(&self) -> ChildrenIterator<gtk::Widget> {
         self.get_children::<gtk::Widget>()
     }
-    fn get_all_children_iter<W: IsA<gtk::Widget>>(widget: &gtk::Widget) -> Vec<W> {
-        let mut result = Vec::new();
-        let mut stack = vec![widget.clone()];
-
-        while let Some(current) = stack.pop() {
-            let mut child = current.first_child();
-
-            while let Some(current_child) = child {
-                if let Ok(c) = current_child.clone().downcast::<W>()
-                    && c.is_drawable()
-                {
-                    result.push(c);
-                }
-                stack.push(current_child.clone());
-                child = current_child.next_sibling();
-            }
-        }
-
-        result
-    }
+    // fn get_all_children_iter<W: IsA<gtk::Widget>>(widget: &gtk::Widget) -> Vec<W> {
+    //     let mut result = Vec::new();
+    //     let mut stack = vec![widget.clone()];
+    //
+    //     while let Some(current) = stack.pop() {
+    //         let mut child = current.first_child();
+    //
+    //         while let Some(current_child) = child {
+    //             if let Ok(c) = current_child.clone().downcast::<W>()
+    //                 && c.is_drawable()
+    //             {
+    //                 result.push(c);
+    //             }
+    //             stack.push(current_child.clone());
+    //             child = current_child.next_sibling();
+    //         }
+    //     }
+    //
+    //     result
+    // }
 }
 
 pub mod rect {
@@ -374,7 +375,6 @@ pub trait WidgetExtrasExt: IsA<gtk::Widget> {
     fn set_expand(&self, value: bool) {
         self.set_hexpand(value);
         self.set_vexpand(value);
-        // glib::dgettext("myapp", $msg)
     }
     fn set_tooltip(&self, text: &str) {
         self.set_has_tooltip(true);
@@ -412,6 +412,11 @@ pub trait WidgetExtrasExt: IsA<gtk::Widget> {
 
         let size = gtk::graphene::Size::new(w as f32, h as f32);
         snap.to_paintable(Some(&size))
+    }
+
+    fn toplevel_window(&self) -> Option<gtk::Window> {
+        self.ancestor(gtk::Window::static_type())
+            .and_then(|widget| widget.dynamic_cast::<gtk::Window>().ok())
     }
 }
 impl<O: IsA<gtk::Widget>> WidgetExtrasExt for O {}

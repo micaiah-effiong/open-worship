@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SearchBackground" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <property name="vexpand">true</property>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">2</property>
+        <property name="height_request">48</property>
+
+        <child>
+          <object class="GtkSearchEntry" id="search_text">
+            <property name="hexpand">true</property>
+            <signal name="activate" handler="handle_search_activate" swapped="true"/>
+          </object>
+        </child>
+      
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkScrolledWindow">
+        <property name="vexpand">true</property>
+        <child>
+          <object class="GtkGridView" id="gridview">
+            <property name="min_columns">2</property>
+            <signal name="activate" handler="handle_preview_background" swapped="true"/>
+          </object>
+        </child>
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">3</property>
+        <child>
+          <object class="GtkButton" id="add_bg_btn">
+            <property name="icon_name">plus</property>
+            <signal name="clicked" handler="handle_add_background" swapped="true"/>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkButton" id="remove_bg_btn">
+            <property name="icon_name">minus</property>
+            <signal name="clicked" handler="handle_remove_background" swapped="true"/>
+          </object>
+        </child>
+      </object>
+    </child>
+
+  </template>
+</interface>

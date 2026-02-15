@@ -1,120 +1,7 @@
 use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 
-use crate::{
-    dto::schedule_data::ScheduleData,
-    services::slide,
-    widgets::canvas::serialise::{self, SlideData, SlideManagerData},
-};
-
-#[derive(Debug, Clone)]
-pub struct Payload {
-    pub text: String,
-    pub position: u32,
-    pub background_image: Option<String>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq, glib::Boxed)]
-#[boxed_type(name = "ListPayload")]
-pub struct ListPayload {
-    pub text: String,
-    pub position: u32,
-    pub list: Vec<String>,
-    pub background_image: Option<String>,
-}
-
-impl ListPayload {
-    pub fn new(
-        text: String,
-        position: u32,
-        list: Vec<String>,
-        background_image: Option<String>,
-    ) -> ListPayload {
-        ListPayload {
-            text,
-            position,
-            list,
-            background_image,
-        }
-    }
-}
-
-impl Into<SlideManagerData> for ListPayload {
-    fn into(self) -> SlideManagerData {
-        let slides = self
-            .list
-            .iter()
-            .map(|v| {
-                let mut s = SlideData::from_default();
-
-                s.canvas_data.background_pattern =
-                    self.background_image.clone().unwrap_or_default();
-                for i in &mut s.items {
-                    match &mut i.item_type {
-                        serialise::CanvasItemType::Text(text) => {
-                            text.text_data = glib::base64_encode(v.clone().as_bytes()).to_string();
-                            break;
-                        }
-                        _ => continue,
-                    }
-                }
-
-                s
-            })
-            .collect::<Vec<_>>();
-
-        let mut sm_data = SlideManagerData::new(self.position, 0, slides);
-        sm_data.title = self.text;
-        sm_data
-    }
-}
-impl Into<schedule_data::ScheduleData> for ListPayload {
-    fn into(self) -> schedule_data::ScheduleData {
-        let slides = self
-            .list
-            .iter()
-            .map(|v| {
-                let mut s = SlideData::from_default();
-
-                s.canvas_data.background_pattern =
-                    self.background_image.clone().unwrap_or_default();
-                for i in &mut s.items {
-                    match &mut i.item_type {
-                        serialise::CanvasItemType::Text(text) => {
-                            text.text_data = glib::base64_encode(v.clone().as_bytes()).to_string();
-                            break;
-                        }
-                        _ => continue,
-                    }
-                }
-
-                s
-            })
-            .collect::<Vec<_>>();
-
-        let mut sm_data = SlideManagerData::new(self.position, 0, slides);
-        sm_data.title = self.text.clone();
-
-        ScheduleData::new(self.text, sm_data)
-    }
-}
-
-#[derive(Debug, Clone, glib::Boxed)]
-#[boxed_type(name = "DisplayPayload")]
-pub struct DisplayPayload {
-    pub text: String,
-    /// image src/filepath
-    pub background_image: Option<String>,
-}
-
-impl DisplayPayload {
-    pub fn new(text: String) -> Self {
-        DisplayPayload {
-            text,
-            background_image: None,
-        }
-    }
-}
+use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 
 // SONG VERSE
 #[derive(Debug, Clone, Default, PartialEq, Eq, glib::Boxed)]
@@ -241,9 +128,30 @@ impl From<SongObject> for SongData {
         obj.imp().data.borrow().clone()
     }
 }
+
+impl Into<SlideManagerData> for SongObject {
+    fn into(self) -> SlideManagerData {
+        let slide_list = self
+            .verses()
+            .into_iter()
+            .map(|s| {
+                s.slide
+                    .as_ref()
+                    .and_then(|val| serde_json::from_str(val).ok())
+                    .unwrap_or_else(SlideData::from_default)
+            })
+            .collect::<Vec<_>>();
+
+        let mut sm_data = SlideManagerData::new(0, 0, slide_list);
+        sm_data.title = self.title();
+        sm_data
+    }
+}
+
 // SCRIPTURE
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone, glib::Boxed)]
+#[boxed_type(name = "Scripture")]
 pub struct Scripture {
     pub book: String,
     pub chapter: u32,
@@ -259,6 +167,61 @@ impl Scripture {
             self.text, self.book, self.chapter, self.verse, self.translation
         );
         text
+    }
+}
+
+pub mod scripture {
+    use super::*;
+    mod imp {
+        use std::cell::{Cell, RefCell};
+
+        use gtk::glib::{
+            Properties,
+            subclass::{object::ObjectImpl, types::ObjectSubclass},
+        };
+        use gtk::prelude::ObjectExt;
+        use gtk::subclass::prelude::DerivedObjectProperties;
+
+        use super::*;
+
+        #[derive(Debug, Default, Properties)]
+        #[properties(wrapper_type = super::ScriptureObject)]
+        pub struct ScriptureObject {
+            #[property(get, construct_only)]
+            pub item: RefCell<Scripture>,
+            #[property(get, construct_only)]
+            pub full_reference: Cell<bool>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for ScriptureObject {
+            const NAME: &'static str = "ScriptureObject";
+            type Type = super::ScriptureObject;
+        }
+
+        #[glib::derived_properties]
+        impl ObjectImpl for ScriptureObject {}
+    }
+
+    glib::wrapper! {
+        pub struct ScriptureObject(ObjectSubclass<imp::ScriptureObject>);
+    }
+
+    impl Default for ScriptureObject {
+        fn default() -> Self {
+            glib::Object::new()
+        }
+    }
+
+    impl ScriptureObject {
+        pub fn new(scripture: Scripture, full_reference: bool) -> Self {
+            let obj: Self = glib::Object::builder()
+                .property("item", scripture)
+                .property("full_reference", full_reference)
+                .build();
+
+            obj
+        }
     }
 }
 
@@ -318,6 +281,72 @@ pub mod schedule_data {
                 .property("slide_data", data)
                 .build();
 
+            obj
+        }
+    }
+}
+
+pub mod background_obj {
+    use super::*;
+    mod imp {
+        use std::cell::RefCell;
+
+        use gtk::glib::Properties;
+        use gtk::glib::subclass::{object::ObjectImpl, types::ObjectSubclass};
+        use gtk::prelude::ObjectExt;
+        use gtk::subclass::prelude::DerivedObjectProperties;
+
+        use super::*;
+
+        #[derive(Default, Debug, Properties)]
+        #[properties(wrapper_type = super::BackgroundObj)]
+        pub struct BackgroundObj {
+            #[property(get, construct_only)]
+            pub title: RefCell<String>,
+            #[property(get, construct_only)]
+            pub src: RefCell<String>,
+        }
+
+        #[glib::object_subclass]
+        impl ObjectSubclass for BackgroundObj {
+            const NAME: &'static str = "BackgroundObj";
+            type Type = super::BackgroundObj;
+        }
+
+        #[glib::derived_properties]
+        impl ObjectImpl for BackgroundObj {}
+    }
+
+    glib::wrapper! {
+        pub struct BackgroundObj(ObjectSubclass<imp::BackgroundObj>);
+    }
+
+    impl Default for BackgroundObj {
+        fn default() -> Self {
+            glib::Object::new()
+        }
+    }
+
+    impl BackgroundObj {
+        pub fn new(src: String, title: Option<String>) -> Self {
+            let title = match title {
+                Some(t) => t,
+                None => {
+                    let name = match std::path::Path::new(&src).file_name() {
+                        Some(name) => name.to_str(),
+                        None => panic!("Invalid file name"),
+                    };
+                    match name {
+                        Some(name) => name.to_string(),
+                        None => panic!("Error converting file name to string"),
+                    }
+                }
+            };
+
+            let obj: Self = glib::Object::builder()
+                .property("title", title)
+                .property("src", src)
+                .build();
             obj
         }
     }

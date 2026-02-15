@@ -25,7 +25,7 @@ mod imp {
 
     use gtk::{
         glib::{
-            self,
+            self, Properties,
             object::{Cast, CastNone},
             subclass::{
                 Signal,
@@ -34,26 +34,31 @@ mod imp {
             },
             types::StaticType,
         },
-        prelude::{BoxExt, ListItemExt, OrientableExt, SelectionModelExt, WidgetExt},
-        subclass::{box_::BoxImpl, widget::WidgetImpl},
+        prelude::{BoxExt, ListItemExt, ObjectExt, OrientableExt, SelectionModelExt, WidgetExt},
+        subclass::{box_::BoxImpl, prelude::DerivedObjectProperties, widget::WidgetImpl},
     };
 
     use crate::{
-        config::AppConfig,
+        app_config::AppConfig,
         services::{slide::Slide, slide_manager::SlideManager},
         utils::{TextBufferExtraExt, WidgetExtrasExt},
         widgets::{activity_viewer::signals, canvas::serialise::SlideManagerData},
     };
 
-    #[derive(Debug, Default)]
+    #[derive(Debug, Default, Properties)]
+    #[properties(wrapper_type=super::ActivityViewer)]
     pub struct ActivityViewer {
         pub slide_manager: RefCell<SlideManager>,
         pub(super) listview: RefCell<gtk::ListView>,
 
         //
         pub title_label: RefCell<gtk::Label>,
+        #[property(get, set, construct)]
         pub title: RefCell<String>,
         pub clear: Cell<bool>,
+
+        #[property(get, set)]
+        pub background_image: RefCell<String>,
     }
 
     #[glib::object_subclass]
@@ -63,6 +68,7 @@ mod imp {
         type ParentType = gtk::Box;
     }
 
+    #[glib::derived_properties]
     impl ObjectImpl for ActivityViewer {
         fn constructed(&self) {
             self.parent_constructed();
@@ -192,6 +198,7 @@ mod imp {
 
                 let title_label = self.title_label.borrow().clone();
                 title_label.set_halign(gtk::Align::Start);
+                title_label.set_label(&self.title.borrow());
                 base.append(&title_label);
                 base.append(&scrolled);
                 base
@@ -230,6 +237,8 @@ mod imp {
                 .build();
 
             obj.append(&paned);
+
+            self.slide_manager.borrow().show_end_presentation_slide();
         }
 
         fn signals() -> &'static [glib::subclass::Signal] {
@@ -259,7 +268,7 @@ pub struct ActivityViewer (ObjectSubclass<imp::ActivityViewer>)
 
 impl ActivityViewer {
     pub fn new(title: &str) -> Self {
-        let obj: Self = glib::Object::new();
+        let obj: Self = glib::Object::builder().property("title", title).build();
         obj.imp()
             .slide_manager
             .borrow()
@@ -280,7 +289,6 @@ impl ActivityViewer {
             .set_label(&format!("{} - {}", imp.title.borrow(), data.title));
         let listview = imp.listview.borrow();
 
-        // sm.show_end_presentation_slide();
         listview.remove_all();
         sm.reset();
         sm.load_data(data.clone());
@@ -288,6 +296,14 @@ impl ActivityViewer {
         for slide in &sm.slides() {
             slide.load_slide();
             slide.set_presentation_mode(true);
+
+            if let Some(canvas) = slide.canvas()
+                && canvas.background_pattern().is_empty()
+            {
+                canvas.set_background_pattern(self.background_image());
+                canvas.style();
+            };
+
             listview.append_item(slide);
         }
         sm.set_current_slide(sm.slides().get(data.current_slide as usize));
@@ -299,7 +315,6 @@ impl ActivityViewer {
         if model.n_items() > 0 {
             model.select_item(data.current_slide, true);
             if let Some(child) = listview.children().nth(data.current_slide as usize) {
-                // child.grab_focus();
                 listview.set_focus_child(Some(&child));
             }
         }
@@ -326,15 +341,12 @@ impl ActivityViewer {
         self.emit_by_name::<()>(signals::ACTIVATE_SLIDE, &[&slide_data]);
     }
 
-    pub fn connect_slide_change<F: Fn(&Self, &u32) + 'static>(
-        &self,
-        f: F,
-    ) -> glib::SignalHandlerId {
+    pub fn connect_slide_change<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             signals::SLIDE_CHANGE,
             false,
             glib::closure_local!(move |obj: &Self, position: u32| {
-                f(obj, &position);
+                f(obj, position);
             }),
         )
     }
@@ -345,12 +357,13 @@ impl ActivityViewer {
     pub fn update_background(&self, img: String) {
         let imp = self.imp();
         let sm = imp.slide_manager.borrow();
+        self.set_background_image(img);
 
         for slide in sm.slides() {
             let Some(canvas) = slide.canvas() else {
                 continue;
             };
-            canvas.set_background_pattern(img.clone());
+            canvas.set_background_pattern(self.background_image());
             canvas.style();
         }
     }

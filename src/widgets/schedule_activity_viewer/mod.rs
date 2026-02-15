@@ -39,7 +39,6 @@ mod imp {
             widget::{CompositeTemplateClass, CompositeTemplateInitializingExt, WidgetImpl},
         },
     };
-    use relm4::RelmWidgetExt;
     use schedule_list_item::ScheduleListItem;
 
     #[derive(Default, gtk::CompositeTemplate)]
@@ -95,14 +94,14 @@ mod imp {
                     .expect("Needs to be ListItem")
                     .item()
                     .and_downcast::<ScheduleData>()
-                    .expect("The item has to be an `Slide`.");
+                    .expect("The item has to be an `ScheduleData`.");
 
                 let view = list_item
                     .downcast_ref::<gtk::ListItem>()
                     .expect("Needs to be ListItem")
                     .child()
                     .and_downcast::<ScheduleListItem>()
-                    .expect("The child has to be a `Box`.");
+                    .expect("The child has to be a `ScheduleListItem`.");
 
                 view.label().set_label(&slide.title());
             });
@@ -174,7 +173,8 @@ mod imp {
             let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
             popover_menu.set_has_arrow(false);
             popover_menu.set_position(gtk::PositionType::Bottom);
-            popover_menu.set_align(gtk::Align::Start);
+            popover_menu.set_halign(gtk::Align::Start);
+            popover_menu.set_valign(gtk::Align::Start);
             popover_menu.set_parent(&list_view);
 
             let gesture_click = gtk::GestureClick::new();

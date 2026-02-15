@@ -1,18 +1,13 @@
-use std::{collections::HashSet, sync::Mutex, usize};
+use std::usize;
 
-use gtk::{
-    glib::{
-        self,
-        object::{Cast, ObjectExt},
-        subclass::types::ObjectSubclassIsExt,
-    },
-    prelude::WidgetExt,
-    subclass::window,
+use gtk::glib::{
+    self,
+    object::{Cast, ObjectExt},
+    subclass::types::ObjectSubclassIsExt,
 };
-use serde_json::Value as JsonValue;
 
 use crate::{
-    services::slide::{self, Slide},
+    services::slide::Slide,
     widgets::canvas::{
         CanvasItemType,
         canvas_item::CanvasItem,
@@ -22,7 +17,7 @@ use crate::{
 };
 
 // pub static ASPECT_RATIO_OVERRIDE: i32 = -1;
-static ASPECT_RATIO_OVERRIDE: Mutex<i32> = Mutex::new(-1);
+// static ASPECT_RATIO_OVERRIDE: Mutex<i32> = Mutex::new(-1);
 
 // signal
 
@@ -39,7 +34,6 @@ mod imp {
     use std::cell::{Cell, RefCell};
     use std::sync::OnceLock;
 
-    use glib::Object;
     use gtk::glib::subclass::Signal;
     use gtk::glib::{self, Properties, subclass::types::ObjectSubclass};
     use gtk::prelude::*;
@@ -47,7 +41,7 @@ mod imp {
 
     use super::*;
     use crate::services::slide::Slide;
-    use crate::utils::{self, WidgetChildrenExt};
+    use crate::utils::WidgetChildrenExt;
     use crate::widgets::canvas::canvas_item::CanvasItem;
     // use crate::services::utils::{self, AspectRatio};
     // use crate::spice_window::SpiceWindow;
@@ -468,8 +462,6 @@ impl SlideManager {
         canvas.connect_ratio_changed(glib::clone!(
             #[weak(rename_to=sm)]
             self,
-            #[weak]
-            canvas,
             move |ratio| {
                 if sm.imp().propagating_ratio() {
                     return;
@@ -570,7 +562,7 @@ impl SlideManager {
     }
 
     pub fn next_slide(&self) {
-        let end_slide = self.imp().end_presentation_slide.borrow().clone();
+        let _end_slide = self.imp().end_presentation_slide.borrow().clone();
 
         // if let Some(end_slide) = end_slide.clone().canvas().clone()
         //     && let Some(child) = self.slideshow().visible_child()

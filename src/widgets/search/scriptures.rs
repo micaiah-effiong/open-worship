@@ -1,431 +1,620 @@
 mod download;
-mod list_item;
 
 use std::cell::RefCell;
-use std::rc::Rc;
 
-use download::download_modal::{
-    DownloadBibleInit, DownloadBibleInput, DownloadBibleModel, DownloadBibleOutput,
-};
 use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
 use gtk::glib::{self, SignalHandlerId, clone};
 use gtk::prelude::*;
-use gtk::{BitsetIter, ListView, MultiSelection, StringObject};
-use list_item::ScriptureListItem;
-use relm4::prelude::*;
-use relm4::typed_view::list::TypedListView;
+use gtk::{MultiSelection, StringObject};
 
 use crate::db::connection::BibleVerse;
 use crate::db::query::Query;
+use crate::dto;
 use crate::parser::parser::{self, BibleReference};
-use crate::utils::{WidgetChildrenExt, WidgetExtrasExt};
+use crate::utils::WidgetChildrenExt;
 use crate::widgets::canvas::serialise::SlideManagerData;
-use crate::{dto, utils};
+use crate::widgets::search::scriptures::download::download_modal::DownloadBibleWindow;
 
-#[derive(Debug)]
-pub enum SearchScriptureInput {
-    ChangeTranslation(String),
-    ReloadTranlations,
-    NewTranslation(String),
-    SendToPreview,
-
-    //
-    OpenDownload,
+mod signals {
+    pub(super) const SEND_SCRIPTURES: &str = "send-scriptures";
+    pub(super) const SEND_TO_SCHEDULE: &str = "send-to-schedule";
 }
 
-#[derive(Debug)]
-pub enum SearchScriptureOutput {
-    SendScriptures(dto::ListPayload),
-    SendToSchedule(SlideManagerData),
-}
+mod imp {
+    use std::sync::OnceLock;
 
-#[derive(Debug)]
-pub struct SearchScriptureModel {
-    list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
-    search_text: gtk::SearchEntry,
-    dropdown: gtk::DropDown,
-    translation: Rc<RefCell<String>>,
-    download_bible_modal: relm4::Controller<DownloadBibleModel>,
-    selection_signal_handler: Rc<RefCell<Option<SignalHandlerId>>>,
-    search_signal_handler: Rc<RefCell<Option<SignalHandlerId>>>,
-}
+    use crate::{dto::scripture::ScriptureObject, utils::ListViewExtra};
 
-impl SearchScriptureModel {}
+    use super::*;
+    use gtk::{
+        gio,
+        glib::{
+            SignalHandlerId,
+            subclass::{
+                Signal,
+                object::{ObjectImpl, ObjectImplExt},
+                types::{ObjectSubclass, ObjectSubclassExt},
+            },
+        },
+        subclass::{
+            box_::BoxImpl,
+            widget::{
+                CompositeTemplateCallbacksClass, CompositeTemplateClass,
+                CompositeTemplateInitializingExt, WidgetClassExt, WidgetImpl,
+            },
+        },
+    };
 
-pub struct SearchScriptureInit {}
+    #[derive(Default, Debug, gtk::CompositeTemplate)]
+    #[template(resource = "/com/openworship/app/ui/search_scripture.ui")]
+    pub struct SearchScripture {
+        selection_signal_handler: RefCell<Option<SignalHandlerId>>,
+        search_signal_handler: RefCell<Option<SignalHandlerId>>,
+        translation: RefCell<String>,
 
-impl SearchScriptureModel {
-    fn get_bible_translations() -> Vec<std::string::String> {
-        match Query::get_translations() {
-            Ok(l) => l,
-            Err(e) => {
-                eprintln!(
-                    "SQL ERROR: An error occured while getting translations {:?}",
-                    e
-                );
-                vec![]
-            }
+        #[template_child]
+        search_text: gtk::TemplateChild<gtk::SearchEntry>,
+        #[template_child]
+        listview: gtk::TemplateChild<gtk::ListView>,
+        #[template_child]
+        import_btn: gtk::TemplateChild<gtk::Button>,
+        #[template_child]
+        dropdown: gtk::TemplateChild<gtk::DropDown>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for SearchScripture {
+        const NAME: &'static str = "SearchScripture";
+        type Type = super::SearchScripture;
+        type ParentType = gtk::Box;
+
+        fn class_init(klass: &mut Self::Class) {
+            klass.bind_template();
+            klass.bind_template_callbacks();
+        }
+
+        fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+            obj.init_template();
         }
     }
 
-    fn load_bible_translations(&mut self, dropdown: &gtk::DropDown, translations: Vec<String>) {
-        if translations.is_empty() {
-            return;
+    impl ObjectImpl for SearchScripture {
+        fn constructed(&self) {
+            self.parent_constructed();
+
+            let listview = self.listview.clone();
+            let model = gio::ListStore::new::<ScriptureObject>();
+            let model = gtk::MultiSelection::new(Some(model));
+            listview.set_model(Some(&model));
+
+            let factory = gtk::SignalListItemFactory::new();
+            listview.set_factory(Some(&factory));
+            factory.connect_setup(move |_, list_item| {
+                let li_widget = gtk::Label::builder()
+                    .ellipsize(gtk::pango::EllipsizeMode::End)
+                    .build();
+                let base = gtk::Box::builder().build();
+                base.append(&li_widget);
+
+                let li = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem");
+
+                li.set_child(Some(&base));
+            });
+
+            factory.connect_bind(move |_, list_item| {
+                let scripture_obj = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem")
+                    .item()
+                    .and_downcast::<ScriptureObject>()
+                    .expect("The item has to be an `Slide`.");
+                let data = scripture_obj.item();
+
+                let label = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem")
+                    .child()
+                    .and_downcast::<gtk::Box>()
+                    .expect("The child has to be a `Box`.")
+                    .first_child()
+                    .and_downcast::<gtk::Label>()
+                    .expect("The first_child has to be a Label");
+
+                let book_reference = format!("{}:{} \t{}", data.chapter, data.verse, data.text);
+                let text = match scripture_obj.full_reference() {
+                    true => format!("{} {book_reference}", data.book),
+                    false => book_reference,
+                };
+                label.set_label(&text);
+            });
+
+            let translations = Self::get_bible_translations();
+            if let Some(first) = translations.first() {
+                self.load_initial_verses(first.to_string());
+            }
+
+            self.register_activate_selected();
+            self.register_context_menu();
+            self.register_drag();
+            self.register_search_change();
+            self.load_bible_translations(translations);
+            self.register_translation_change();
         }
 
-        // TODO: ensure previously selected translation is not altered
+        fn signals() -> &'static [glib::subclass::Signal] {
+            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
 
-        let translation_slice = translations
-            .iter()
-            .map(|i| i.as_str())
-            .collect::<Vec<&str>>()
-            .as_slice()
-            .to_owned();
-        let str_list = gtk::StringList::new(&translation_slice);
-        let single_model = gtk::SingleSelection::new(Some(str_list.clone()));
-        dropdown.set_model(Some(&single_model));
-        dropdown.set_selected(0);
+            SIGNALS.get_or_init(|| {
+                vec![
+                    Signal::builder(signals::SEND_SCRIPTURES)
+                        .param_types([SlideManagerData::static_type()])
+                        .build(),
+                    Signal::builder(signals::SEND_TO_SCHEDULE)
+                        .param_types([SlideManagerData::static_type()])
+                        .build(),
+                ]
+            })
+        }
+    }
+    impl WidgetImpl for SearchScripture {}
+    impl BoxImpl for SearchScripture {}
 
-        // update model translation
-        if self.translation.borrow().is_empty() {
-            if let Some(t) = translations.first() {
-                *self.translation.borrow_mut() = t.to_string()
+    #[gtk::template_callbacks]
+    impl SearchScripture {
+        #[template_callback]
+        fn handle_search_activate(&self, _: &gtk::SearchEntry) {
+            self.send_to_preview();
+            glib::g_message!("SearchScripture", "handle_search_activate");
+        }
+
+        #[template_callback]
+        fn open_download_modal(&self, _: &gtk::Button) {
+            glib::g_message!("SearchScripture", "open_download_modal");
+
+            let tranlations = Self::get_bible_translations();
+
+            let win = DownloadBibleWindow::new(tranlations);
+            win.connect_new_translation(glib::clone!(
+                #[weak(rename_to = imp)]
+                self,
+                move |_, t| {
+                    glib::g_message!("SearchScripture", "WIN = new translation: {t}");
+                    imp.new_translation(t);
+                }
+            ));
+            win.connect_reload_translation(glib::clone!(
+                #[weak(rename_to = imp)]
+                self,
+                move |_| {
+                    glib::g_message!("SearchScripture", "WIN = reload translation");
+                    imp.reload_translations();
+                }
+            ));
+
+            win.present();
+        }
+    }
+
+    /// events
+    impl SearchScripture {
+        fn change_translation(&self, t: String) {
+            println!("SCRP UPDATE 2");
+            self.translation.replace(t.clone());
+
+            println!("SCRP UPDATE \n {:?}, {:?}", t, self.translation.clone());
+            Self::search_bible(
+                self.search_text.text().to_string(),
+                &self.translation.borrow(),
+                &self.listview.clone(),
+            );
+        }
+
+        fn reload_translations(&self) {
+            let t = Self::get_bible_translations();
+            self.load_bible_translations(t);
+        }
+        fn new_translation(&self, t: String) {
+            if self.translation.borrow().is_empty() {
+                self.translation.replace(t.clone());
+                self.load_initial_verses(t);
             }
-        } else {
-            for i in 0..str_list.n_items() {
-                let item = match str_list.string(i) {
-                    Some(i) => i.to_string(),
-                    None => continue,
-                };
+            self.reload_translations();
+        }
+        fn send_to_preview(&self) {
+            let selected_verses = Self::get_selected_scripture(&self.listview);
 
-                if item == self.translation.borrow().clone() {
-                    dropdown.set_selected(i);
+            let list_verse = selected_verses
+                .iter()
+                .map(|t| t.item().screen_display())
+                .collect();
+            let payload = SlideManagerData::from_list(
+                self.search_text.text().to_string(),
+                0,
+                list_verse,
+                None,
+            );
+
+            self.obj().emit_send_scriptures(payload);
+        }
+    }
+
+    /// functions
+    impl SearchScripture {
+        fn get_bible_translations() -> Vec<std::string::String> {
+            match Query::get_translations() {
+                Ok(l) => l,
+                Err(e) => {
+                    eprintln!(
+                        "SQL ERROR: An error occured while getting translations {:?}",
+                        e
+                    );
+                    vec![]
                 }
             }
         }
-    }
+        fn get_selected_scripture(listview: &gtk::ListView) -> Vec<ScriptureObject> {
+            let items = listview
+                .get_selected_items()
+                .iter()
+                .filter_map(|v| v.downcast_ref::<ScriptureObject>().cloned())
+                .collect::<Vec<_>>();
 
-    fn register_translation_change(
-        &mut self,
-        dropdown: &gtk::DropDown,
-        sender: &ComponentSender<SearchScriptureModel>,
-    ) {
-        let sender_clone = sender.clone();
-        dropdown.connect_selected_item_notify(move |dropdown| {
-            let item = match dropdown.selected_item() {
-                Some(i) => i,
-                None => return,
+            items
+        }
+        fn get_initial_scriptures(translation: String) -> Result<Vec<BibleVerse>, rusqlite::Error> {
+            Query::search_by_chapter_query(translation, String::from("Genesis"), 1)
+        }
+
+        fn load_bible_translations(&self, translations: Vec<String>) {
+            if translations.is_empty() {
+                return;
+            }
+            let dropdown = self.dropdown.clone();
+
+            // TODO: ensure previously selected translation is not altered
+
+            let translation_slice = translations
+                .iter()
+                .map(|i| i.as_str())
+                .collect::<Vec<&str>>()
+                .as_slice()
+                .to_owned();
+            let str_list = gtk::StringList::new(&translation_slice);
+            let single_model = gtk::SingleSelection::new(Some(str_list.clone()));
+            dropdown.set_model(Some(&single_model));
+            dropdown.set_selected(0);
+
+            // update model translation
+            if self.translation.borrow().is_empty() {
+                if let Some(t) = translations.first() {
+                    *self.translation.borrow_mut() = t.to_string()
+                }
+            } else {
+                for i in 0..str_list.n_items() {
+                    let item = match str_list.string(i) {
+                        Some(i) => i.to_string(),
+                        None => continue,
+                    };
+
+                    if item == self.translation.borrow().clone() {
+                        dropdown.set_selected(i);
+                    }
+                }
+            }
+        }
+
+        fn register_translation_change(&self) {
+            self.dropdown.connect_selected_item_notify(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |dropdown| {
+                    let item = match dropdown.selected_item() {
+                        Some(i) => i,
+                        None => return,
+                    };
+
+                    let item = match item.downcast::<StringObject>() {
+                        Ok(i) => i,
+                        Err(_) => return,
+                    };
+
+                    println!("CONNECT_DIRECTION_CHANGED {:?}", item);
+                    imp.change_translation(item.into());
+                }
+            ));
+
+            // dropdown.connect_selected_notify(|dropdown| {
+            //     let a = dropdown.selected_item();
+            //     println!("CONNECT_DIRECTION_CHANGED {:?}", a);
+            // });
+        }
+
+        fn parser_bible_reference(search_text: &str) -> Option<BibleReference> {
+            let p = parser::Parser::parser(search_text.to_string());
+            if let Some(p) = p {
+                let evaluated = p.eval();
+                return Some(evaluated);
+            }
+
+            None
+        }
+
+        fn search_bible(
+            search_text: String,
+            bible_translation: &str,
+            // list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
+            listview: &gtk::ListView,
+        ) -> (Option<String>, std::vec::Vec<u32>) {
+            let mut verse_index = Vec::new();
+            if bible_translation.is_empty() {
+                eprintln!("NO TRANSLATION");
+                return (None, verse_index);
+            }
+
+            let t = bible_translation.to_owned();
+            let (verses, mut evaluated) = match Self::parser_bible_reference(&search_text) {
+                Some(evaluated) => {
+                    println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
+                    let verses = Query::search_by_chapter_query(
+                        t.clone(),
+                        evaluated.book.clone(),
+                        evaluated.chapter,
+                    );
+
+                    (verses, Some(evaluated))
+                }
+                None => {
+                    let verses =
+                        Query::search_by_partial_text_query(t.clone(), search_text.clone());
+                    (verses, None)
+                }
             };
 
-            let item = match item.downcast::<StringObject>() {
-                Ok(i) => i,
-                Err(_) => return,
+            let verses = match verses {
+                Ok(vs) => vs,
+                Err(x) => {
+                    println!("SQL ERROR: \n{:?}", x);
+                    return (None, verse_index);
+                }
             };
 
-            println!("CONNECT_DIRECTION_CHANGED {:?}", item);
-            sender_clone.input(SearchScriptureInput::ChangeTranslation(String::from(item)));
-        });
+            listview.remove_all();
+            let mut actual_search = None;
 
-        // dropdown.connect_selected_notify(|dropdown| {
-        //     let a = dropdown.selected_item();
-        //     println!("CONNECT_DIRECTION_CHANGED {:?}", a);
-        // });
-    }
-
-    fn parser_bible_reference(search_text: &str) -> Option<BibleReference> {
-        let p = parser::Parser::parser(search_text.to_string());
-        if let Some(p) = p {
-            let evaluated = p.eval();
-            return Some(evaluated);
-        }
-
-        None
-    }
-
-    fn search_bible(
-        search_text: String,
-        bible_translation: &str,
-        list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
-    ) -> std::vec::Vec<u32> {
-        let mut verse_index = Vec::new();
-        if bible_translation.is_empty() {
-            eprintln!("NO TRANSLATION");
-            return verse_index;
-        }
-
-        let t = bible_translation.to_owned();
-        let (verses, evaluated) = match SearchScriptureModel::parser_bible_reference(&search_text) {
-            Some(evaluated) => {
-                println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
-                let verses = Query::search_by_chapter_query(
-                    t.clone(),
-                    evaluated.book.clone(),
-                    evaluated.chapter,
-                );
-                (verses, Some(evaluated))
+            if let Some(e) = &mut evaluated {
+                if let Some(v) = verses.first() {
+                    e.book = v.book.clone();
+                    let t = format!("{} {}", v.book, search_text.replace(&e.book, "").trim());
+                    actual_search = Some(t);
+                }
+                e.verses.iter().for_each(|v| {
+                    verse_index.push(*v);
+                });
             }
-            None => {
-                let verses = Query::search_by_partial_text_query(t.clone(), search_text);
-                (verses, None)
-            }
-        };
 
-        let verses = match verses {
-            Ok(vs) => vs,
-            Err(x) => {
-                println!("SQL ERROR: \n{:?}", x);
-                return verse_index;
-            }
-        };
-
-        list_view_wrapper.borrow_mut().clear();
-        if let Some(e) = &evaluated {
-            e.verses.iter().for_each(|v| {
-                verse_index.push(*v);
-            });
-        }
-
-        verses.iter().for_each(|verse| {
-            list_view_wrapper.borrow_mut().append(ScriptureListItem {
-                full_reference: evaluated.is_none(),
-                data: dto::Scripture {
+            verses.iter().for_each(|verse| {
+                let scripture = dto::Scripture {
                     book: verse.book.clone(),
                     chapter: verse.chapter,
                     verse: verse.verse,
                     text: verse.text.clone(),
                     translation: t.clone(),
-                },
+                };
+                let item = ScriptureObject::new(scripture, evaluated.is_none());
+                listview.append_item(&item);
             });
-        });
 
-        verse_index
-    }
-
-    fn select_list_items(list_view: ListView, selection_model: MultiSelection, items: Vec<u32>) {
-        selection_model.unselect_all();
-        for index in items.iter() {
-            selection_model.select_item(*index, false);
+            (actual_search, verse_index)
         }
 
-        let list_view = list_view.clone();
-        let list = list_view.children().collect::<Vec<_>>();
+        fn select_list_items(
+            listview: &gtk::ListView,
+            selection_model: &MultiSelection,
+            items: Vec<u32>,
+        ) {
+            if items.is_empty() {
+                return;
+            }
 
-        if let Some(vli) = items.first() {
-            // subtract here since list.get uses zero based index
-            match list.get(*vli as usize) {
-                Some(li) => li.grab_focus(),
-                None => false,
-            };
+            selection_model.unselect_all();
+            for index in items.iter() {
+                selection_model.select_item(*index, false);
+            }
+
+            let list = listview.children().collect::<Vec<_>>();
+
+            if let Some(vli) = items.first() {
+                // subtract here since list.get uses zero based index
+                match list.get(*vli as usize) {
+                    Some(li) => li.grab_focus(),
+                    None => false,
+                };
+            }
         }
-    }
 
-    fn register_search_change(&mut self, sender: ComponentSender<Self>) {
-        let search_field = self.search_text.clone();
-        let list_view_wrapper = self.list_view_wrapper.clone();
-        let bible_translation = self.translation.clone();
-        let selection_signal_handler = self.selection_signal_handler.clone();
+        fn register_search_change(&self) {
+            let search_field = self.search_text.clone();
 
-        let handle_id = search_field.connect_changed(clone!(
-            #[strong]
-            bible_translation,
-            #[strong]
-            list_view_wrapper,
-            #[strong]
-            selection_signal_handler,
-            #[strong]
-            sender,
-            move |se| {
-                let verses = SearchScriptureModel::search_bible(
-                    se.text().to_string(),
-                    &bible_translation.borrow(),
-                    list_view_wrapper.clone(),
-                );
-
-                let lv = list_view_wrapper.borrow().view.clone();
-                let sm = list_view_wrapper.borrow().selection_model.clone();
-
-                if let Some(handler_id) = selection_signal_handler.borrow().as_ref() {
-                    list_view_wrapper
-                        .borrow()
-                        .selection_model
-                        .block_signal(handler_id);
-                    SearchScriptureModel::select_list_items(
-                        lv,
-                        sm,
-                        verses.iter().map(|v| v.saturating_sub(1)).collect(),
+            let handle_id = search_field.connect_changed(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |se| {
+                    let (search_term, verses) = Self::search_bible(
+                        se.text().to_string(),
+                        &imp.translation.borrow(),
+                        &imp.listview,
                     );
-                    se.grab_focus();
-                    list_view_wrapper
-                        .borrow()
-                        .selection_model
-                        .unblock_signal(handler_id);
-                    // send to preview
-                    sender.input(SearchScriptureInput::SendToPreview);
+
+                    let lv = imp.listview.clone();
+                    let Some(model) = lv.model().and_downcast::<gtk::MultiSelection>() else {
+                        return;
+                    };
+
+                    if let Some(selection_handler_id) = imp.selection_signal_handler.take() {
+                        model.block_signal(&selection_handler_id);
+                        Self::select_list_items(
+                            &lv,
+                            &model,
+                            verses.iter().map(|v| v.saturating_sub(1)).collect(),
+                        );
+                        se.grab_focus();
+                        model.unblock_signal(&selection_handler_id);
+                        // send to preview
+                        imp.send_to_preview();
+                        imp.selection_signal_handler
+                            .replace(Some(selection_handler_id));
+                    }
                 }
-            }
-        ));
+            ));
 
-        *self.search_signal_handler.borrow_mut() = Some(handle_id);
-    }
+            self.search_signal_handler.replace(Some(handle_id));
+        }
 
-    fn register_drag(&self) {
-        let listview = self.list_view_wrapper.borrow().view.clone();
-        let list_view_wrapper = self.list_view_wrapper.clone();
-        let text_entry = self.search_text.clone();
+        fn register_drag(&self) {
+            let listview = self.listview.clone();
+            let text_entry = self.search_text.clone();
 
-        let drag_source = gtk::DragSource::new();
-        drag_source.set_actions(gtk::gdk::DragAction::COPY);
-        drag_source.connect_prepare({
-            move |_, _, _| {
-                let payload =
-                    SearchScriptureModel::get_selected_scripture(&list_view_wrapper.borrow());
-
-                let payload: SlideManagerData = dto::ListPayload::new(
-                    text_entry.text().to_string(),
-                    0,
-                    payload.iter().map(|t| t.data.screen_display()).collect(),
-                    None,
-                )
-                .into();
-
-                let content = gtk::gdk::ContentProvider::for_value(&payload.to_value());
-                Some(content)
-            }
-        });
-
-        drag_source.connect_drag_begin({
-            let lv = listview.clone();
-            move |ds, drag| {
-                // let Some(model) = lv.model().and_downcast::<gtk::MultiSelection>() else {
-                //     return;
-                // };
-                //
-                // let li = lv
-                //     .children()
-                //     .filter_map(|v| {
-                //         (v.accessible_role() == gtk::AccessibleRole::ListItem).then_some(v)
-                //     })
-                //     .collect::<Vec<_>>();
-                //
-                // let selections = model.selection();
-                // let mut selected_w = Vec::new();
-                // for (i, w) in li.iter().enumerate() {
-                //     if selections.contains(i as u32) {
-                //         ds.set_icon(w.snap().as_ref(), 0, 0);
-                //         selected_w.push(w);
-                //     }
-                // }
-
-                // let item_text = item_text.to_string();
-                // drag.set_icon_name(Some("document-properties"), 0, 0);
-            }
-        });
-
-        listview.add_controller(drag_source);
-    }
-
-    fn register_context_menu(&mut self, sender: &ComponentSender<Self>) {
-        let list_view_wrapper = self.list_view_wrapper.clone();
-        let list_view = self.list_view_wrapper.borrow().view.clone();
-        let text_entry = self.search_text.clone();
-
-        // action entries
-        let add_to_schedule_action = ActionEntry::builder("add-to-schedule")
-            .activate(clone!(
-                #[strong]
-                list_view_wrapper,
-                #[strong]
-                text_entry,
-                #[strong]
-                sender,
+            let drag_source = gtk::DragSource::new();
+            drag_source.set_actions(gtk::gdk::DragAction::COPY);
+            drag_source.connect_prepare({
+                let listview = listview.clone();
                 move |_, _, _| {
-                    let payload =
-                        SearchScriptureModel::get_selected_scripture(&list_view_wrapper.borrow());
+                    let payload = Self::get_selected_scripture(&listview);
 
-                    let payload = dto::ListPayload::new(
+                    let payload = SlideManagerData::from_list(
                         text_entry.text().to_string(),
                         0,
-                        payload.iter().map(|t| t.data.screen_display()).collect(),
+                        payload.iter().map(|t| t.item().screen_display()).collect(),
                         None,
                     );
 
-                    let _ = sender.output(SearchScriptureOutput::SendToSchedule(payload.into()));
+                    let content = gtk::gdk::ContentProvider::for_value(&payload.to_value());
+                    Some(content)
                 }
-            ))
-            .build();
+            });
 
-        // action group
-        let action_group = SimpleActionGroup::new();
-        action_group.add_action_entries([add_to_schedule_action]);
+            // drag_source.connect_drag_begin({
+            //     let lv = listview.clone();
+            //     move |ds, drag| {
+            //         // let Some(model) = lv.model().and_downcast::<gtk::MultiSelection>() else {
+            //         //     return;
+            //         // };
+            //         //
+            //         // let li = lv
+            //         //     .children()
+            //         //     .filter_map(|v| {
+            //         //         (v.accessible_role() == gtk::AccessibleRole::ListItem).then_some(v)
+            //         //     })
+            //         //     .collect::<Vec<_>>();
+            //         //
+            //         // let selections = model.selection();
+            //         // let mut selected_w = Vec::new();
+            //         // for (i, w) in li.iter().enumerate() {
+            //         //     if selections.contains(i as u32) {
+            //         //         ds.set_icon(w.snap().as_ref(), 0, 0);
+            //         //         selected_w.push(w);
+            //         //     }
+            //         // }
+            //
+            //         // let item_text = item_text.to_string();
+            //         // drag.set_icon_name(Some("document-properties"), 0, 0);
+            //     }
+            // });
 
-        // popover menu
-        let menu = gtk::gio::Menu::new();
-        {
-            let add_to_schedule_menu_item =
-                MenuItem::new(Some("Add to schedule"), Some("scripture.add-to-schedule"));
-            menu.insert_item(0, &add_to_schedule_menu_item);
+            listview.add_controller(drag_source);
         }
 
-        let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
-        popover_menu.set_parent(&list_view);
-        popover_menu.set_has_arrow(false);
-        popover_menu.set_align(gtk::Align::Start);
+        fn register_context_menu(&self) {
+            // action entries
+            let add_to_schedule_action = ActionEntry::builder("add-to-schedule")
+                .activate(clone!(
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |_, _, _| {
+                        let listview = imp.listview.clone();
+                        let text_entry = imp.search_text.clone();
+                        let payload = Self::get_selected_scripture(&listview);
 
-        let gesture = gtk::GestureClick::new();
-        gesture.set_button(gtk::gdk::BUTTON_SECONDARY);
-        gesture.connect_pressed(clone!(move |gc, _, x, y| {
-            let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
-            popover_menu.set_pointing_to(Some(&rect));
-            popover_menu.popup();
-            gc.set_state(gtk::EventSequenceState::Claimed);
-        }));
+                        let payload = SlideManagerData::from_list(
+                            text_entry.text().to_string(),
+                            0,
+                            payload.iter().map(|t| t.item().screen_display()).collect(),
+                            None,
+                        );
 
-        list_view.add_controller(gesture);
-        list_view.insert_action_group("scripture", Some(&action_group));
-    }
+                        imp.obj().emit_send_to_schedule(payload);
+                    }
+                ))
+                .build();
 
-    fn register_activate_selected(&mut self, sender: &ComponentSender<Self>) {
-        let typed_list = self.list_view_wrapper.clone();
-        let text_entry = self.search_text.clone();
-        let search_signal_handler = self.search_signal_handler.clone();
+            // action group
+            let action_group = SimpleActionGroup::new();
+            action_group.add_action_entries([add_to_schedule_action]);
 
-        let handle_id = typed_list
-            .borrow()
-            .selection_model
-            .connect_selection_changed(clone!(
-                #[strong]
-                typed_list,
-                #[strong]
-                sender,
-                #[strong]
-                text_entry,
-                #[strong]
-                search_signal_handler,
+            // popover menu
+            let menu = gtk::gio::Menu::new();
+            {
+                let add_to_schedule_menu_item =
+                    MenuItem::new(Some("Add to schedule"), Some("scripture.add-to-schedule"));
+                menu.insert_item(0, &add_to_schedule_menu_item);
+            }
+
+            let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
+            popover_menu.set_parent(&self.listview.clone());
+            popover_menu.set_has_arrow(false);
+            popover_menu.set_halign(gtk::Align::Start);
+            popover_menu.set_valign(gtk::Align::Start);
+
+            let gesture = gtk::GestureClick::new();
+            gesture.set_button(gtk::gdk::BUTTON_SECONDARY);
+            gesture.connect_pressed(clone!(move |gc, _, x, y| {
+                let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
+                popover_menu.set_pointing_to(Some(&rect));
+                popover_menu.popup();
+                gc.set_state(gtk::EventSequenceState::Claimed);
+            }));
+
+            self.listview.add_controller(gesture);
+            self.listview
+                .insert_action_group("scripture", Some(&action_group));
+        }
+
+        fn register_activate_selected(&self) {
+            let Some(model) = self.listview.model() else {
+                return;
+            };
+
+            let handle_id = model.connect_selection_changed(glib::clone!(
+                #[weak(rename_to = imp)]
+                self,
                 move |_m, _pos, _n_items| {
+                    let listview = imp.listview.clone();
+                    let text_entry = imp.search_text.clone();
+                    let search_signal_handler = imp.search_signal_handler.take();
                     // send selected to preview
-                    let selected_verses =
-                        SearchScriptureModel::get_selected_scripture(&typed_list.borrow());
+                    let selected_verses = Self::get_selected_scripture(&listview);
 
-                    let payload = dto::ListPayload::new(
+                    let payload = SlideManagerData::from_list(
                         text_entry.text().to_string(),
                         0,
                         selected_verses
                             .iter()
-                            .map(|t| t.data.screen_display())
+                            .map(|t| t.item().screen_display())
                             .collect(),
                         None,
                     );
-                    let _ = sender.output(SearchScriptureOutput::SendScriptures(payload));
+                    imp.obj().emit_send_scriptures(payload);
 
                     // update text entry
-                    let evaluated = SearchScriptureModel::parser_bible_reference(
-                        text_entry.text().to_string().as_ref(),
-                    );
+                    let evaluated =
+                        Self::parser_bible_reference(text_entry.text().to_string().as_ref());
                     if let Some(evaluated) = evaluated {
-                        let verse = SearchScriptureModel::compress_verses(
+                        let verse = Self::compress_verses(
                             &selected_verses
                                 .iter()
-                                .map(|t| t.data.verse)
+                                .map(|t| t.item().verse)
                                 .collect::<Vec<_>>(),
                         );
 
@@ -436,256 +625,126 @@ impl SearchScriptureModel {
                             verse.join(",")
                         );
 
-                        if let Some(handler_id) = search_signal_handler.borrow().as_ref() {
-                            text_entry.block_signal(handler_id);
+                        if let Some(handler_id) = search_signal_handler {
+                            text_entry.block_signal(&handler_id);
                             text_entry.set_text(&new_text);
-                            text_entry.unblock_signal(handler_id);
+                            text_entry.unblock_signal(&handler_id);
+                            imp.search_signal_handler.replace(Some(handler_id));
                         }
                     }
                 }
             ));
 
-        *self.selection_signal_handler.borrow_mut() = Some(handle_id);
-    }
+            self.selection_signal_handler.replace(Some(handle_id));
+        }
 
-    fn get_initial_scriptures(translation: String) -> Result<Vec<BibleVerse>, rusqlite::Error> {
-        Query::search_by_chapter_query(translation, String::from("Genesis"), 1)
-    }
+        fn load_initial_verses(&self, translation: String) {
+            let listview = self.listview.clone();
 
-    fn get_selected_scripture(
-        typed_list: &TypedListView<ScriptureListItem, MultiSelection>,
-    ) -> Vec<ScriptureListItem> {
-        let selections = typed_list.selection_model.selection();
-        let mut selected_verses = Vec::with_capacity(selections.size() as usize);
+            let verses = Self::get_initial_scriptures(translation.clone()).unwrap_or_default();
 
-        if let Some((iter, initial_item)) = BitsetIter::init_first(&selections) {
-            let mut iter_list = iter.collect::<Vec<u32>>();
-            iter_list.insert(0, initial_item);
-
-            iter_list.into_iter().for_each(|x| {
-                if let Some(m) = typed_list.get(x) {
-                    selected_verses.push(m.borrow().clone());
-                }
-            });
-        };
-
-        selected_verses
-    }
-
-    fn load_initial_verses(&mut self, translation: String) {
-        let list_view_wrapper = self.list_view_wrapper.clone();
-
-        let verses =
-            SearchScriptureModel::get_initial_scriptures(translation.clone()).unwrap_or_default();
-
-        list_view_wrapper.borrow_mut().clear();
-        for (i, verse) in verses.iter().enumerate() {
-            list_view_wrapper.borrow_mut().append(ScriptureListItem {
-                full_reference: false,
-                data: dto::Scripture {
+            listview.remove_all();
+            for (i, verse) in verses.iter().enumerate() {
+                let scripture = dto::Scripture {
                     book: verse.book.clone(),
                     chapter: verse.chapter,
                     verse: verse.verse,
                     text: verse.text.clone(),
                     translation: translation.clone(),
-                },
-            });
+                };
+                let item = ScriptureObject::new(scripture, false);
+                listview.append_item(&item);
 
-            if i == 0 {
-                self.search_text.set_text(&format!(
-                    "{} {}:{}",
-                    verse.book.clone(),
-                    verse.chapter,
-                    verse.verse
-                ));
-            }
-        }
-    }
-
-    fn compress_verses(list: &[u32]) -> Vec<String> {
-        let mut result = Vec::new();
-        if list.is_empty() {
-            return result;
-        }
-
-        let mut sorted_list = list.to_owned();
-        sorted_list.sort();
-
-        let mut start = sorted_list.first().unwrap();
-        let mut prev = sorted_list.first().unwrap();
-
-        for curr in sorted_list.iter().skip(1) {
-            if *curr != prev + 1 {
-                if start != prev {
-                    result.push(format!("{start}-{prev}"));
-                } else {
-                    result.push(start.to_string());
+                if i == 0 {
+                    self.search_text.set_text(&format!(
+                        "{} {}:{}",
+                        verse.book.clone(),
+                        verse.chapter,
+                        verse.verse
+                    ));
                 }
-                start = curr;
             }
-            prev = curr;
         }
 
-        if start != prev {
-            result.push(format!("{start}-{prev}"));
-        } else {
-            result.push(start.to_string());
-        }
+        fn compress_verses(list: &[u32]) -> Vec<String> {
+            let mut result = Vec::new();
+            if list.is_empty() {
+                return result;
+            }
 
-        result
-    }
-}
+            let mut sorted_list = list.to_owned();
+            sorted_list.sort();
 
-#[relm4::component(pub)]
-impl SimpleComponent for SearchScriptureModel {
-    type Init = SearchScriptureInit;
-    type Output = SearchScriptureOutput;
-    type Input = SearchScriptureInput;
+            let mut start = sorted_list.first().unwrap();
+            let mut prev = sorted_list.first().unwrap();
 
-    view! {
-        #[root]
-        gtk::Box{
-            set_orientation:gtk::Orientation::Vertical,
-            set_vexpand: true,
-
-            gtk::Box {
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 2,
-                set_height_request: 48,
-
-                #[local_ref]
-                append = &search_text -> gtk::SearchEntry {
-                    set_hexpand: true,
-                    connect_activate[sender] => move |_| {
-                        sender.input(SearchScriptureInput::SendToPreview);
+            for curr in sorted_list.iter().skip(1) {
+                if *curr != prev + 1 {
+                    if start != prev {
+                        result.push(format!("{start}-{prev}"));
+                    } else {
+                        result.push(start.to_string());
                     }
-                },
-            },
-
-            gtk::ScrolledWindow {
-                set_vexpand: true,
-
-                #[wrap(Some)]
-                #[local_ref]
-                set_child = &list_view -> gtk::ListView { }
-            },
-
-            gtk::Box {
-                set_orientation: gtk::Orientation::Horizontal,
-                #[name="import_btn"]
-                gtk::Button{
-                    set_icon_name:"plus",
-                    connect_clicked[sender] => move |_|{
-                        sender.input(SearchScriptureInput::OpenDownload);
-                    }
-                },
-
-                #[local_ref]
-                append = &dropdown -> gtk::DropDown { }
-            }
-        }
-    }
-
-    fn init(
-        init: Self::Init,
-        root: Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> relm4::ComponentParts<Self> {
-        let typed_list_view: TypedListView<ScriptureListItem, MultiSelection> =
-            TypedListView::new();
-
-        let list_view_wrapper = Rc::new(RefCell::new(typed_list_view));
-        let dropdown = gtk::DropDown::from_strings(&[]);
-
-        let download_modal = DownloadBibleModel::builder()
-            .launch(DownloadBibleInit {
-                installed_translations: SearchScriptureModel::get_bible_translations(),
-            })
-            .forward(
-                sender.input_sender(),
-                SearchScriptureModel::convert_download_bible_response,
-            );
-
-        let mut model = SearchScriptureModel {
-            list_view_wrapper: list_view_wrapper.clone(),
-            search_text: gtk::SearchEntry::new(),
-            translation: Rc::new(RefCell::new(String::new())),
-            dropdown: dropdown.clone(),
-            download_bible_modal: download_modal,
-            selection_signal_handler: Rc::new(RefCell::new(None)),
-            search_signal_handler: Rc::new(RefCell::new(None)),
-        };
-
-        let list_view = model.list_view_wrapper.borrow().view.clone();
-        let search_text = model.search_text.clone();
-        let widgets = view_output!();
-
-        model.register_activate_selected(&sender);
-        model.register_context_menu(&sender);
-
-        let translations = SearchScriptureModel::get_bible_translations();
-        if let Some(first) = translations.first() {
-            model.load_initial_verses(first.to_string());
-        }
-
-        model.register_drag();
-        model.register_search_change(sender.clone());
-        model.load_bible_translations(&widgets.dropdown, translations);
-        model.register_translation_change(&widgets.dropdown, &sender);
-
-        relm4::ComponentParts { model, widgets }
-    }
-
-    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
-        match message {
-            SearchScriptureInput::ChangeTranslation(t) => {
-                println!("SCRP UPDATE 2");
-                *self.translation.borrow_mut() = t.clone();
-
-                println!("SCRP UPDATE \n {:?}, {:?}", t, self.translation.clone());
-                SearchScriptureModel::search_bible(
-                    self.search_text.text().to_string(),
-                    &self.translation.borrow(),
-                    self.list_view_wrapper.clone(),
-                );
-            }
-            SearchScriptureInput::ReloadTranlations => {
-                let t = SearchScriptureModel::get_bible_translations();
-                self.load_bible_translations(&self.dropdown.clone(), t);
-            }
-
-            SearchScriptureInput::NewTranslation(t) => {
-                if self.translation.borrow().is_empty() {
-                    self.translation.replace(t.clone());
-                    self.load_initial_verses(t);
+                    start = curr;
                 }
-                sender.input(SearchScriptureInput::ReloadTranlations);
+                prev = curr;
             }
-            SearchScriptureInput::OpenDownload => {
-                self.download_bible_modal.emit(DownloadBibleInput::Open);
-            }
-            SearchScriptureInput::SendToPreview => {
-                let selected_verses =
-                    SearchScriptureModel::get_selected_scripture(&self.list_view_wrapper.borrow());
 
-                let list_verse = selected_verses
-                    .iter()
-                    .map(|t| t.data.screen_display())
-                    .collect();
-                let payload =
-                    dto::ListPayload::new(self.search_text.text().to_string(), 0, list_verse, None);
-
-                let _ = sender.output(SearchScriptureOutput::SendScriptures(payload));
+            if start != prev {
+                result.push(format!("{start}-{prev}"));
+            } else {
+                result.push(start.to_string());
             }
+
+            result
         }
     }
 }
 
-impl SearchScriptureModel {
-    fn convert_download_bible_response(res: DownloadBibleOutput) -> SearchScriptureInput {
-        match res {
-            DownloadBibleOutput::NewTranslation(t) => SearchScriptureInput::NewTranslation(t),
-            DownloadBibleOutput::ReloadTranslation => SearchScriptureInput::ReloadTranlations,
-        }
+glib::wrapper! {
+    pub struct SearchScripture(ObjectSubclass<imp::SearchScripture>)
+    @extends  gtk::Box, gtk::Widget,
+    @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+impl Default for SearchScripture {
+    fn default() -> Self {
+        glib::Object::new()
+    }
+}
+
+impl SearchScripture {
+    pub fn new() -> Self {
+        glib::Object::new()
+    }
+
+    //
+    fn emit_send_to_schedule(&self, data: SlideManagerData) {
+        self.emit_by_name::<()>(signals::SEND_TO_SCHEDULE, &[&data]);
+    }
+    pub fn connect_send_to_schedule<F: Fn(&Self, &SlideManagerData) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.connect_closure(
+            signals::SEND_TO_SCHEDULE,
+            false,
+            glib::closure_local!(|obj: &Self, data: &SlideManagerData| f(obj, data)),
+        )
+    }
+
+    //
+    fn emit_send_scriptures(&self, data: SlideManagerData) {
+        self.emit_by_name::<()>(signals::SEND_SCRIPTURES, &[&data]);
+    }
+    pub fn connect_send_scriptures<F: Fn(&Self, &SlideManagerData) + 'static>(
+        &self,
+        f: F,
+    ) -> SignalHandlerId {
+        self.connect_closure(
+            signals::SEND_SCRIPTURES,
+            false,
+            glib::closure_local!(|obj: &Self, data: &SlideManagerData| f(obj, data)),
+        )
     }
 }

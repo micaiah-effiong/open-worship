@@ -18,14 +18,13 @@ mod imp {
         prelude::{BoxExt, ButtonExt, ToggleButtonExt, WidgetExt},
         subclass::{box_::BoxImpl, widget::WidgetImpl},
     };
-    use relm4::RelmWidgetExt;
 
     use crate::{
         services::slide_manager::SlideManager,
-        utils::ColorDialogButtonExtra,
+        utils::{ColorDialogButtonExtra, WidgetExtrasExt},
         widgets::{
             canvas::{canvas_item::CanvasItemExt, text_item::TextItem},
-            entry_combo::{self, EntryCombo},
+            entry_combo::EntryCombo,
             group_toggle_button::GroupToggleButton,
         },
     };

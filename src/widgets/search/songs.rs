@@ -2,382 +2,447 @@ pub mod edit_modal;
 mod list_item;
 mod toolbar;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
-use gtk::SingleSelection;
-use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
-use gtk::glib::clone;
+use gtk::glib;
 use gtk::prelude::*;
-use list_item::SongListItemModel;
-use relm4::prelude::*;
-use relm4::typed_view::list::TypedListView;
 
-use crate::db::query::Query;
-use crate::dto::{SongData, SongObject};
 use crate::widgets::canvas::serialise::SlideManagerData;
-use crate::widgets::search::songs::edit_modal::SongEditWindow;
 
-#[derive(Debug)]
-pub enum SearchSongInput {
-    OpenEditModel(Option<SongObject>), // NOTE: should use SongData
-    NewSong(SongData),
-    RemoveSong(u32),
+mod signals {
+    pub(super) const SEND_TO_PREVIEW: &str = "send-to-preview";
+    pub(super) const SEND_TO_SCHEDULE: &str = "send-to-schedule";
 }
 
-#[derive(Debug)]
-pub enum SearchSongOutput {
-    SendToPreview(SlideManagerData),
-    SendToSchedule(SlideManagerData),
-}
+mod imp {
+    use std::sync::OnceLock;
 
-#[derive(Debug)]
-pub struct SearchSongModel {
-    list_view_wrapper: Rc<RefCell<TypedListView<SongListItemModel, SingleSelection>>>,
-    search_field: gtk::SearchEntry,
-    edit_song_dialog: RefCell<SongEditWindow>,
-}
-
-impl SearchSongModel {
-    fn register_search_field_events(&self) {
-        let search = self.search_field.clone();
-        let list = self.list_view_wrapper.clone();
-
-        search.connect_search_changed(clone!(
-            #[strong]
-            list,
-            move |se| {
-                //
-                let songs = match Query::get_songs(se.text().to_string()) {
-                    Ok(q) => q,
-                    Err(e) => {
-                        eprintln!("SQL ERROR: {:?}", e);
-                        return;
-                    }
-                };
-
-                let mut lw = list.borrow_mut();
-                lw.clear();
-                songs.iter().for_each(|s| {
-                    lw.append(SongListItemModel::new(s.clone().into()));
-                });
-            }
-        ));
-
-        search.connect_activate(clone!(
-            #[strong]
-            list,
-            move |_se| {
-                println!("S ACTIVATE");
-                let t_list = list.borrow();
-                let model = &t_list.selection_model;
-                let view = &t_list.view;
-
-                let selected = model.selected().to_value();
-                view.emit_by_name_with_values("activate", &[selected]);
-            }
-        ));
-
-        search.connect_next_match(|m| {
-            println!("N_MATCH <C-g> {:?}", m);
-        });
-    }
-
-    /// handles list_view right click gesture
-    fn register_context_menu(&self, sender: &ComponentSender<SearchSongModel>) {
-        let wrapper = self.list_view_wrapper.clone();
-        let list_view = self.list_view_wrapper.borrow().view.clone();
-        let model = match list_view.model() {
-            Some(m) => m,
-            None => return,
-        };
-
-        let add_song_action = ActionEntry::builder("add-song")
-            .activate(clone!(
-                #[strong]
-                sender,
-                move |_g: &SimpleActionGroup, _sa, _v| {
-                    sender.input(SearchSongInput::OpenEditModel(None));
-                }
-            ))
-            .build();
-
-        let edit_action = ActionEntry::builder("edit")
-            .activate(clone!(
-                #[strong]
-                wrapper,
-                #[strong]
-                model,
-                #[strong]
-                sender,
-                move |_g: &SimpleActionGroup, _sa, _v| {
-                    if model.n_items() == 0 {
-                        return;
-                    }
-
-                    let song_list_item = match wrapper.borrow().get(model.selection().nth(0)) {
-                        Some(item) => item.borrow().clone(),
-                        None => return,
-                    };
-
-                    sender.input(SearchSongInput::OpenEditModel(Some(song_list_item.song)));
-                }
-            ))
-            .build();
-
-        let add_to_schedule_action = ActionEntry::builder("add-to-schedule")
-            .activate(clone!(
-                #[strong]
-                sender,
-                #[strong]
-                model,
-                #[strong]
-                wrapper,
-                move |_g: &SimpleActionGroup, _sa, _v| {
-                    let song_list_item = match wrapper.borrow().get(model.selection().nth(0)) {
-                        Some(item) => item.borrow().clone(),
-                        None => return,
-                    };
-
-                    let _ = sender.output(SearchSongOutput::SendToSchedule(
-                        song_list_item.clone().into(),
-                    ));
-                }
-            ))
-            .build();
-
-        let delete_action = ActionEntry::builder("delete")
-            .activate(clone!(
-                #[strong]
-                model,
-                #[strong]
-                sender,
-                move |_g: &SimpleActionGroup, _sa, _v| {
-                    sender.input(SearchSongInput::RemoveSong(model.selection().nth(0)));
-                }
-            ))
-            .build();
-
-        let menu_action_group = SimpleActionGroup::new();
-        menu_action_group.add_action_entries([
-            add_song_action,
-            edit_action,
-            add_to_schedule_action,
-            delete_action,
-        ]);
-
-        let menu = gtk::gio::Menu::new();
-        let add_to_schedule = MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule"));
-        menu.insert_item(1, &add_to_schedule);
-        menu.insert_item(2, &MenuItem::new(Some("Add song"), Some("song.add-song")));
-        menu.insert_item(3, &MenuItem::new(Some("Edit song"), Some("song.edit")));
-        menu.insert_item(4, &MenuItem::new(Some("Delete song"), Some("song.delete")));
-
-        let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
-        popover_menu.set_has_arrow(false);
-        popover_menu.set_align(gtk::Align::Start);
-        popover_menu.set_parent(&list_view);
-
-        let gesture_click = gtk::GestureClick::new();
-        gesture_click.set_button(gtk::gdk::BUTTON_SECONDARY);
-        gesture_click.connect_pressed(clone!(
-            #[strong]
-            popover_menu,
-            move |gc, _, x, y| {
-                let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 10, 10);
-                popover_menu.set_pointing_to(Some(&rect));
-                popover_menu.popup();
-                gc.set_state(gtk::EventSequenceState::Claimed);
-            }
-        ));
-
-        list_view.insert_action_group("song", Some(&menu_action_group));
-        list_view.add_controller(gesture_click);
-    }
-
-    /// handles list_view activate signal
-    fn register_listview_activate(&self, sender: &ComponentSender<SearchSongModel>) {
-        let wrapper = self.list_view_wrapper.clone();
-        let list_view = self.list_view_wrapper.borrow().view.clone();
-
-        list_view.connect_activate(clone!(
-            #[strong]
-            wrapper,
-            #[strong]
-            sender,
-            move |_lv, pos| {
-                let song_list_item = match wrapper.borrow().get(pos) {
-                    Some(item) => item.borrow().clone(),
-                    None => return,
-                };
-
-                // let list_payload =
-                //     dto::ListPayload::new(song_list_item.song.title(), 0, verse_list, None);
-                let _ = sender.output(SearchSongOutput::SendToPreview(
-                    song_list_item.clone().into(),
-                ));
-            }
-        ));
-    }
-
-    // fn convert_edit_model_response(res: EditModelOutputMsg) -> SearchSongInput {
-    //     match res {
-    //         EditModelOutputMsg::Save(song) => SearchSongInput::NewSong(song),
-    //     }
-    // }
-}
-
-impl SearchSongModel {}
-
-pub struct SearchSongInit {}
-
-impl SearchSongModel {}
-
-#[relm4::component(pub)]
-impl SimpleComponent for SearchSongModel {
-    type Init = SearchSongInit;
-    type Output = SearchSongOutput;
-    type Input = SearchSongInput;
-
-    view! {
-        #[root]
-        gtk::Box{
-            set_orientation:gtk::Orientation::Vertical,
-            set_vexpand: true,
-
-            gtk::Box {
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 2,
-                set_height_request: 48,
-
-                // gtk::Label {
-                //     set_label: "Title",
-                //     set_margin_horizontal: 5,
-                // },
-
-                #[local_ref]
-                append = &search_field -> gtk::SearchEntry {
-
-                    set_placeholder_text: Some("Search title..."),
-                    set_hexpand: true
-                }
+    use gtk::{
+        gio::{
+            self,
+            prelude::{ActionMapExtManual, ListModelExt},
+        },
+        glib::{
+            self,
+            object::{Cast, CastNone, ObjectExt},
+            subclass::{
+                Signal,
+                object::ObjectImplExt,
+                types::{ObjectSubclass, ObjectSubclassExt},
             },
-
-            gtk::ScrolledWindow {
-                set_vexpand: true,
-
-                #[local_ref]
-                list_view -> gtk::ListView {
-                    set_show_separators: true
-                }
+            types::StaticType,
+            value::ToValue,
+        },
+        prelude::{
+            EditableExt, GestureExt, GestureSingleExt, ListItemExt, PopoverExt, SelectionModelExt,
+            WidgetExt,
+        },
+        subclass::{
+            box_::BoxImpl,
+            prelude::ObjectImpl,
+            widget::{
+                CompositeTemplateClass, CompositeTemplateInitializingExt, WidgetClassExt,
+                WidgetImpl,
             },
+        },
+    };
 
-            gtk::Box {
-                //
-            }
+    use crate::{
+        db::query::Query,
+        dto::SongObject,
+        utils::ListViewExtra,
+        widgets::{
+            canvas::serialise::SlideManagerData,
+            search::songs::{edit_modal::SongEditWindow, list_item::SongListItem, signals},
+        },
+    };
 
+    #[derive(Default, Debug, gtk::CompositeTemplate)]
+    #[template(resource = "/com/openworship/app/ui/search_song.ui")]
+    pub struct SearchSong {
+        #[template_child]
+        listview: gtk::TemplateChild<gtk::ListView>,
+        #[template_child]
+        search_field: gtk::TemplateChild<gtk::SearchEntry>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for SearchSong {
+        const NAME: &'static str = "SearchSong";
+        type Type = super::SearchSong;
+        type ParentType = gtk::Box;
+
+        fn class_init(klass: &mut Self::Class) {
+            klass.bind_template();
+        }
+        fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+            obj.init_template();
         }
     }
+    impl ObjectImpl for SearchSong {
+        fn constructed(&self) {
+            self.parent_constructed();
 
-    fn init(
-        init: Self::Init,
-        root: Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> relm4::ComponentParts<Self> {
-        let mut list_view_wrapper = TypedListView::new();
+            let listview = self.listview.clone();
+            let model = gtk::gio::ListStore::new::<SongObject>();
+            let model = gtk::SingleSelection::new(Some(model));
+            listview.set_model(Some(&model));
 
-        let initial_songs = Query::get_songs("".into());
-        match initial_songs {
-            Ok(songs) => {
-                for song in songs {
-                    list_view_wrapper.append(SongListItemModel::new(song.into()));
+            let factory = gtk::SignalListItemFactory::new();
+            listview.set_factory(Some(&factory));
+            factory.connect_setup(|_, listitem| {
+                let li = listitem
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Expected ListItem");
+
+                li.set_child(Some(&SongListItem::default()));
+            });
+            factory.connect_bind(|_, listitem| {
+                let li = listitem
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Expected ListItem");
+
+                let item = li
+                    .item()
+                    .and_downcast::<SongObject>()
+                    .expect("Expected SongObject");
+
+                let child = li
+                    .child()
+                    .and_downcast::<SongListItem>()
+                    .expect("Exected SongListItem");
+
+                child.load_data(item);
+            });
+
+            let initial_songs = Query::get_all_songs();
+            match initial_songs {
+                Ok(songs) => {
+                    for song in songs {
+                        let ss: SongObject = song.clone().into();
+                        listview.append_item(&ss);
+                    }
                 }
+                Err(e) => eprintln!("SQL ERROR: {:?}", e),
             }
-            Err(e) => eprintln!("SQL ERROR: {:?}", e),
+
+            self.register_listview_activate();
+            self.register_context_menu();
+            self.register_search_field_events();
         }
 
-        let list_view_wrapper = Rc::new(RefCell::new(list_view_wrapper));
+        fn signals() -> &'static [glib::subclass::Signal] {
+            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
 
-        let edit_song_dialog = RefCell::new(SongEditWindow::new());
+            SIGNALS.get_or_init(|| {
+                vec![
+                    Signal::builder(signals::SEND_TO_SCHEDULE)
+                        .param_types([SlideManagerData::static_type()])
+                        .build(),
+                    Signal::builder(signals::SEND_TO_PREVIEW)
+                        .param_types([SlideManagerData::static_type()])
+                        .build(),
+                ]
+            })
+        }
+    }
+    impl WidgetImpl for SearchSong {}
+    impl BoxImpl for SearchSong {}
 
-        let search_field = gtk::SearchEntry::new();
+    impl SearchSong {
+        fn register_listview_activate(&self) {
+            let listview = self.listview.clone();
 
-        let model = SearchSongModel {
-            list_view_wrapper,
-            search_field: search_field.clone(),
-            edit_song_dialog,
-        };
+            listview.connect_activate(glib::clone!(
+                #[strong]
+                listview,
+                #[weak(rename_to=imp)]
+                self,
+                move |_lv, _pos| {
+                    let Some(song_list_item) = listview
+                        .get_selected_items()
+                        .first()
+                        .cloned()
+                        .and_downcast::<SongObject>()
+                    else {
+                        return;
+                    };
 
-        let list_view = &model.list_view_wrapper.borrow().view.clone();
-        model.register_listview_activate(&sender);
-        model.register_context_menu(&sender);
-        model.register_search_field_events();
-        let widgets = view_output!();
+                    imp.obj().emit_send_to_preview(&song_list_item.into());
+                }
+            ));
+        }
 
-        relm4::ComponentParts { model, widgets }
+        fn register_context_menu(&self) {
+            let listview = self.listview.clone();
+            let model = match listview.model() {
+                Some(m) => m,
+                None => return,
+            };
+
+            let add_song_action = gio::ActionEntry::builder("add-song")
+                .activate(glib::clone!(
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
+                        imp.open_edit_modal(None);
+                    }
+                ))
+                .build();
+
+            let edit_action = gio::ActionEntry::builder("edit")
+                .activate(glib::clone!(
+                    #[strong]
+                    model,
+                    #[strong]
+                    listview,
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
+                        if model.n_items() == 0 {
+                            return;
+                        }
+                        let Some(song_list_item) = listview
+                            .get_selected_items()
+                            .first()
+                            .cloned()
+                            .and_downcast::<SongObject>()
+                        else {
+                            return;
+                        };
+
+                        imp.open_edit_modal(Some(song_list_item));
+                    }
+                ))
+                .build();
+
+            let add_to_schedule_action = gio::ActionEntry::builder("add-to-schedule")
+                .activate(glib::clone!(
+                    #[strong]
+                    listview,
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
+                        let Some(song_list_item) = listview
+                            .get_selected_items()
+                            .first()
+                            .cloned()
+                            .and_downcast::<SongObject>()
+                        else {
+                            return;
+                        };
+
+                        imp.obj().emit_send_to_schedule(&song_list_item.into())
+                    }
+                ))
+                .build();
+
+            let delete_action = gio::ActionEntry::builder("delete")
+                .activate(glib::clone!(
+                    #[strong]
+                    model,
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
+                        imp.remove_song(model.selection().nth(0));
+                    }
+                ))
+                .build();
+
+            let menu_action_group = gio::SimpleActionGroup::new();
+            menu_action_group.add_action_entries([
+                add_song_action,
+                edit_action,
+                add_to_schedule_action,
+                delete_action,
+            ]);
+
+            let menu = gtk::gio::Menu::new();
+            let add_to_schedule =
+                gio::MenuItem::new(Some("Add to schedule"), Some("song.add-to-schedule"));
+
+            menu.insert_item(1, &add_to_schedule);
+            menu.insert_item(
+                2,
+                &gio::MenuItem::new(Some("Add song"), Some("song.add-song")),
+            );
+            menu.insert_item(3, &gio::MenuItem::new(Some("Edit song"), Some("song.edit")));
+            menu.insert_item(
+                4,
+                &gio::MenuItem::new(Some("Delete song"), Some("song.delete")),
+            );
+
+            let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
+            popover_menu.set_has_arrow(false);
+            popover_menu.set_halign(gtk::Align::Start);
+            popover_menu.set_valign(gtk::Align::Start);
+            popover_menu.set_parent(&listview);
+
+            let gesture_click = gtk::GestureClick::new();
+            gesture_click.set_button(gtk::gdk::BUTTON_SECONDARY);
+            gesture_click.connect_pressed(glib::clone!(
+                #[strong]
+                popover_menu,
+                move |gc, _, x, y| {
+                    let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 10, 10);
+                    popover_menu.set_pointing_to(Some(&rect));
+                    popover_menu.popup();
+                    gc.set_state(gtk::EventSequenceState::Claimed);
+                }
+            ));
+
+            listview.insert_action_group("song", Some(&menu_action_group));
+            listview.add_controller(gesture_click);
+        }
+
+        fn register_search_field_events(&self) {
+            let search = self.search_field.clone();
+            let list = self.listview.clone();
+
+            search.connect_search_changed(glib::clone!(
+                #[strong]
+                list,
+                move |se| {
+                    let songs = match Query::get_songs(se.text().to_string()) {
+                        Ok(q) => q,
+                        Err(e) => {
+                            eprintln!("SQL ERROR: {:?}", e);
+                            return;
+                        }
+                    };
+
+                    list.remove_all();
+                    songs.iter().for_each(|s| {
+                        let ss: SongObject = s.clone().into();
+                        list.append_item(&ss);
+                    });
+                }
+            ));
+
+            search.connect_activate(glib::clone!(
+                #[strong]
+                list,
+                move |_se| {
+                    println!("S ACTIVATE");
+                    let Some(model) = list.model().and_downcast::<gtk::SingleSelection>() else {
+                        return;
+                    };
+
+                    let selected = model.selected().to_value();
+                    list.emit_by_name_with_values("activate", &[selected]);
+                }
+            ));
+
+            search.connect_next_match(|m| {
+                println!("N_MATCH <C-g> {:?}", m);
+            });
+        }
+
+        fn open_edit_modal(&self, song: Option<SongObject>) {
+            let edit_window = SongEditWindow::new();
+
+            edit_window.connect_save(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |_, song_obj| {
+                    println!("SONG saved");
+
+                    imp.new_song(song_obj);
+                }
+            ));
+            edit_window.show(song);
+        }
+        fn new_song(&self, song: &SongObject) {
+            println!("SONG saved NEW SONG");
+            let songs = Query::get_all_songs();
+
+            match songs {
+                Ok(songs) => {
+                    self.listview.remove_all();
+                    songs.iter().for_each(|s| {
+                        let ss: SongObject = s.clone().into();
+                        self.listview.append_item(&ss);
+                    });
+                }
+                Err(e) => eprintln!("SQL ERROR: {:?}", e),
+            }
+        }
+
+        fn remove_song(&self, pos: u32) {
+            let Some(song_item) = self
+                .listview
+                .get_selected_items()
+                .first()
+                .cloned()
+                .and_downcast::<SongObject>()
+            else {
+                return;
+            };
+
+            match Query::delete_song(song_item.into()) {
+                Ok(_) => (),
+                Err(e) => {
+                    eprintln!("SQL ERROR: {:?}", e);
+                    return;
+                }
+            };
+
+            match Query::get_all_songs() {
+                Ok(songs) => {
+                    self.listview.remove_all();
+                    songs.iter().for_each(|s| {
+                        let ss: SongObject = s.clone().into();
+                        self.listview.append_item(&ss);
+                    });
+                }
+                Err(e) => {
+                    eprintln!("SQL ERROR: {:?}", e);
+                    return;
+                }
+            };
+
+            self.listview.grab_focus();
+        }
+    }
+}
+glib::wrapper! {
+    pub struct SearchSong(ObjectSubclass<imp::SearchSong>)
+        @extends gtk::Widget, gtk::Box,
+        @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+impl Default for SearchSong {
+    fn default() -> Self {
+        glib::Object::new::<Self>()
+    }
+}
+
+impl SearchSong {
+    pub fn new() -> Self {
+        glib::Object::new::<Self>()
     }
 
-    // TODO: Invalidate songs list
-    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
-        match message {
-            SearchSongInput::OpenEditModel(song) => {
-                let sew = SongEditWindow::new();
-                self.edit_song_dialog.replace(sew.clone());
+    fn emit_send_to_schedule(&self, data: &SlideManagerData) {
+        self.emit_by_name::<()>(signals::SEND_TO_SCHEDULE, &[data]);
+    }
+    pub fn connect_send_to_schedule<F: Fn(&Self, &SlideManagerData) + 'static>(&self, f: F) {
+        self.connect_closure(
+            signals::SEND_TO_SCHEDULE,
+            false,
+            glib::closure_local!(|obj: &Self, data: &SlideManagerData| {
+                f(obj, data);
+            }),
+        );
+    }
+    fn emit_send_to_preview(&self, data: &SlideManagerData) {
+        self.emit_by_name::<()>(signals::SEND_TO_PREVIEW, &[data]);
+    }
 
-                self.edit_song_dialog.borrow().clone().connect_save({
-                    let sender = sender.clone();
-                    move |_, song_obj| {
-                        println!("SONG saved");
-                        sender.input(SearchSongInput::NewSong(song_obj.clone().into()));
-                    }
-                });
-                sew.show(song);
-            }
-            SearchSongInput::NewSong(song) => {
-                println!("SONG saved NEW SONG");
-                let songs = Query::get_songs("".to_string());
-
-                match songs {
-                    Ok(songs) => {
-                        self.list_view_wrapper.borrow_mut().clear();
-                        let mut lw = self.list_view_wrapper.borrow_mut();
-                        songs.iter().for_each(|s| {
-                            lw.append(SongListItemModel::new(s.clone().into()));
-                        });
-                    }
-                    Err(e) => eprintln!("SQL ERROR: {:?}", e),
-                }
-            }
-            SearchSongInput::RemoveSong(pos) => {
-                let song_item = match self.list_view_wrapper.borrow().get(pos) {
-                    Some(si) => si.borrow().clone().song,
-                    None => return,
-                };
-
-                match Query::delete_song(song_item.into()) {
-                    Ok(_) => (),
-                    Err(e) => {
-                        eprintln!("SQL ERROR: {:?}", e);
-                        return;
-                    }
-                };
-
-                match Query::get_songs("".to_string()) {
-                    Ok(songs) => {
-                        self.list_view_wrapper.borrow_mut().clear();
-                        let mut lw = self.list_view_wrapper.borrow_mut();
-                        songs.iter().for_each(|s| {
-                            lw.append(SongListItemModel::new(s.clone().into()));
-                        });
-                    }
-                    Err(e) => {
-                        eprintln!("SQL ERROR: {:?}", e);
-                        return;
-                    }
-                };
-
-                self.list_view_wrapper.borrow().view.grab_focus();
-            }
-        };
+    pub fn connect_send_to_preview<F: Fn(&Self, &SlideManagerData) + 'static>(&self, f: F) {
+        self.connect_closure(
+            signals::SEND_TO_PREVIEW,
+            false,
+            glib::closure_local!(|obj: &Self, data: &SlideManagerData| {
+                f(obj, data);
+            }),
+        );
     }
 }

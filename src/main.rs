@@ -1,5 +1,7 @@
 mod app;
-mod config;
+mod app_config;
+mod application;
+mod application_window;
 mod db;
 mod dto;
 mod notepad;

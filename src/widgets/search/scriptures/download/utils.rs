@@ -1,12 +1,13 @@
 use futures_util::StreamExt;
-use std::{cell::RefCell, io::Write, rc::Rc};
+use gtk::glib;
+use std::io::Write;
 
 use rusqlite::Connection;
 
 use crate::{
-    config::AppConfigDir,
+    app_config::AppConfigDir,
     db::{
-        connection::{BibleTranslation, BibleVerse, DatabaseConnection},
+        connection::{BibleTranslation, BibleVerse},
         query::Query,
     },
 };
@@ -15,7 +16,7 @@ use super::download_modal::BibleDownload;
 
 pub async fn import_bible<F>(bible: &BibleDownload, callback: F) -> Option<String>
 where
-    F: Fn(String),
+    F: Fn(Result<String, ()>),
 {
     println!("SELCETIONS {:?}", bible);
 
@@ -28,8 +29,15 @@ where
     };
 
     println!("DOWNLOAD STARTED");
-    let response = reqwest::get(download_url).await.expect("Request error");
-    // let response = reqwest::get(download_url).await.expect("Request error");
+    let response = match reqwest::get(download_url).await {
+        Ok(r) => r,
+        Err(e) => {
+            glib::g_critical!("Import Bible", "{:?}", e);
+            callback(Err(()));
+            return None;
+        }
+    };
+    /*  .expect("Request error") */
 
     let content_size = response
         .content_length()
@@ -58,12 +66,12 @@ where
             percentage
         );
 
-        callback(format!("Downloading {percentage}%"));
+        callback(Ok(format!("Downloading {percentage}%")));
 
         downloaded_size = u64::min(downloaded_size + chunk.len() as u64, content_size);
     }
 
-    callback("Installing...".to_string());
+    callback(Ok("Installing...".to_string()));
 
     let _db_conn = match Connection::open(&file_path) {
         Ok(conn) => conn,
@@ -169,7 +177,7 @@ where
         return None;
     }
 
-    callback("Done".to_string());
+    callback(Ok("Done".to_string()));
 
     Some(translation_name)
 }

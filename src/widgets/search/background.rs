@@ -1,281 +1,299 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use gtk::glib;
+use gtk::prelude::ObjectExt;
 
-use gtk::prelude::*;
-use relm4::prelude::*;
-use relm4::typed_view::grid::TypedGridView;
-
-use crate::config::AppConfigDir;
-use crate::structs::background_grid_list_item::BackgroundGridListItem;
-
-// search area (notebook)
-#[derive(Debug)]
-pub enum SearchBackgroundInput {
-    NewBackgroundImages(Vec<String>),
-    RemoveBackgroundImages(Vec<u32>),
+mod signals {
+    pub(super) const SEND_PREVIEW_BACKGROUND: &str = "send-preview-background";
 }
+mod imp {
+    use std::{cell::RefCell, sync::OnceLock};
 
-#[derive(Debug)]
-pub enum SearchBacgroundOutput {
-    SendPreviewBackground(String),
-}
+    use gtk::{
+        gio::{
+            self,
+            prelude::{FileExt, ListModelExt, ListModelExtManual},
+        },
+        glib::{
+            self,
+            object::{Cast, CastNone},
+            subclass::{
+                Signal,
+                object::{ObjectImpl, ObjectImplExt},
+                types::{ObjectSubclass, ObjectSubclassExt},
+            },
+            types::StaticType,
+        },
+        prelude::ListItemExt,
+        subclass::{
+            box_::BoxImpl,
+            widget::{
+                CompositeTemplateCallbacksClass, CompositeTemplateClass,
+                CompositeTemplateInitializingExt, WidgetClassExt, WidgetImpl,
+            },
+        },
+    };
 
-#[derive(Debug, Clone)]
-pub struct SearchBackgroundModel {
-    image_src_list: Rc<RefCell<Vec<String>>>,
-    grid_view_wrapper: Rc<RefCell<TypedGridView<BackgroundGridListItem, gtk::SingleSelection>>>,
-}
+    use crate::{
+        app_config::AppConfigDir, dto::background_obj::BackgroundObj,
+        services::file_manager::FileManager,
+        structs::background_grid_list_item::BackgroundListItem,
+        widgets::search::background::signals,
+    };
 
-pub struct SearchBackgroundInit {}
+    #[derive(Default, Debug, gtk::CompositeTemplate)]
+    #[template(resource = "/com/openworship/app/ui/search_background.ui")]
+    pub struct SearchBackground {
+        #[template_child]
+        search_text: gtk::TemplateChild<gtk::SearchEntry>,
+        #[template_child]
+        gridview: gtk::TemplateChild<gtk::GridView>,
+        #[template_child]
+        add_bg_btn: gtk::TemplateChild<gtk::Button>,
+        #[template_child]
+        remove_bg_btn: gtk::TemplateChild<gtk::Button>,
 
-impl SearchBackgroundModel {
-    fn load_backgrounds() -> Vec<String> {
-        let mut path_list = Vec::new();
-        let dir = match AppConfigDir::dir_path(AppConfigDir::Backgrounds).read_dir() {
-            Ok(d) => d,
-            Err(e) => {
-                println!(
-                    "ERROR: could not read {:?} = {:?}",
-                    AppConfigDir::Backgrounds,
-                    e
-                );
-                return path_list;
-            }
-        };
-
-        for entry in dir {
-            let entry = match entry {
-                Ok(f) => f,
-                Err(_) => continue,
-            };
-
-            if let Ok(entry) = entry.metadata() {
-                if !entry.is_file() {
-                    continue;
-                }
-            }
-
-            path_list.push(entry.path().display().to_string());
-        }
-
-        path_list
+        //
+        image_src_list: RefCell<Vec<String>>,
     }
 
-    fn append_background(&mut self, bg: Vec<String>) {
-        let mut view = self.grid_view_wrapper.borrow_mut();
+    #[glib::object_subclass]
+    impl ObjectSubclass for SearchBackground {
+        const NAME: &'static str = "SearchBackground";
+        type Type = super::SearchBackground;
+        type ParentType = gtk::Box;
 
-        for path in bg {
-            // create symlink
-            let filename = match std::path::Path::new(&path).file_name() {
-                Some(f_path) => f_path,
-                None => continue,
-            };
+        fn class_init(klass: &mut Self::Class) {
+            klass.bind_template();
+            klass.bind_template_callbacks();
+        }
 
-            let symlink_path = AppConfigDir::dir_path(AppConfigDir::Backgrounds).join(filename);
-            println!("sym_path -> {:?}", symlink_path);
-
-            match std::fs::hard_link(path, &symlink_path) {
-                Ok(path) => path,
-                Err(err) => {
-                    eprintln!("Error creating sysmlink. {}", err);
-                    return;
-                }
-            };
-
-            let path = symlink_path.display().to_string();
-            view.append(BackgroundGridListItem::new(path.clone(), None));
-            self.image_src_list.borrow_mut().push(path);
+        fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+            obj.init_template();
         }
     }
 
-    fn register_backgroud_chooser(
-        window: &gtk::Window,
-        sender: ComponentSender<SearchBackgroundModel>,
-    ) -> gtk::FileDialog {
-        let file_filter = gtk::FileFilter::new();
-        file_filter.add_mime_type("image/*");
-        file_filter.set_name(Some("Images"));
+    impl ObjectImpl for SearchBackground {
+        fn constructed(&self) {
+            self.parent_constructed();
 
-        let list_store = gtk::gio::ListStore::new::<gtk::FileFilter>();
-        list_store.append(&file_filter);
-        let filter_model = gtk::FilterListModel::new(Some(list_store), Some(file_filter));
+            let model = gio::ListStore::new::<BackgroundObj>();
+            let model = gtk::SingleSelection::new(Some(model));
+            self.gridview.set_model(Some(&model));
 
-        let fc = gtk::FileDialog::builder()
-            .modal(true)
-            .filters(&filter_model)
-            .title("Import background")
-            .build();
+            let factory = gtk::SignalListItemFactory::new();
+            self.gridview.set_factory(Some(&factory));
 
-        fc.open_multiple(Some(window), gtk::gio::Cancellable::NONE, move |files| {
-            println!("OPENING FILES");
+            factory.connect_setup(|_, list_item| {
+                let li = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Expected ListItem");
+                li.set_child(Some(&BackgroundListItem::default()));
+            });
+            factory.connect_bind(|_, list_item| {
+                let li = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Expected ListItem");
+                let item = li
+                    .item()
+                    .and_downcast::<BackgroundObj>()
+                    .expect("Expected BackgroundObj");
+                let child = li
+                    .child()
+                    .and_downcast::<BackgroundListItem>()
+                    .expect("Expected BackgroundListItem");
 
-            if files.is_err() {
-                // TODO: log or inform user about error
-                eprintln!("ERROR: Could not open files\n{:?}", files);
+                child.set_label(&item.title());
+                child.set_picture_src(&item.src());
+            });
+
+            let list = Self::load_backgrounds();
+            self.append_background(list, false);
+        }
+
+        fn signals() -> &'static [glib::subclass::Signal] {
+            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
+
+            SIGNALS.get_or_init(|| {
+                vec![
+                    Signal::builder(signals::SEND_PREVIEW_BACKGROUND)
+                        .param_types([String::static_type()])
+                        .build(),
+                ]
+            })
+        }
+    }
+
+    impl WidgetImpl for SearchBackground {}
+    impl BoxImpl for SearchBackground {}
+
+    #[gtk::template_callbacks]
+    impl SearchBackground {
+        #[template_callback]
+        fn handle_search_activate(&self) {}
+
+        #[template_callback]
+        fn handle_preview_background(&self, position: u32, _: &gtk::GridView) {
+            let list = self.image_src_list.borrow();
+
+            let Some(path) = list.get(position as usize) else {
                 return;
+            };
+
+            self.obj().emit_send_preview_background(path.clone());
+        }
+
+        #[template_callback]
+        fn handle_add_background(&self, _: &gtk::Button) {
+            let file_filter = gtk::FileFilter::new();
+            file_filter.add_mime_type("image/*");
+            file_filter.set_name(Some("Images"));
+
+            let mut list = glib::List::<gtk::FileFilter>::new();
+            list.push_back(file_filter);
+            let files = FileManager::open_files("Import background", "Import", &mut list);
+
+            // ::<gtk::gio::File>
+            let bg = files
+                .iter::<gtk::gio::File>()
+                .flatten()
+                .filter_map(|file| {
+                    let Some(path) = file.path() else {
+                        return None;
+                    };
+                    let filename = path.display().to_string();
+                    Some(filename)
+                })
+                .collect::<Vec<_>>();
+
+            self.append_background(bg, true);
+        }
+
+        #[template_callback]
+        fn handle_remove_background(&self, _: &gtk::Button) {
+            let gridview = self.gridview.clone();
+
+            let s_model = match gridview.model() {
+                Some(model) => model,
+                None => return,
+            };
+
+            let ss_model = match s_model.downcast_ref::<gtk::SingleSelection>() {
+                Some(model) => model,
+                None => return,
+            };
+
+            let selected_pos = ss_model.selected();
+            self.remove_background(vec![selected_pos]);
+        }
+    }
+    impl SearchBackground {
+        fn load_backgrounds() -> Vec<String> {
+            let mut path_list = Vec::new();
+            let dir = match AppConfigDir::dir_path(AppConfigDir::Backgrounds).read_dir() {
+                Ok(d) => d,
+                Err(e) => {
+                    println!(
+                        "ERROR: could not read {:?} = {:?}",
+                        AppConfigDir::Backgrounds,
+                        e
+                    );
+                    return path_list;
+                }
+            };
+
+            for entry in dir {
+                let entry = match entry {
+                    Ok(f) => f,
+                    Err(_) => continue,
+                };
+
+                if let Ok(entry) = entry.metadata() {
+                    if !entry.is_file() {
+                        continue;
+                    }
+                }
+
+                path_list.push(entry.path().display().to_string());
             }
 
-            let files = files.unwrap();
-            let mut new_images: Vec<String> = vec![];
+            path_list
+        }
+        fn append_background(&self, bg: Vec<String>, should_link: bool) {
+            let view = self.gridview.clone();
 
-            for file in files.iter::<gtk::gio::File>().flatten() {
-                if let Some(path) = file.path() {
-                    let filename = path.display().to_string();
-                    new_images.push(filename);
+            for path in bg {
+                let mut path = path.clone();
+                if should_link {
+                    let file = gio::File::for_path(&path);
+                    let Some(link_path) =
+                        FileManager::file_to_link(&file, AppConfigDir::Backgrounds)
+                    else {
+                        continue;
+                    };
+
+                    path = link_path
+                }
+
+                let Some(store) = view
+                    .model()
+                    .and_then(|v| v.downcast::<gtk::SingleSelection>().ok())
+                    .and_then(|v| v.model().and_downcast::<gio::ListStore>())
+                else {
+                    return;
+                };
+
+                store.append(&BackgroundObj::new(path.clone(), None));
+                self.image_src_list.borrow_mut().push(path);
+            }
+        }
+        fn remove_background(&self, position_list: Vec<u32>) {
+            for index in position_list.clone() {
+                let gridview = self.gridview.clone();
+                let Some(store) = gridview
+                    .model()
+                    .and_then(|v| v.downcast::<gtk::SingleSelection>().ok())
+                    .and_then(|v| v.model().and_downcast::<gio::ListStore>())
+                else {
+                    return;
+                };
+
+                let item_to_remove = store.item(index);
+                if let Some(item) = item_to_remove.and_downcast::<BackgroundObj>() {
+                    store.remove(index);
+                    let _ = std::fs::remove_file(&item.src());
                 }
             }
-
-            sender.input(SearchBackgroundInput::NewBackgroundImages(new_images));
-        });
-
-        fc
+        }
     }
 }
 
-#[relm4::component(pub)]
-impl SimpleComponent for SearchBackgroundModel {
-    type Init = SearchBackgroundInit;
-    type Output = SearchBacgroundOutput;
-    type Input = SearchBackgroundInput;
+glib::wrapper! {
+    pub struct SearchBackground(ObjectSubclass<imp::SearchBackground>)
+    @extends  gtk::Box, gtk::Widget,
+    @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
+}
 
-    view! {
-        #[root]
-        gtk::Box {
-            set_orientation:gtk::Orientation::Vertical,
-            set_vexpand: true,
+impl Default for SearchBackground {
+    fn default() -> Self {
+        glib::Object::new()
+    }
+}
 
-            // #[name="search_field"]
-            gtk::Box {
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 2,
-                set_height_request: 48,
-                set_width_request: 58,
-
-                gtk::SearchEntry {
-                    set_placeholder_text: Some("Search..."),
-                    set_hexpand: true
-                }
-            },
-
-            gtk::ScrolledWindow {
-                set_vexpand: true,
-
-                #[wrap(Some)]
-                #[local_ref]
-                set_child = &bg_grid_view -> gtk::GridView {
-                    set_min_columns: 2,
-                    connect_activate[sender, model] => move |grid_view, _| {
-                        let s_model = match grid_view.model() {
-                            Some(model)=>model,
-                            None=> return
-                        };
-
-                        let ss_model = match s_model.downcast_ref::<gtk::SingleSelection>() {
-                            Some(model)=>model,
-                            None=> return
-                        };
-
-                        let selected_pos = ss_model.selected();
-                        let list = model.image_src_list.borrow();
-                        let path = list.get(selected_pos as usize);
-
-                        let path = match path{
-                            Some(path)=>path,
-                            None=>return,
-                        };
-
-                        let _ = sender.output(SearchBacgroundOutput::SendPreviewBackground(path.to_string()));
-                    },
-                }
-            },
-
-            gtk::Box {
-                set_orientation: gtk::Orientation::Horizontal,
-                set_spacing: 3,
-                gtk::Button {
-                    set_icon_name: "plus",
-                    set_tooltip: "Add background",
-
-                    connect_clicked[sender] => move |btn|{
-                        let window = match btn.toplevel_window(){
-                            Some(win)=>win,
-                            None=>return
-                        };
-
-                        let file_chooser = SearchBackgroundModel::register_backgroud_chooser(&window,sender.clone());
-                        // file_chooser.set_transient_for(Some(&window));
-                        // file_chooser.show();
-                    }
-                },
-                gtk::Button {
-                    set_icon_name: "minus",
-                    set_tooltip: "Remove background",
-
-                    connect_clicked[sender, model] => move |_|{
-                        let grid_view = model.grid_view_wrapper.borrow().view.clone();
-
-                        let s_model = match grid_view.model() {
-                            Some(model)=>model,
-                            None=> return
-                        };
-
-                        let ss_model = match s_model.downcast_ref::<gtk::SingleSelection>() {
-                            Some(model)=>model,
-                            None=> return
-                        };
-
-                        let selected_pos = ss_model.selected();
-                        sender.input(SearchBackgroundInput::RemoveBackgroundImages(vec![selected_pos]));
-
-                    }
-                }
-            },
-
-        }
+impl SearchBackground {
+    pub fn new() -> Self {
+        glib::Object::new()
     }
 
-    fn init(
-        _init: Self::Init,
-        root: Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> relm4::ComponentParts<Self> {
-        let grid_view_wrapper = Rc::new(RefCell::new(TypedGridView::new()));
-
-        let bg_list = SearchBackgroundModel::load_backgrounds();
-        for item in bg_list.clone() {
-            grid_view_wrapper
-                .borrow_mut()
-                .append(BackgroundGridListItem::new(item, None));
-        }
-
-        let model = SearchBackgroundModel {
-            image_src_list: Rc::new(RefCell::new(bg_list)),
-            grid_view_wrapper,
-        };
-
-        let bg_grid_view = model.grid_view_wrapper.borrow().view.clone();
-
-        let widgets = view_output!();
-        relm4::ComponentParts { model, widgets }
+    pub fn connect_send_preview_background<F: Fn(&Self, String) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::SEND_PREVIEW_BACKGROUND,
+            false,
+            glib::closure_local!(|obj: &Self, bg: String| { f(obj, bg) }),
+        )
     }
-
-    fn update(&mut self, message: Self::Input, _sender: ComponentSender<Self>) {
-        match message {
-            SearchBackgroundInput::NewBackgroundImages(list) => {
-                self.append_background(list);
-            }
-            SearchBackgroundInput::RemoveBackgroundImages(position_list) => {
-                for index in position_list.clone() {
-                    let item_to_remove = self.grid_view_wrapper.clone().borrow().get(index);
-
-                    if let Some(item) = item_to_remove {
-                        let item = item.borrow().clone();
-
-                        self.grid_view_wrapper.borrow_mut().remove(index);
-                        let _ = std::fs::remove_file(&item.src);
-                    }
-                }
-            }
-        };
+    fn emit_send_preview_background(&self, bg: String) {
+        self.emit_by_name(signals::SEND_PREVIEW_BACKGROUND, &[&bg])
     }
 }

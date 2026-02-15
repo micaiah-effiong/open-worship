@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SearchActivityViewer" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <property name="height_request">300</property>
+    <property name="hexpand">true</property>
+    <property name="homogeneous">true</property>
+
+    <child>
+      <object class="GtkBox" id="tab_box">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">3</property>
+        <property name="height_request">48</property>
+        
+        <style>
+          <class name="ow-listview" />
+        </style>
+
+        <child>
+          <object class="GtkNotebook">
+            <property name="hexpand">true</property>
+
+            <child>
+              <object class="SearchSong" id="song_page">
+                <signal name="send-to-preview" handler="handle_preview_song" swapped="true" />
+                <signal name="send-to-schedule" handler="handle_schedule_song" swapped="true" />
+              </object>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel" id="song_page_label">
+                <property name="label">Songs</property>
+              </object>
+            </child>
+
+
+            <child>
+              <object class="SearchScripture" id="scripture_page">
+                <signal name="send-scriptures" handler="handle_preview_scripture" swapped="true" />
+                <signal name="send-to-schedule" handler="handle_schedule_scripture" swapped="true" />
+              </object>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel" id="scripture_page_label">
+                <property name="label">Scriptures</property>
+              </object>
+            </child>
+
+            <child>
+              <object class="SearchBackground" id="background_page">
+                <signal name="send-preview-background" handler="handle_preview_background" swapped="true" />
+              </object>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel" id="background_page_label">
+                <property name="label">Backgrounds</property>
+              </object>
+            </child>
+
+          </object>
+        </child>
+
+      </object>
+    </child>
+
+  </template>
+</interface>

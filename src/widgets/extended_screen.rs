@@ -4,10 +4,8 @@ use gtk::{
     glib::{self, subclass::types::ObjectSubclassIsExt},
     prelude::WidgetExt,
 };
-use relm4::factory::positions;
 
 use crate::{
-    services::slide::Slide,
     utils::WidgetChildrenExt,
     widgets::canvas::{serialise::SlideManagerData, text_item::TextItem},
 };
@@ -28,13 +26,11 @@ mod imp {
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
-        prelude::{GtkWindowExt, WidgetExt},
+        prelude::GtkWindowExt,
         subclass::{widget::WidgetImpl, window::WindowImpl},
     };
 
-    use crate::{
-        config::AppConfig, services::slide_manager::SlideManager, widgets::extended_screen::signals,
-    };
+    use crate::{app_config::AppConfig, services::slide_manager::SlideManager};
 
     #[derive(Default, Properties)]
     #[properties(wrapper_type = super::ExtendedScreen)]
@@ -109,7 +105,7 @@ impl ExtendedScreen {
         {
             if let Some(mut end_slide) = data.slides.first().cloned() {
                 end_slide.items.clear();
-                end_slide.canvas_data.background_pattern = String::new();
+                end_slide.canvas_data.background_pattern = None;
                 let e = sm.imp().end_presentation_slide.borrow();
                 e.imp().save_data.replace(Some(end_slide.clone()));
 
@@ -124,7 +120,6 @@ impl ExtendedScreen {
 
         sm.reset();
         sm.load_data(data.clone());
-        sm.show_end_presentation_slide();
 
         for slide in &sm.slides() {
             slide.load_slide();

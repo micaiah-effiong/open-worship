@@ -62,7 +62,7 @@ pub struct CanvasData {
     #[serde(rename = "background-color")]
     pub background_color: String,
     #[serde(rename = "background-pattern")]
-    pub background_pattern: String,
+    pub background_pattern: Option<String>,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -139,5 +139,36 @@ impl SlideManagerData {
             slides: slides.into_iter().collect(),
             title: "".into(),
         }
+    }
+
+    pub fn from_list(
+        text: String,
+        position: u32,
+        list: Vec<String>,
+        background_image: Option<String>,
+    ) -> Self {
+        let slides = list
+            .iter()
+            .map(|v| {
+                let mut s = SlideData::from_default();
+
+                s.canvas_data.background_pattern = background_image.clone();
+                for i in &mut s.items {
+                    match &mut i.item_type {
+                        CanvasItemType::Text(text) => {
+                            text.text_data = glib::base64_encode(v.clone().as_bytes()).to_string();
+                            break;
+                        }
+                        _ => continue,
+                    }
+                }
+
+                s
+            })
+            .collect::<Vec<_>>();
+
+        let mut sm_data = SlideManagerData::new(position, 0, slides);
+        sm_data.title = text;
+        sm_data
     }
 }

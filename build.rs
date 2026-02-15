@@ -11,6 +11,4 @@ fn main() {
         "data/resources/resources.gresource.xml",
         "resources.gresource",
     );
-
-    relm4_icons_build::bundle_icons("icon_names.rs", None, None, None::<&str>, ["plus", "minus"]);
 }

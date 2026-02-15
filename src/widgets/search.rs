@@ -2,196 +2,186 @@ mod background;
 mod scriptures;
 pub mod songs;
 
-use std::{cell::RefCell, rc::Rc};
+use gtk::{glib, prelude::*};
 
-use gtk::{glib::property::PropertySet, prelude::*};
-use relm4::prelude::*;
+use crate::widgets::canvas::serialise::SlideManagerData;
 
-use background::{SearchBacgroundOutput, SearchBackgroundInit, SearchBackgroundModel};
-use scriptures::{SearchScriptureInit, SearchScriptureModel, SearchScriptureOutput};
-use songs::{SearchSongInit, SearchSongModel, SearchSongOutput};
-
-use crate::{
-    db::connection::DatabaseConnection, dto, widgets::canvas::serialise::SlideManagerData,
-};
-
-const MIN_GRID_HEIGHT: i32 = 300;
-// const MIN_GRID_WIDTH: i32 = 300;
-
-// search area (notebook)
-#[derive(Debug)]
-pub enum SearchModelInput {
-    PreviewBackground(String),
-    PreviewScriptures(dto::ListPayload),
-    PreviewSongs(SlideManagerData),
-    AddToSchedule(SlideManagerData),
+mod signals {
+    pub(super) const PREVIEW_BACKGROUND: &str = "preview-background";
+    pub(super) const PREVIEW_SLIDES: &str = "preview-slides";
+    pub(super) const ADD_TO_SCHEDULE: &str = "add-to-schedule";
 }
 
-#[derive(Debug)]
-pub enum SearchOutput {
-    PreviewBackground(String),
-    PreviewScriptures(dto::ListPayload),
-    PreviewSongs(SlideManagerData),
-    AddToSchedule(SlideManagerData),
-}
+mod imp {
+    use std::{cell::RefCell, sync::OnceLock};
 
-#[derive(Debug)]
-pub struct SearchModel {
-    background_page: relm4::Controller<SearchBackgroundModel>,
-    scripture_page: relm4::Controller<SearchScriptureModel>,
-    song_page: relm4::Controller<SearchSongModel>,
-    background_image: Rc<RefCell<Option<String>>>,
-}
+    use gtk::{
+        glib::{
+            self,
+            subclass::{
+                Signal,
+                object::ObjectImpl,
+                types::{ObjectSubclass, ObjectSubclassExt},
+            },
+            types::{StaticType, StaticTypeExt},
+        },
+        subclass::{
+            box_::BoxImpl,
+            widget::{
+                CompositeTemplateCallbacksClass, CompositeTemplateClass,
+                CompositeTemplateInitializingExt, WidgetImpl,
+            },
+        },
+    };
 
-impl SearchModel {
-    fn convert_background_msg(msg: SearchBacgroundOutput) -> SearchModelInput {
-        match msg {
-            SearchBacgroundOutput::SendPreviewBackground(bg_src) => {
-                SearchModelInput::PreviewBackground(bg_src)
-            }
+    use crate::widgets::{
+        canvas::serialise::SlideManagerData,
+        search::{
+            background::SearchBackground, scriptures::SearchScripture, signals, songs::SearchSong,
+        },
+    };
+
+    #[derive(Default, gtk::CompositeTemplate)]
+    #[template(resource = "/com/openworship/app/ui/search.ui")]
+    pub struct SearchActivityViewer {
+        background_image: RefCell<Option<String>>,
+    }
+
+    #[glib::object_subclass]
+    impl ObjectSubclass for SearchActivityViewer {
+        const NAME: &'static str = "SearchActivityViewer";
+        type Type = super::SearchActivityViewer;
+        type ParentType = gtk::Box;
+
+        fn class_init(klass: &mut Self::Class) {
+            SearchSong::ensure_type();
+            SearchScripture::ensure_type();
+            SearchBackground::ensure_type();
+
+            klass.bind_template();
+            klass.bind_template_callbacks();
+        }
+
+        fn instance_init(obj: &glib::subclass::InitializingObject<Self>) {
+            obj.init_template();
         }
     }
 
-    fn convert_scripture_msg(msg: SearchScriptureOutput) -> SearchModelInput {
-        match msg {
-            SearchScriptureOutput::SendScriptures(list_payload) => {
-                SearchModelInput::PreviewScriptures(list_payload)
-            }
-            SearchScriptureOutput::SendToSchedule(list_payload) => {
-                SearchModelInput::AddToSchedule(list_payload)
-            }
+    impl ObjectImpl for SearchActivityViewer {
+        fn signals() -> &'static [glib::subclass::Signal] {
+            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
+
+            SIGNALS.get_or_init(|| {
+                vec![
+                    Signal::builder(signals::ADD_TO_SCHEDULE)
+                        .param_types([SlideManagerData::static_type()])
+                        .build(),
+                    Signal::builder(signals::PREVIEW_SLIDES)
+                        .param_types([SlideManagerData::static_type()])
+                        .build(),
+                    Signal::builder(signals::PREVIEW_BACKGROUND)
+                        .param_types([String::static_type()])
+                        .build(),
+                ]
+            })
+        }
+    }
+    impl WidgetImpl for SearchActivityViewer {}
+    impl BoxImpl for SearchActivityViewer {}
+
+    #[gtk::template_callbacks]
+    impl SearchActivityViewer {
+        #[template_callback]
+        fn handle_preview_song(&self, data: &SlideManagerData, _: SearchSong) {
+            self.preview_slides(data);
+        }
+        #[template_callback]
+        fn handle_schedule_song(&self, data: &SlideManagerData, _: SearchSong) {
+            self.obj().emit_add_to_schedule(data);
+        }
+        #[template_callback]
+        fn handle_schedule_scripture(&self, data: &SlideManagerData, _: SearchScripture) {
+            self.obj().emit_add_to_schedule(data);
+        }
+        #[template_callback]
+        fn handle_preview_scripture(&self, data: &SlideManagerData, _: SearchScripture) {
+            self.preview_slides(data);
+        }
+        #[template_callback]
+        fn handle_preview_background(&self, data: String, _: SearchBackground) {
+            self.obj().emit_preview_background(data);
         }
     }
 
-    fn convert_song_msg(msg: SearchSongOutput) -> SearchModelInput {
-        match msg {
-            SearchSongOutput::SendToPreview(list_payload) => {
-                SearchModelInput::PreviewSongs(list_payload)
-            }
-            SearchSongOutput::SendToSchedule(list_payload) => {
-                SearchModelInput::AddToSchedule(list_payload)
-            }
-        }
-    }
-}
-
-pub struct SearchInit {}
-
-impl SearchModel {}
-
-#[relm4::component(pub)]
-impl SimpleComponent for SearchModel {
-    type Init = SearchInit;
-    type Output = SearchOutput;
-    type Input = SearchModelInput;
-
-    view! {
-        #[root]
-        gtk::Box{
-            set_orientation: gtk::Orientation::Vertical,
-            set_height_request: MIN_GRID_HEIGHT,
-            set_hexpand: true,
-            set_homogeneous: true,
-
-            #[name="tab_box"]
-            gtk::Box {
-                set_orientation:gtk::Orientation::Horizontal,
-                set_spacing: 3,
-                set_css_classes: &[ "ow-listview"],
-                set_height_request: 48,
-
-                gtk::Notebook {
-                    set_hexpand: true,
-
-                    #[local_ref]
-                    append_page[Some(&gtk::Label::new(Some("Songs")))] = song_page_widget -> gtk::Box {},
-
-                    #[local_ref]
-                    append_page[Some(&gtk::Label::new(Some("Scriptures")))] = scripture_page_widget -> gtk::Box{},
-
-                    #[local_ref]
-                    append_page[Some(&gtk::Label::new(Some("Backgrounds")))] = background_page_widget -> gtk::Box{}
+    impl SearchActivityViewer {
+        fn preview_slides(&self, data: &SlideManagerData) {
+            let mut data = data.clone();
+            data.slides.iter_mut().for_each(|v| {
+                if v.canvas_data.background_pattern.is_none() {
+                    v.canvas_data.background_pattern = self.background_image.borrow().clone();
                 }
-            }
-
+            });
+            self.obj().emit_preview_slides(&data);
         }
     }
+}
 
-    fn init(
-        init: Self::Init,
-        root: Self::Root,
-        sender: ComponentSender<Self>,
-    ) -> relm4::ComponentParts<Self> {
-        let song_page = SearchSongModel::builder()
-            .launch(SearchSongInit {})
-            .forward(sender.input_sender(), SearchModel::convert_song_msg);
-        let scripture_page = SearchScriptureModel::builder()
-            .launch(SearchScriptureInit {})
-            .forward(sender.input_sender(), SearchModel::convert_scripture_msg);
-        let background_page = SearchBackgroundModel::builder()
-            .launch(SearchBackgroundInit {})
-            .forward(sender.input_sender(), SearchModel::convert_background_msg);
+glib::wrapper! {
+    pub struct SearchActivityViewer(ObjectSubclass<imp::SearchActivityViewer>)
+    @extends  gtk::Box, gtk::Widget,
+    @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
+}
 
-        let model = SearchModel {
-            song_page,
-            background_page,
-            scripture_page,
-            background_image: Rc::new(RefCell::new(None)),
-        };
+impl Default for SearchActivityViewer {
+    fn default() -> Self {
+        glib::Object::new()
+    }
+}
 
-        let background_page_widget = model.background_page.widget();
-        let scripture_page_widget = model.scripture_page.widget();
-        let song_page_widget = model.song_page.widget();
-
-        let widgets = view_output!();
-
-        relm4::ComponentParts { model, widgets }
+impl SearchActivityViewer {
+    pub fn new() -> Self {
+        glib::Object::new()
     }
 
-    fn update(&mut self, message: Self::Input, sender: ComponentSender<Self>) {
-        match message {
-            SearchModelInput::PreviewBackground(bg) => {
-                self.background_image.set(Some(bg.clone()));
-                let _ = sender.output(SearchOutput::PreviewBackground(bg));
-            }
-            SearchModelInput::PreviewScriptures(list) => {
-                let item = dto::ListPayload::new(
-                    list.text,
-                    list.position,
-                    list.list,
-                    match list.background_image {
-                        Some(bg) => Some(bg),
-                        None => self.background_image.borrow().clone(),
-                    },
-                );
-                let _ = sender.output(SearchOutput::PreviewScriptures(item));
-            }
-            SearchModelInput::PreviewSongs(mut list) => {
-                // let item = dto::ListPayload::new(
-                //     list.text,
-                //     list.position,
-                //     list.list,
-                //     match list.background_image {
-                //         Some(bg) => Some(bg),
-                //         None => self.background_image.borrow().clone(),
-                //     },
-                // );
+    fn emit_add_to_schedule(&self, slides: &SlideManagerData) {
+        self.emit_by_name(signals::ADD_TO_SCHEDULE, &[slides])
+    }
+    pub fn connect_add_to_schedule<F: Fn(&Self, &SlideManagerData) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::ADD_TO_SCHEDULE,
+            false,
+            glib::closure_local!(|obj: &Self, data: &SlideManagerData| f(obj, data)),
+        )
+    }
 
-                list.slides.iter_mut().for_each(|v| {
-                    let Some(bg) = self.background_image.borrow().clone() else {
-                        return;
-                    };
+    fn emit_preview_slides(&self, slides: &SlideManagerData) {
+        self.emit_by_name(signals::PREVIEW_SLIDES, &[slides])
+    }
+    pub fn connect_preview_slides<F: Fn(&Self, &SlideManagerData) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::PREVIEW_SLIDES,
+            false,
+            glib::closure_local!(|obj: &Self, data: &SlideManagerData| f(obj, data)),
+        )
+    }
 
-                    if v.canvas_data.background_pattern.is_empty() {
-                        v.canvas_data.background_pattern = bg;
-                    }
-                });
-
-                let _ = sender.output(SearchOutput::PreviewSongs(list));
-            }
-            SearchModelInput::AddToSchedule(list) => {
-                let _ = sender.output(SearchOutput::AddToSchedule(list));
-            }
-        };
+    fn emit_preview_background(&self, bg: String) {
+        self.emit_by_name(signals::PREVIEW_BACKGROUND, &[&bg])
+    }
+    pub fn connect_preview_background<F: Fn(&Self, String) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::PREVIEW_BACKGROUND,
+            false,
+            glib::closure_local!(|obj: &Self, data: String| f(obj, data)),
+        )
     }
 }

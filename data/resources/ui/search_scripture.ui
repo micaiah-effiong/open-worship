@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SearchScripture" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <property name="vexpand">true</property>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">2</property>
+        <property name="height_request">48</property>
+
+        <child>
+          <object class="GtkSearchEntry" id="search_text">
+            <property name="hexpand">true</property>
+            <signal name="activate" handler="handle_search_activate" swapped="true"/>
+          </object>
+        </child>
+      
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkScrolledWindow">
+        <property name="vexpand">true</property>
+        <child>
+          <object class="GtkListView" id="listview">
+          </object>
+        </child>
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <child>
+          <object class="GtkButton" id="import_btn">
+            <property name="icon_name">plus</property>
+            <signal name="clicked" handler="open_download_modal" swapped="true"/>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkDropDown" id="dropdown"></object>
+        </child>
+      </object>
+    </child>
+
+  </template>
+</interface>

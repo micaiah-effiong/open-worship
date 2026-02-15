@@ -229,6 +229,10 @@ impl Query {
         r
     }
 
+    pub fn get_all_songs() -> RuResult<Vec<SongData>> {
+        Self::get_songs(String::new())
+    }
+
     pub fn insert_verse(
         bible_translation: BibleTranslation,
         bible_verse: Vec<(u32, BibleVerse)>,

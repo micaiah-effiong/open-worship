@@ -13,15 +13,14 @@ use gtk::glib::object::IsA;
 use gtk::glib::prelude::*;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{
-    AccessibleExt, BoxExt, ButtonExt, GtkApplicationExt, GtkWindowExt, SnapshotExt,
+    AccessibleExt, BoxExt, ButtonExt, DialogExt, GtkApplicationExt, GtkWindowExt, SnapshotExt,
     StyleContextExt, TextBufferExt, TextViewExt, WidgetExt,
 };
 use gtk::subclass::window;
 use gtk::{CssProvider, pango};
-use relm4::{RelmRemoveAllExt, RelmWidgetExt};
 use serde::Serialize;
 
-use crate::config::AppConfig;
+use crate::app_config::AppConfig;
 use crate::format_resource;
 use crate::services::slide::Slide;
 use crate::services::slide_manager::SlideManager;
@@ -270,7 +269,7 @@ fn build_ui(app: &gtk::Application) {
                         let slide = Slide::new(Some(data));
                         slide.set_presentation_mode(true);
                         slide.load_slide();
-                        window.remove_all();
+                        window.set_child(None::<&gtk::Widget>);
                         window.set_child(slide.canvas().as_ref());
                     }
                 };
@@ -290,11 +289,23 @@ fn build_ui(app: &gtk::Application) {
         let snap_btn = gtk::Button::with_label("Snap");
         t_box.append(&snap_btn);
         snap_btn.connect_clicked({
-            let tbox = t_box.clone();
+            // let tbox = t_box.clone();
             let picture = picture.clone();
             let sm = sm.clone();
-            move |btn| {
+            move |_btn| {
                 picture.set_paintable(sm.slideshow().snap().as_ref());
+            }
+        });
+
+        let notify_btn = gtk::Button::with_label("Notify");
+        t_box.append(&notify_btn);
+
+        notify_btn.connect_clicked({
+            move |btn| {
+                let Some(win) = btn.toplevel_window() else {
+                    return;
+                };
+                show_notification(&win, "Sup");
             }
         });
     }
@@ -472,4 +483,36 @@ fn build_dnd_ui(app: &gtk::Application) {
     );
 
     window.present();
+}
+
+fn show_notification(window: &gtk::Window, message: &str) {
+    let dialog = gtk::AlertDialog::builder().message(message).build();
+    let window = window.clone();
+    // let message = message.clone();
+    glib::timeout_add_local_once(std::time::Duration::from_secs(5), move || {
+        // Some(window),
+        // gtk::DialogFlags::MODAL,
+        // gtk::MessageType::Info,
+        // gtk::ButtonsType::Ok,
+        // message,
+
+        // dialog.set_title(Some("Notification"));
+        // dialog.connect_response(|dialog, _| {
+        //     dialog.close();
+        // });
+        if let Some(app) = window.application() {
+            let notification = gtk::gio::Notification::new("Bible download");
+            notification.set_body(Some("Bible data has been downloaded"));
+            notification.set_priority(gio::NotificationPriority::Urgent);
+            app.send_notification(None, &notification);
+        }
+
+        // dialog.show(Some(window));
+        // use notify_rust::Notification;
+        // Notification::new()
+        //     .summary("Firefox News")
+        //     .body("This will almost look like a real firefox notification.")
+        //     .icon("firefox")
+        //     .show();
+    });
 }

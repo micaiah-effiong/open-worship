@@ -20,7 +20,7 @@ mod imp {
     };
 
     use crate::{
-        config::AppConfigDir,
+        app_config::AppConfigDir,
         services::{file_manager::FileManager, slide_manager::SlideManager},
         utils::{self, ColorDialogButtonExtra, WidgetExtrasExt},
     };

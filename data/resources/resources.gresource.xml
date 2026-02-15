@@ -40,5 +40,16 @@
   <gresource prefix="/com/openworship/app">
     <file compressed="true">ui/schedule_activity_viewer.ui</file>
     <file compressed="true">ui/schedule_listitem.ui</file>
+    <file compressed="true">ui/search.ui</file>
+    <file compressed="true">ui/search_song.ui</file>
+    <file compressed="true">ui/search_scripture.ui</file>
+    <file compressed="true">ui/search_background.ui</file>
+    <file compressed="true">ui/background_list_item.ui</file>
+    <file compressed="true">ui/download_bible_window.ui</file>
+    <file compressed="true">ui/app_window.ui</file>
   </gresource>
+  <gresource prefix="/com/openworship/app/data">
+    <file compressed="true">bible.json</file>
+  </gresource>
+
 </gresources>

@@ -7,10 +7,7 @@ use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::*;
 
-use crate::{
-    db::query::Query, dto::SongObject, utils::TextBufferExtraExt,
-    widgets::search::songs::list_item::SongListItemModel,
-};
+use crate::{db::query::Query, dto::SongObject, utils::TextBufferExtraExt};
 
 const WIDTH: i32 = 1000;
 
@@ -42,7 +39,7 @@ mod imp {
 
     use super::*;
     use crate::{
-        config::AppConfig, services::slide_manager::SlideManager, utils::WidgetExtrasExt,
+        app_config::AppConfig, services::slide_manager::SlideManager, utils::WidgetExtrasExt,
         widgets::search::songs::toolbar::song_editor_toolbar::SongEditorToolbar,
     };
 
@@ -553,18 +550,17 @@ impl SongEditWindow {
             title.text().into(),
             verses,
         );
-        let song_model = SongListItemModel::new(song.clone().into());
 
         let res = match imp.is_new_song.get() {
-            true => Query::insert_song(song.into()),
-            false => Query::update_song(song.into()),
+            true => Query::insert_song(song.clone().into()),
+            false => Query::update_song(song.clone().into()),
         };
         let _ = match res {
             Ok(()) => imp.is_new_song.set(false),
             Err(x) => println!("SQL ERROR: {:?}", x),
         };
 
-        self.emit_save(&song_model.song);
+        self.emit_save(&song.into());
     }
     pub fn cancel_reponse(&self) {
         self.close();
@@ -573,7 +569,6 @@ impl SongEditWindow {
     fn load_song(&self, song: &SongObject) {
         let listview = self.imp().list_view.borrow().clone();
 
-        //
         let sm = self.imp().slide_manager.borrow();
         sm.reset();
 

@@ -3,7 +3,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 
 use rusqlite::Connection;
 
-use crate::config::AppConfig;
+use crate::app_config::AppConfig;
 
 #[derive(Debug)]
 pub struct DatabaseConnection {

@@ -35,10 +35,6 @@ ProductName = "Openworship"
 include = ["res/windows/wix/openworship.wxs"]
 
 [dependencies]
-relm4 = "0.10"
-relm4-components = "0.10"
-# relm4-icons = "0.9.0"
-relm4-icons = "0.10.0-beta.2"
 dirs = "5.0.1"
 rusqlite = { version = "0.34.0", features = ["bundled"] }
 serde = { version = "1.0.217", features = ["derive"] }
@@ -60,7 +56,6 @@ tray-icon = "0.19.2"
 
 
 [build-dependencies]
-relm4-icons-build = "0.10.0-beta.2"
 glib-build-tools = "0.20.0"
 
 [target.'cfg(windows)'.build-dependencies]

@@ -1,102 +1,97 @@
-use gtk::glib::value::ToValue;
-use gtk::{glib, prelude::WidgetExt};
-use relm4::{
-    gtk::{self},
-    typed_view::list::RelmListItem,
-    view,
-};
+use gtk::glib::{self, subclass::types::ObjectSubclassIsExt};
 
-use crate::{
-    dto::SongObject,
-    widgets::canvas::serialise::{SlideData, SlideManagerData},
-};
+use crate::dto::SongObject;
 
-/// song search list item
-#[derive(Debug, Clone)]
-pub struct SongListItemModel {
-    pub song: SongObject,
-}
+mod imp {
+    use std::cell::RefCell;
 
-impl Into<SlideManagerData> for SongListItemModel {
-    fn into(self) -> SlideManagerData {
-        let slide_list = self
-            .song
-            .verses()
-            .into_iter()
-            .map(|s| {
-                s.slide
-                    .as_ref()
-                    .and_then(|val| serde_json::from_str(val).ok())
-                    .unwrap_or_else(SlideData::from_default)
-            })
-            .collect::<Vec<_>>();
+    use gtk::{
+        glib::{
+            self,
+            subclass::{
+                object::{ObjectImpl, ObjectImplExt},
+                types::{ObjectSubclass, ObjectSubclassExt},
+            },
+            value::ToValue,
+        },
+        prelude::{BoxExt, WidgetExt},
+        subclass::{box_::BoxImpl, widget::WidgetImpl},
+    };
 
-        let mut sm_data = SlideManagerData::new(0, 0, slide_list);
-        sm_data.title = self.song.title();
-        sm_data
-    }
-}
+    use crate::{dto::SongObject, widgets::canvas::serialise::SlideManagerData};
 
-impl SongListItemModel {
-    pub fn new(song: SongObject) -> Self {
-        SongListItemModel { song }
-    }
-}
-
-pub struct SongListItemWidget {
-    text: gtk::Label,
-}
-
-impl Drop for SongListItemWidget {
-    fn drop(&mut self) {
-        self.text.label();
-    }
-}
-
-impl RelmListItem for SongListItemModel {
-    type Root = gtk::Box;
-    type Widgets = SongListItemWidget;
-
-    fn setup(_list_item: &gtk::ListItem) -> (Self::Root, Self::Widgets) {
-        view! {
-            list_box = gtk::Box {
-                #[name="text"]
-                gtk::Label {
-                    set_ellipsize: gtk::pango::EllipsizeMode::End,
-                }
-            }
-        }
-
-        let widgets = SongListItemWidget { text };
-
-        (list_box, widgets)
+    #[derive(Default, Debug)]
+    pub struct SongListItem {
+        pub text: RefCell<gtk::Label>,
+        pub(super) data: RefCell<SongObject>,
     }
 
-    fn bind(&mut self, widgets: &mut Self::Widgets, root: &mut Self::Root) {
-        let text = self.song.title().to_string();
-        widgets.text.set_label(&text);
+    #[glib::object_subclass]
+    impl ObjectSubclass for SongListItem {
+        const NAME: &'static str = "SongListItem";
+        type Type = super::SongListItem;
+        type ParentType = gtk::Box;
+    }
+    impl ObjectImpl for SongListItem {
+        fn constructed(&self) {
+            self.parent_constructed();
+            let obj = self.obj();
 
-        {
-            let drag_source = gtk::DragSource::new();
-            drag_source.set_actions(gtk::gdk::DragAction::COPY);
-            drag_source.connect_prepare(glib::clone!(
-                #[strong(rename_to=obj)]
-                self,
-                move |_, _, _| {
-                    let li = obj.clone();
-                    let sm_data: SlideManagerData = li.into();
-                    let content = gtk::gdk::ContentProvider::for_value(&sm_data.to_value());
+            let label = gtk::Label::builder()
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .build();
+            self.text.replace(label.clone());
 
-                    return Some(content);
-                }
-            ));
+            {
+                let drag_source = gtk::DragSource::new();
+                drag_source.set_actions(gtk::gdk::DragAction::COPY);
+                drag_source.connect_prepare(glib::clone!(
+                    #[weak(rename_to=imp)]
+                    self,
+                    #[upgrade_or]
+                    None,
+                    move |_, _, _| {
+                        let li = imp.data.borrow().clone();
+                        let sm_data: SlideManagerData = li.into();
+                        let content = gtk::gdk::ContentProvider::for_value(&sm_data.to_value());
 
-            drag_source.connect_drag_begin(move |_, _| {
+                        Some(content)
+                    }
+                ));
+
+                // drag_source.connect_drag_begin(move |_, _| {
                 // let item_text = item_text.to_string();
                 // drag.set_icon_name(Some("document-properties"), 0, 0);
-            });
+                // });
 
-            root.add_controller(drag_source);
+                obj.add_controller(drag_source);
+            }
+
+            obj.append(&label);
         }
+    }
+    impl WidgetImpl for SongListItem {}
+    impl BoxImpl for SongListItem {}
+}
+
+glib::wrapper! {
+    pub struct SongListItem(ObjectSubclass<imp::SongListItem>)
+        @extends gtk::Widget, gtk::Box,
+        @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+impl Default for SongListItem {
+    fn default() -> Self {
+        glib::Object::new::<Self>()
+    }
+}
+
+impl SongListItem {
+    pub fn load_data(&self, song: SongObject) {
+        self.imp().data.replace(song.clone());
+        self.imp()
+            .text
+            .borrow()
+            .set_label(&song.title().to_string());
     }
 }

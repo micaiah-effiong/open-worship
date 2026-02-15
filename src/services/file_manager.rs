@@ -7,7 +7,7 @@ use gtk::{
     glib,
 };
 
-use crate::config::AppConfigDir;
+use crate::app_config::AppConfigDir;
 
 mod imp {
 
@@ -73,6 +73,46 @@ impl FileManager {
             res.ok()
         })
     }
+
+    fn get_multiple_files_from_user(
+        title: String,
+        accept_button_label: String,
+        filters: &mut glib::List<gtk::FileFilter>,
+        window: Option<&gtk::Window>,
+        chooser_action: gtk::FileChooserAction,
+    ) -> gio::ListModel {
+        let has_all = filters.iter().any(|f| f.name() == Some("All Files".into()));
+        if !has_all {
+            let all_files = FileFilter::new();
+            all_files.set_name(Some("All Files"));
+            all_files.add_pattern("*");
+            filters.push_back(all_files);
+        }
+
+        let mut list_store = gtk::gio::ListStore::new::<gtk::FileFilter>();
+        list_store.extend(filters);
+
+        let filter_model = gtk::FilterListModel::new(Some(list_store), None::<FileFilter>);
+
+        let dialog = gtk::FileDialog::builder()
+            .modal(true)
+            .accept_label(accept_button_label)
+            .filters(&filter_model)
+            .title(title)
+            .build();
+
+        let ctx = glib::MainContext::default();
+        ctx.block_on(async move {
+            let res = match chooser_action {
+                gtk::FileChooserAction::Open => dialog.open_multiple_future(window).await,
+                _ => return None,
+            };
+
+            let res = res.inspect_err(|e| eprintln!("Error opening file in dialog: {:?}", e));
+            res.ok()
+        })
+        .unwrap_or(gio::ListStore::new::<gio::File>().into())
+    }
     pub fn open_image() -> Option<gio::File> {
         let mut filters: glib::List<gtk::FileFilter> = glib::List::new();
         let filter = gtk::FileFilter::new();
@@ -85,6 +125,19 @@ impl FileManager {
             String::from("Open Image"),
             String::from("Open"),
             &mut filters,
+            None,
+            gtk::FileChooserAction::Open,
+        )
+    }
+    pub fn open_files(
+        title: &str,
+        accept_button_label: &str,
+        filters: &mut glib::List<gtk::FileFilter>,
+    ) -> gio::ListModel {
+        FileManager::get_multiple_files_from_user(
+            title.to_string(),
+            accept_button_label.to_string(),
+            filters,
             None,
             gtk::FileChooserAction::Open,
         )

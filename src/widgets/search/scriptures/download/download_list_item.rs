@@ -1,129 +1,189 @@
-use std::{cell::RefCell, rc::Rc};
-
 use gtk::{
-    glib::clone,
+    self,
+    glib::{self, subclass::types::ObjectSubclassIsExt},
     prelude::{ButtonExt, WidgetExt},
 };
-use relm4::{ComponentSender, RelmWidgetExt, gtk, typed_view::list::RelmListItem, view};
 
-use crate::db::{connection::DatabaseConnection, query::Query};
-
-use super::{
-    download_modal::{BibleDownload, DownloadBibleInput, DownloadBibleModel},
-    utils,
+use crate::{
+    db::query::Query, widgets::search::scriptures::download::download_modal::BibleDownloadObj,
 };
 
-#[derive(Debug, Clone)]
-pub struct BibleDownloadListItem {
-    pub data: BibleDownload,
-    pub already_added: bool,
-    pub parent_sender: ComponentSender<DownloadBibleModel>,
-}
+use super::utils;
 
-pub struct BibleListItemWidget {
-    text: gtk::Label,
-    btn: gtk::Button,
-}
+mod imp {
+    use std::cell::{Cell, RefCell};
 
-impl Drop for BibleListItemWidget {
-    fn drop(&mut self) {}
-}
+    use gtk::{
+        glib::{
+            object::CastNone,
+            subclass::{
+                object::{ObjectImpl, ObjectImplExt},
+                types::{ObjectSubclass, ObjectSubclassExt},
+            },
+        },
+        prelude::BoxExt,
+        subclass::{box_::BoxImpl, widget::WidgetImpl},
+    };
 
-impl RelmListItem for BibleDownloadListItem {
-    type Root = gtk::Box;
-    type Widgets = BibleListItemWidget;
+    use crate::{
+        utils::WidgetExtrasExt,
+        widgets::search::scriptures::download::download_modal::{
+            BibleDownload, DownloadBibleWindow,
+        },
+    };
 
-    fn setup(_list_item: &gtk::ListItem) -> (Self::Root, Self::Widgets) {
-        view! {
-            list_box = gtk::Box {
-                #[name="text"]
-                gtk::Label {
-                    set_hexpand: true,
-                    set_ellipsize: gtk::pango::EllipsizeMode::End,
-                    set_align: gtk::Align::Start,
-                    set_margin_horizontal: 8,
-                },
-                #[name="btn"]
-                gtk::Button{
-                    // set_label:"Install",
-                },
-            }
-        }
+    use super::*;
 
-        let widgets = BibleListItemWidget { text, btn };
+    #[derive(Default, Debug)]
+    pub struct TranslationListItem {
+        text: RefCell<gtk::Label>,
+        btn: RefCell<gtk::Button>,
 
-        (list_box, widgets)
+        data: RefCell<BibleDownload>,
+        already_added: Cell<bool>,
     }
 
-    fn bind(&mut self, widgets: &mut Self::Widgets, _root: &mut Self::Root) {
-        let a = self.data.name.split(".").collect::<Vec<&str>>();
-        if let Some(name) = a.first() {
-            let name = name.to_string();
-            match self.already_added {
-                true => {
-                    widgets.btn.set_label("Uninstall");
-                    widgets.text.set_label(&format!("{} (Installed)", name));
-                }
-                false => {
-                    widgets.btn.set_label("Install");
-                    widgets.text.set_label(&name.to_string());
-                }
-            };
+    #[glib::object_subclass]
+    impl ObjectSubclass for TranslationListItem {
+        const NAME: &'static str = "TranslationListItem";
+        type Type = super::TranslationListItem;
+        type ParentType = gtk::Box;
+    }
+
+    impl ObjectImpl for TranslationListItem {
+        fn constructed(&self) {
+            self.parent_constructed();
+            let obj = self.obj();
+
+            let label = gtk::Label::builder()
+                .hexpand(true)
+                .ellipsize(gtk::pango::EllipsizeMode::End)
+                .valign(gtk::Align::Start)
+                .halign(gtk::Align::Start)
+                .margin_start(8)
+                .margin_end(8)
+                .build();
+            self.text.replace(label.clone());
+
+            obj.append(&label);
+            obj.append(&self.btn.borrow().clone());
         }
+    }
+    impl WidgetImpl for TranslationListItem {}
+    impl BoxImpl for TranslationListItem {}
 
-        let data = self.data.clone();
-        let already_added = self.already_added;
-        let sender = self.parent_sender.clone();
+    impl TranslationListItem {
+        pub(super) fn load_data(&self, main_data: &BibleDownloadObj) {
+            let data = main_data.details();
+            self.already_added.set(main_data.already_added());
+            self.data.replace(data.clone());
+            if let Some(name) = data.name.split(".").collect::<Vec<_>>().first().cloned() {
+                println!("alread_added {}", self.already_added.get());
+                if self.already_added.get() {
+                    self.btn.borrow().set_label("Uninstall");
+                    self.text.borrow().set_label(&format!("{name} (Installed)"));
+                } else {
+                    self.btn.borrow().set_label("Install");
+                    self.text.borrow().set_label(name);
+                };
+            };
 
-        widgets.btn.connect_clicked(move |btn| {
-            gtk::glib::spawn_future_local(clone!(
-                #[strong]
-                btn,
-                #[strong]
-                data,
-                #[strong]
-                already_added,
-                #[strong]
-                sender,
-                async move {
-                    btn.set_sensitive(false);
+            let imp = self.downgrade();
+            self.btn.borrow().connect_clicked({
+                let Some(imp) = imp.upgrade() else {
+                    println!("No upgrade");
+                    return;
+                };
+                move |btn| {
+                    gtk::glib::spawn_future_local(glib::clone!(
+                        #[weak]
+                        imp,
+                        #[weak]
+                        btn,
+                        async move {
+                            let data = imp.data.borrow().clone();
 
-                    match already_added {
-                        true => {
-                            let name = data.name.split(".").collect::<Vec<&str>>();
-                            if let Some(name) = name.first() {
-                                let name = name.to_string();
-                                let delete_result = Query::delete_bible_translation(name);
+                            let Some(sender) = imp
+                                .obj()
+                                .toplevel_window()
+                                .and_downcast::<DownloadBibleWindow>()
+                            else {
+                                return;
+                            };
 
-                                match delete_result {
-                                    Ok(_) => {
-                                        sender.input(DownloadBibleInput::ReloadTranslation);
-                                        btn.set_label("Install");
+                            //
+                            btn.set_sensitive(false);
+                            println!("alread_added {}", imp.already_added.get());
+                            if imp.already_added.get() {
+                                if let Some(name) =
+                                    data.name.split(".").collect::<Vec<_>>().first().cloned()
+                                {
+                                    let delete_result =
+                                        Query::delete_bible_translation(name.into());
+                                    match delete_result {
+                                        Ok(_) => {
+                                            sender.reload_translation();
+                                            btn.set_label("Install");
+                                        }
+                                        Err(e) => {
+                                            btn.set_label("Uninstall");
+                                            eprintln!(
+                                                "SQL ERROR: error removing translation\n{:?}",
+                                                e
+                                            );
+                                        }
                                     }
-                                    Err(e) => {
-                                        btn.set_label("Uninstall");
-                                        eprintln!("SQL ERROR: error removing translation\n{:?}", e);
+                                };
+                            } else {
+                                btn.set_label("Installing");
+
+                                let installed_translation = utils::import_bible(&data, |msg| {
+                                    match msg {
+                                        Ok(msg) => btn.set_label(&msg),
+                                        Err(_) => {
+                                            btn.set_label("Install");
+                                            return;
+                                        }
+                                    };
+                                })
+                                .await;
+
+                                match installed_translation {
+                                    Some(t) => {
+                                        sender.new_translation(t);
+                                        btn.set_label("Installed");
                                     }
-                                }
-                            }
-                        }
-                        false => {
-                            btn.set_label("Installing");
-
-                            let installed_translation =
-                                utils::import_bible(&data, |msg| btn.set_label(&msg.to_string()))
-                                    .await;
-                            if let Some(installed_t) = installed_translation {
-                                sender.input(DownloadBibleInput::NewTranslation(installed_t));
+                                    None => btn.set_label("Install"),
+                                };
                             }
 
-                            btn.set_label("Installed");
+                            btn.set_sensitive(true);
                         }
-                    }
-
-                    btn.set_sensitive(true);
+                    ));
                 }
-            ));
-        });
+            });
+        }
+    }
+}
+
+glib::wrapper! {
+    pub struct TranslationListItem(ObjectSubclass<imp::TranslationListItem>)
+    @extends  gtk::Box, gtk::Widget,
+    @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
+}
+
+impl Default for TranslationListItem {
+    fn default() -> Self {
+        glib::Object::new()
+    }
+}
+
+impl TranslationListItem {
+    pub fn new() -> Self {
+        glib::Object::new()
+    }
+
+    pub fn load_data(&self, data: &BibleDownloadObj) {
+        self.imp().load_data(data)
     }
 }

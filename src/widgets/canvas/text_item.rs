@@ -627,7 +627,7 @@ impl TextItem {
 
         let style = format!("{font_style} {font_weight} {font_size_text}px '{font}'",);
 
-        println!("{style}");
+        // println!("{style}");
 
         style
     }

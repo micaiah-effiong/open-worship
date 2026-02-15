@@ -168,7 +168,7 @@ mod imp {
             self.background_color
                 .replace(save_data.background_color.clone());
             self.background_pattern
-                .replace(save_data.background_pattern.clone());
+                .replace(save_data.background_pattern.clone().unwrap_or_default());
         }
 
         pub(super) fn reorder_overlay<W: IsA<gtk::Widget>>(&self, child: &W, index: usize) {
@@ -462,9 +462,11 @@ impl Canvas {
     }
 
     pub fn serialise(&self) -> CanvasData {
+        let bg_pattern = self.imp().background_pattern.borrow().clone();
+
         CanvasData {
             background_color: self.imp().background_color.borrow().clone(),
-            background_pattern: self.imp().background_pattern.borrow().clone(),
+            background_pattern: (!bg_pattern.is_empty()).then(|| bg_pattern),
         }
         // format!(
         //     "\"background-color\":\"{}\", \"background-pattern\":\"{}\"",
