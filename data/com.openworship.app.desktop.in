@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Openworship
+Type=Application
+Categories=AudioVideo
+GenericName=Church lyrics projection
+Comment=Project lyrics, bible verses, media and more.
+Keywords=projection,multimedia,videos,music,songs,worship
+Icon=@APP_ID@
+Exec=openworship 
+Terminal=false
+DBusActivatable=true
