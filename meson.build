@@ -17,8 +17,8 @@ localedir = get_option('prefix') / get_option('localedir')
 datadir = get_option('prefix') / get_option('datadir')
 pkgdatadir = datadir / meson.project_name()
 
-subdir('src')
 subdir('data')
+subdir('src')
 
 gnome.post_install(
   gtk_update_icon_cache: true,

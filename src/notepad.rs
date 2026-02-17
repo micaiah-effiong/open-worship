@@ -21,7 +21,6 @@ use gtk::{CssProvider, pango};
 use serde::Serialize;
 
 use crate::app_config::AppConfig;
-use crate::format_resource;
 use crate::services::slide::Slide;
 use crate::services::slide_manager::SlideManager;
 use crate::utils::{WidgetChildrenExt, WidgetExtrasExt, setup_theme_listener};
@@ -31,6 +30,7 @@ use crate::widgets::canvas::text_item::{self, TextItem};
 use crate::widgets::entry_combo::EntryCombo;
 use crate::widgets::extended_screen::ExtendedScreen;
 use crate::widgets::{self, canvas, search};
+use crate::{config, format_resource};
 
 pub fn init_app() {
     let _ = gtk::init();
@@ -44,8 +44,7 @@ pub fn init_app() {
 
         //
         gtk::glib::set_application_name("Open worship");
-        gtk::gio::resources_register_include!("resources.gresource")
-            .expect("could not find app resources");
+        gtk::gio::Resource::load(config::resource_file()).expect("could not find app resources");
 
         setup_theme_listener();
 

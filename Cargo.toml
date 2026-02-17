@@ -27,9 +27,6 @@ merge-assets.append = [
     ["target/release/openworship-modern", "/usr/bin/openworship-modern", "755"],
 ]
 
-[package.metadata.winres]
-ProductName = "Openworship"
-
 [package.metadata.wix]
 # Custom location to keep the root of the project cleaner
 include = ["res/windows/wix/openworship.wxs"]
@@ -47,20 +44,9 @@ cairo-rs = { version = "0.21.2", features = ["png"] }
 strum = "0.27"
 strum_macros = "0.27"
 
-[target.'cfg(windows)'.dependencies]
-native-dialog = "0.7.0"
-tracing-panic = "0.1.2"
-
-[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-tray-icon = "0.19.2"
-
-
-[build-dependencies]
-glib-build-tools = "0.20.0"
-
-[target.'cfg(windows)'.build-dependencies]
-winres = "0.1.12"
-
 [profile.production]
 inherits = "release"
 lto = "fat"
+
+[build-dependencies]
+glib-build-tools = "0.21.0"

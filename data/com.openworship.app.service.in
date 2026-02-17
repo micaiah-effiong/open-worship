@@ -1,0 +1,3 @@
+[Desktop Entry]
+Icon=@APP_ID@
+Exec=@BINDIR@/openworship --gapplication-service

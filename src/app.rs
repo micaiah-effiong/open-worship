@@ -1,4 +1,5 @@
 use crate::application::MainApplication;
+use crate::config;
 use crate::utils::setup_theme_listener;
 
 use gtk::prelude::*;
@@ -37,8 +38,10 @@ fn log_display_info() {
 }
 
 fn app_init() {
-    gtk::gio::resources_register_include!("resources.gresource")
-        .expect("could not find app resources");
+    println!("RESOURCE_FILE {}", config::resource_file());
+    let res =
+        gtk::gio::Resource::load(config::resource_file()).expect("could not find app resources");
+    gtk::gio::resources_register(&res);
 
     setup_theme_listener();
     match gtk::glib::setenv("GTK_CSD", "0", false) {

@@ -23,12 +23,12 @@ mod imp {
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
-        prelude::{GtkWindowExt, ObjectExt},
+        prelude::{BoxExt, GtkWindowExt, ObjectExt},
         subclass::prelude::DerivedObjectProperties,
     };
 
-    use crate::app_config;
     use crate::application_window::MainApplicationWindow;
+    use crate::{app_config, config};
 
     #[derive(Default, Properties)]
     #[properties(wrapper_type=super::MainApplication)]
@@ -51,10 +51,9 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
 
-            let app =
-                gtk::Application::new(Some(app_config::APP_ID), gio::ApplicationFlags::empty());
+            let app = gtk::Application::new(Some(config::app_id()), gio::ApplicationFlags::empty());
             gtk::glib::set_application_name("Open worship");
-            app.set_application_id(Some(app_config::APP_ID));
+            app.set_application_id(Some(config::app_id()));
             app.set_resource_base_path(Some(app_config::RESOURCE_PATH));
 
             self.app.replace(app.clone());

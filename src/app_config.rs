@@ -17,7 +17,7 @@ const APP_DIR_NAME: &str = "openworship";
 pub struct AppConfig {
     //
 }
-pub const APP_ID: &str = "com.openworship.app";
+// pub const APP_ID: &str = "com.openworship.app";
 pub const RESOURCE_PATH: &str = format_resource!("");
 
 static ASPECT_RATIO: OnceLock<Mutex<f32>> = OnceLock::new();
