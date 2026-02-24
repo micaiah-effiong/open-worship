@@ -89,6 +89,8 @@ mod imp {
     impl MainApplication {
         #[cfg(not(target_os = "macos"))]
         fn add_app_menu(&self, window_box: Option<&gtk::Box>) {
+            use gtk::prelude::BoxExt;
+
             let window_box = match window_box {
                 Some(w) => w,
                 None => return,
