@@ -1,92 +1,102 @@
-use gtk::gdk;
-use gtk::gio::prelude::ApplicationExtManual;
-use gtk::gio::prelude::ListModelExt;
-use gtk::gio::prelude::ListModelExtManual;
-use gtk::glib;
+use gtk::{
+    gio::{
+        self,
+        prelude::{ActionMapExtManual, ApplicationExt, ApplicationExtManual},
+    },
+    glib::{self, clone, object::Cast, variant::StaticVariantType},
+    prelude::{GtkApplicationExt, GtkWindowExt},
+};
+
+use crate::{
+    accels, app_config,
+    widgets::{search::songs::edit_modal::SongEditWindow, settings::SettingsWindow},
+};
 
 mod imp {
-    use super::*;
-    use std::cell::RefCell;
+    use std::cell::{OnceCell, RefCell};
 
-    use gtk::gdk::prelude::DisplayExt;
-    use gtk::glib::Properties;
-    use gtk::prelude::{GtkApplicationExt, WidgetExt};
     use gtk::{
+        gdk::{self, prelude::DisplayExt},
         gio::{
-            self,
-            prelude::{ActionMapExtManual, ApplicationExt},
+            prelude::{ListModelExt, ListModelExtManual},
+            subclass::prelude::{ApplicationImpl, ApplicationImplExt},
         },
         glib::{
-            self,
+            Properties,
             subclass::{
-                object::{ObjectImpl, ObjectImplExt},
+                object::ObjectImpl,
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
-        prelude::{GtkWindowExt, ObjectExt},
-        subclass::prelude::DerivedObjectProperties,
+        prelude::{GtkWindowExt, ObjectExt, WidgetExt},
+        subclass::prelude::{DerivedObjectProperties, GtkApplicationImpl},
     };
 
-    use crate::app_config;
-    use crate::application_window::MainApplicationWindow;
+    use crate::{
+        application_window::MainApplicationWindow, format_resource,
+        widgets::settings::SettingsWindow,
+    };
+
+    use super::*;
 
     #[derive(Default, Properties)]
-    #[properties(wrapper_type=super::MainApplication)]
-    pub struct MainApplication {
+    #[properties(wrapper_type = super::OwApplication)]
+    pub struct OwApplication {
+        // pub(super) settings: OnceCell<gio::Settings>,
         #[property(get)]
         main_window: RefCell<MainApplicationWindow>,
-
-        #[property(get)]
-        app: RefCell<gtk::Application>,
     }
 
     #[glib::object_subclass]
-    impl ObjectSubclass for MainApplication {
-        const NAME: &'static str = "MainApplication";
-        type Type = super::MainApplication;
+    impl ObjectSubclass for OwApplication {
+        const NAME: &'static str = "OwApplication";
+        type Type = super::OwApplication;
+        type ParentType = gtk::Application;
     }
 
     #[glib::derived_properties]
-    impl ObjectImpl for MainApplication {
-        fn constructed(&self) {
-            self.parent_constructed();
+    impl ObjectImpl for OwApplication {}
 
-            let app =
-                gtk::Application::new(Some(app_config::APP_ID), gio::ApplicationFlags::empty());
-            gtk::glib::set_application_name("Open worship");
-            app.set_application_id(Some(app_config::APP_ID));
-            app.set_resource_base_path(Some(app_config::RESOURCE_PATH));
+    impl ApplicationImpl for OwApplication {
+        fn activate(&self) {
+            self.parent_activate();
 
-            self.app.replace(app.clone());
+            let obj = self.obj();
 
-            app.connect_activate(glib::clone!(
-                #[weak(rename_to=imp)]
-                self,
-                move |app| {
-                    let obj = imp.obj();
-                    imp.add_app_menu(Some(&obj.main_window().window_box()));
-                    imp.add_app_actions();
+            let main_window = obj.main_window();
+            let extended_screen = main_window.extended_screen();
+            obj.add_window(&main_window);
+            obj.add_window(&extended_screen);
 
-                    let main_window = obj.main_window();
-                    let extended_screen = main_window.extended_screen();
-                    app.add_window(&main_window);
-                    app.add_window(&extended_screen);
-                    main_window.show_all();
+            self.add_app_menu(Some(&main_window.window_box()));
 
-                    let monitors = WidgetExt::display(&extended_screen).monitors();
-                    if monitors.n_items() > 1
-                        && let Some(last_monitor) =
-                            monitors.iter::<gdk::Monitor>().last().and_then(|v| v.ok())
-                    {
-                        extended_screen.fullscreen_on_monitor(&last_monitor);
-                    }
-                }
-            ));
+            main_window.show_all();
+
+            let monitors = WidgetExt::display(&extended_screen).monitors();
+            if monitors.n_items() > 1
+                && let Some(last_monitor) =
+                    monitors.iter::<gdk::Monitor>().last().and_then(|v| v.ok())
+            {
+                extended_screen.fullscreen_on_monitor(&last_monitor);
+            }
+        }
+
+        fn startup(&self) {
+            self.parent_startup();
+
+            gtk::Window::set_default_icon_name(app_config::APP_ID);
+            gtk::glib::set_application_name("Openworship");
+
+            let obj = self.obj();
+
+            obj.setup_gactions();
+            obj.setup_accels();
         }
     }
-    impl MainApplication {}
 
-    impl MainApplication {
+    impl GtkApplicationImpl for OwApplication {}
+
+    impl OwApplication {
         #[cfg(not(target_os = "macos"))]
         fn add_app_menu(&self, window_box: Option<&gtk::Box>) {
             use gtk::prelude::BoxExt;
@@ -106,62 +116,173 @@ mod imp {
 
         #[cfg(target_os = "macos")]
         fn add_app_menu(&self, _window_box: Option<&gtk::Box>) {
-            let menu = Self::build_app_menu();
-            self.obj().app().set_menubar(Some(&menu));
+            self.obj().set_menubar(Some(&Self::build_app_menu()));
         }
 
-        fn build_app_menu() -> gtk::gio::Menu {
-            let menu = gtk::gdk::gio::Menu::new();
+        fn build_app_menu() -> gtk::gio::MenuModel {
+            let menu_builder =
+                gtk::Builder::from_resource(format_resource!("ui", "app_menubar.ui"));
 
-            let file_menu = gtk::gio::Menu::new();
-            menu.append_submenu(Some("File"), &file_menu);
+            let obj: gio::MenuModel = menu_builder
+                .object("default-menu")
+                .expect("App-menu not found");
 
-            let edit_menu = gtk::gio::Menu::new();
-            menu.append_submenu(Some("Edit"), &edit_menu);
-
-            menu
-        }
-
-        fn add_app_actions(&self) {
-            let quit_action = gtk::gio::ActionEntry::builder("quit")
-                .activate(|app: &gtk::Application, _, _| app.quit())
-                .build();
-            let about_action = gtk::gio::ActionEntry::builder("about")
-                .activate(|_, _, _| Self::add_app_about())
-                .build();
-
-            self.obj()
-                .app()
-                .add_action_entries([quit_action, about_action]);
-        }
-
-        fn add_app_about() {
-            let dialog = gtk::AboutDialog::builder()
-                .program_name("About Openworship")
-                .version(env!("CARGO_PKG_VERSION"))
-                .website("https://github.com/micaiah-effiong/open-worship")
-                .license_type(gtk::License::MitX11)
-                .authors(["Micah Effiong"])
-                .logo_icon_name("openworship-symbolic")
-                .build();
-
-            dialog.present();
+            obj
         }
     }
 }
 
 glib::wrapper! {
-    pub struct MainApplication(ObjectSubclass<imp::MainApplication>);
+    pub struct OwApplication(ObjectSubclass<imp::OwApplication>)
+        @extends gio::Application, gtk::Application,
+        @implements gio::ActionMap, gio::ActionGroup;
 }
 
-impl Default for MainApplication {
+impl Default for OwApplication {
     fn default() -> Self {
-        glib::Object::new()
+        glib::Object::builder()
+            .property("application-id", app_config::APP_ID)
+            .property("resource-base-path", app_config::RESOURCE_PATH)
+            .build()
     }
 }
 
-impl MainApplication {
-    pub fn run(&self) -> glib::ExitCode {
-        self.app().run()
+impl OwApplication {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns the global instance of `Application`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the app is not running or if this is called on a non-main thread.
+    pub fn get() -> Self {
+        debug_assert!(
+            gtk::is_initialized_main_thread(),
+            "application must only be accessed in the main thread"
+        );
+
+        gio::Application::default().unwrap().downcast().unwrap()
+    }
+
+    // pub fn run(&self) -> glib::ExitCode {
+    //     // tracing::info!("Openworship ({})", APP_ID);
+    //     // tracing::info!("Version: {} ({})", VERSION, PROFILE);
+    //     // tracing::info!("Datadir: {}", PKGDATADIR);
+    //
+    //     let code = ApplicationExtManual::run(self);
+    //     println!("CODE {:?}", code);
+    //
+    //     code
+    // }
+
+    fn setup_gactions(&self) {
+        // let launch_uri_action = gio::ActionEntry::builder("launch-uri")
+        //     .parameter_type(Some(&String::static_variant_type()))
+        //     .activate(|obj: &Self, _, param| {
+        //         let uri = param.unwrap().get::<String>().unwrap();
+        //         glib::spawn_future_local(clone!(
+        //             #[strong]
+        //             obj,
+        //             async move {
+        //                 if let Err(err) = gtk::FileLauncher::new(Some(&gio::File::for_uri(&uri)))
+        //                     .launch_future(obj.active_window().as_ref())
+        //                     .await
+        //                 {
+        //                     // tracing::error!("Failed to launch uri `{}`: {:?}", uri, err);
+        //                 }
+        //             }
+        //         ));
+        //     })
+        //     .build();
+        // let show_in_files_action = gio::ActionEntry::builder("show-in-files")
+        //     .parameter_type(Some(&String::static_variant_type()))
+        //     .activate(|obj: &Self, _, param| {
+        //         let uri = param.unwrap().get::<String>().unwrap();
+        //         glib::spawn_future_local(clone!(
+        //             #[strong]
+        //             obj,
+        //             async move {
+        //                 if let Err(err) = gtk::FileLauncher::new(Some(&gio::File::for_uri(&uri)))
+        //                     .open_containing_folder_future(obj.active_window().as_ref())
+        //                     .await
+        //                 {
+        //                     // tracing::warn!("Failed to show `{}` in files: {:?}", uri, err);
+        //                 }
+        //             }
+        //         ));
+        //     })
+        //     .build();
+
+        // let show_preferences_action = gio::ActVionEntry::builder("show-preferences")
+        //     .activate(|obj: &Self, _, _| {
+        //         let dialog = PreferencesDialog::new(obj.settings());
+        //         dialog.present(Some(&obj.window()));
+        //     })
+        //     .build();
+        // let show_about_action = gio::ActionEntry::builder("show-about")
+        //     .activate(|obj: &Self, _, _| {
+        //         about::present_dialog(&obj.window());
+        //     })
+        //     .build();
+
+        let quit_action = gio::ActionEntry::builder("quit")
+            .activate(|obj: &Self, _, _| obj.quit())
+            .build();
+        let about_action = gtk::gio::ActionEntry::builder("about")
+            .activate(|_, _, _| Self::add_app_about())
+            .build();
+        let settings_action = gtk::gio::ActionEntry::builder("preferences")
+            .activate(|_, _, _| SettingsWindow::new().present())
+            .build();
+
+        // FILE
+        let add_song_action = gtk::gio::ActionEntry::builder("add-song")
+            .activate(|_, _, _| {
+                let win = SongEditWindow::new();
+                win.show(None);
+            })
+            .build();
+        let open = gio::ActionEntry::builder("open")
+            .activate(|_, _, _| println!("Open activated"))
+            .build();
+
+        self.add_action_entries([
+            // launch_uri_action,
+            // show_in_files_action,
+            // show_preferences_action,
+            // show_about_action,
+            quit_action,
+            about_action,
+            settings_action,
+            // FILE
+            open,
+            add_song_action,
+        ]);
+    }
+
+    fn add_app_about() {
+        let dialog = gtk::AboutDialog::builder()
+            .program_name("About Openworship")
+            .version(env!("CARGO_PKG_VERSION"))
+            .website("https://github.com/micaiah-effiong/open-worship")
+            .license_type(gtk::License::MitX11)
+            .authors(["Micah Effiong"])
+            .logo_icon_name("openworship-symbolic")
+            .build();
+
+        dialog.present();
+    }
+
+    fn setup_accels(&self) {
+        // self.set_accels_for_action("app.preferences", &[accels!("comma")]);
+        // self.set_accels_for_action("app.quit", &[accels!("q")]);
+        // self.set_accels_for_action("window.close", &[accels!("w")]);
+        self.set_accels_for_action("window.close", &[accels!("w")]);
+
+        //FILE
+        self.set_accels_for_action("app.open", &[accels!("o")]);
+        self.set_accels_for_action("win.add-song", &[accels!("i")]);
     }
 }

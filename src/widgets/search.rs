@@ -1,5 +1,5 @@
 mod background;
-mod scriptures;
+pub mod scriptures;
 pub mod songs;
 
 use gtk::{glib, prelude::*};

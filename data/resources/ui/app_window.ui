@@ -99,7 +99,7 @@
                     <property name="shrink_start_child">false</property>
                     <property name="shrink_end_child">false</property>
 
-                    <child>
+                    <property name="start_child">
                       <object class="GtkBox">
                         <property name="homogeneous">true</property>
                         <property name="orientation">vertical</property>
@@ -112,52 +112,52 @@
                             <property name="shrink_start_child">false</property>
                             <property name="shrink_end_child">false</property>
 
-                            <child>
+                            <property name="start_child">
                               <object class="ScheduleActivityViewer" id="schedule_viewer">
                                 <signal name="activate" handler="handle_activate_schedule" swapped="true"/>
 
                               </object>
-                            </child>
+                            </property>
 
                             <!-- search viewer -->
-                            <child>
+                            <property name="end_child">
                               <object class="SearchActivityViewer" id="search_viewer">
                                 <signal name="preview-slides" handler="handle_search_preview_slides" swapped="true"/>
                                 <signal name="preview-background" handler="handle_search_preview_background" swapped="true"/>
                                 <signal name="add-to-schedule" handler="handle_search_add_to_schedule" swapped="true"/>
                               </object>
-                            </child>
+                            </property>
 
                           </object>
                         </child>
 
                       </object>
-                    </child>
+                    </property>
 
 
-                    <child>
+                    <property name="end_child">
                       <object class="GtkPaned">
                         <property name="orientation">horizontal</property>
                         <property name="shrink_start_child">false</property>
                         <property name="shrink_end_child">false</property>
 
                         <!-- preview -->
-                        <child>
+                        <property name="start_child">
                           <object class="ActivityViewer" id="preview_viewer">
                             <signal name="activate-slide" handler="handle_preview_activate_slide" swapped="true"/>
                             <property name="title">Preview</property>
                           </object>
-                        </child>
+                        </property>
 
                         <!-- live -->
-                        <child>
+                        <property name="end_child">
                           <object class="ActivityViewer" id="live_viewer">
                             <signal name="slide-change" handler="handle_live_slide_change" swapped="true"/>
                             <property name="title">Live</property>
                           </object>
-                        </child>
+                        </property>
                       </object>
-                    </child>
+                    </property>
 
                   </object>
                 </child>

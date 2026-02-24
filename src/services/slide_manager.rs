@@ -209,8 +209,6 @@ impl Default for SlideManager {
             .build();
         slide_manager.set_slideshow(stack);
 
-        slide_manager.imp().slides.replace(Vec::new());
-
         let empty_slide = Slide::empty(/* &window */ );
         slide_manager
             .imp()
@@ -417,7 +415,11 @@ impl SlideManager {
         //         current_slide.reload_preview_data();
         //     }
         // } else {
-        self.set_current_slide(self.slides().get(0).cloned());
+        self.set_current_slide(
+            self.slides()
+                .get(data.current_slide.clone() as usize)
+                .cloned(),
+        );
         // }
 
         let slide = match self.slides().len() > data.preview_slide as usize {

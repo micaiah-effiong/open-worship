@@ -479,6 +479,22 @@ macro_rules! format_resource {
     };
 }
 
+#[macro_export]
+#[cfg(target_os = "macos")]
+macro_rules! accels {
+    ($key:literal) => {
+        concat!("<Meta>", $key)
+    };
+}
+
+#[macro_export]
+#[cfg(not(target_os = "macos"))]
+macro_rules! accels {
+    ($key:literal) => {
+        concat!("<Primary>", $key)
+    };
+}
+
 pub fn setup_theme_listener() {
     let Some(settings) = gtk::Settings::default() else {
         return;

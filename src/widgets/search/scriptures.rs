@@ -1,4 +1,4 @@
-mod download;
+pub mod download;
 
 use std::cell::RefCell;
 
@@ -23,7 +23,7 @@ mod signals {
 mod imp {
     use std::sync::OnceLock;
 
-    use crate::{dto::scripture::ScriptureObject, utils::ListViewExtra};
+    use crate::{dto::scripture::ScriptureObject, utils::ListViewExtra, widgets::search};
 
     use super::*;
     use gtk::{
@@ -176,6 +176,7 @@ mod imp {
             let tranlations = Self::get_bible_translations();
 
             let win = DownloadBibleWindow::new(tranlations);
+            win.set_modal(false);
             win.connect_new_translation(glib::clone!(
                 #[weak(rename_to = imp)]
                 self,

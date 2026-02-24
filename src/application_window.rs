@@ -111,6 +111,16 @@ mod imp {
         }
 
         #[template_callback]
+        fn handle_show_black(&self, _: &gtk::Button) {
+            glib::g_warning!("application_window", "TODO: Show black");
+        }
+
+        #[template_callback]
+        fn handle_show_logo(&self, _: &gtk::Button) {
+            glib::g_warning!("application_window", "TODO: Show logo");
+        }
+
+        #[template_callback]
         fn handle_activate_schedule(&self, data: &SlideManagerData, _: &ScheduleActivityViewer) {
             self.preview_viewer.load_data(data);
         }

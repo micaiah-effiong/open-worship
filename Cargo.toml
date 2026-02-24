@@ -46,6 +46,7 @@ gtk = { version = "0.10", features = ["v4_18"], package = "gtk4" }
 cairo-rs = { version = "0.21.2", features = ["png"] }
 strum = "0.27"
 strum_macros = "0.27"
+gsettings-macro = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"

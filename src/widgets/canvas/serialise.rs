@@ -56,13 +56,22 @@ impl CanvasItemData {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "CanvasData")]
 pub struct CanvasData {
     #[serde(rename = "background-color")]
     pub background_color: String,
     #[serde(rename = "background-pattern")]
     pub background_pattern: Option<String>,
+}
+
+impl Default for CanvasData {
+    fn default() -> Self {
+        Self {
+            background_color: "#383E41".into(),
+            background_pattern: None,
+        }
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]

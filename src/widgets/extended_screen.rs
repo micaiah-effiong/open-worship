@@ -5,10 +5,7 @@ use gtk::{
     prelude::WidgetExt,
 };
 
-use crate::{
-    utils::WidgetChildrenExt,
-    widgets::canvas::{serialise::SlideManagerData, text_item::TextItem},
-};
+use crate::{utils::WidgetChildrenExt, widgets::canvas::serialise::SlideManagerData};
 
 mod signals {}
 mod imp {
@@ -26,7 +23,7 @@ mod imp {
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
-        prelude::GtkWindowExt,
+        prelude::{GtkWindowExt, WidgetExt},
         subclass::{widget::WidgetImpl, window::WindowImpl},
     };
 
@@ -52,10 +49,14 @@ mod imp {
             let obj = self.obj();
             let size = 300;
             obj.set_default_size(size, (size as f32 / AppConfig::aspect_ratio()) as i32);
-            // obj.set_decorated(false);
+
+            #[cfg(not(debug_assertions))]
+            {
+                obj.set_decorated(false);
+                let c = gtk::gdk::Cursor::from_name("none", None);
+                obj.set_cursor(c.as_ref());
+            }
             obj.set_resizable(false);
-            // let c = gtk::gdk::Cursor::from_name("none", None);
-            // obj.set_cursor(c.as_ref());
 
             let sm = self.slide_manager.borrow();
             sm.set_animation(true);
@@ -125,7 +126,6 @@ impl ExtendedScreen {
             slide.load_slide();
             slide.set_presentation_mode(true);
         }
-        sm.set_current_slide(sm.slides().get(data.current_slide as usize));
 
         self.clear_display(imp.clear.get());
     }
@@ -162,7 +162,7 @@ impl ExtendedScreen {
                 return;
             };
 
-            for text in c.widget().get_children::<TextItem>() {
+            for text in c.widget().children() {
                 text.set_visible(!clear);
             }
         }
