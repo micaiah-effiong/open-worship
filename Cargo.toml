@@ -19,7 +19,9 @@ assets = [
     # Name must match application ID or else it has a strange behavior
     ["res/linux/com.openworship.app.desktop", "/usr/share/applications/com.openworship.app.desktop", "644"],
     ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/openworship.png", "644"],
+    ["data/resources/com.openworship.app.gschema.xml", "usr/share/glib-2.0/schemas/", "644"],
 ]
+maintainer-scripts = "debian"
 
 [package.metadata.deb.variants.modern]
 name = "openworship"
@@ -46,6 +48,7 @@ gtk = { version = "0.10", features = ["v4_18"], package = "gtk4" }
 cairo-rs = { version = "0.21.2", features = ["png"] }
 strum = "0.27"
 strum_macros = "0.27"
+gsettings-macro = "0.2.2"
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"

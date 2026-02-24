@@ -26,6 +26,11 @@
 
     <file compressed="true">icons/picture-symbolic.svg</file>
     <file compressed="true">icons/close-symbolic.svg</file>
+
+    <file compressed="true">icons/screen-black-symbolic.svg</file>
+    <file compressed="true">icons/screen-clear-symbolic.svg</file>
+    <file compressed="true">icons/screen-logo-symbolic.svg</file>
+    <file compressed="true">icons/screen-golive-symbolic.svg</file>
   </gresource>
 
   <gresource prefix="/com/openworship/app">
@@ -47,6 +52,8 @@
     <file compressed="true">ui/background_list_item.ui</file>
     <file compressed="true">ui/download_bible_window.ui</file>
     <file compressed="true">ui/app_window.ui</file>
+    <file compressed="true">ui/settings_window.ui</file>
+    <file compressed="true">ui/app_menubar.ui</file>
   </gresource>
   <gresource prefix="/com/openworship/app/data">
     <file compressed="true">bible.json</file>

@@ -5,7 +5,9 @@ use gtk::{
         subclass::types::ObjectSubclassIsExt,
     },
     pango,
-    prelude::{EventControllerExt, GestureExt, GridExt, TextBufferExt, TextViewExt, WidgetExt},
+    prelude::{
+        BoxExt, EventControllerExt, GestureExt, GridExt, TextBufferExt, TextViewExt, WidgetExt,
+    },
 };
 
 use crate::{
@@ -312,11 +314,12 @@ mod imp {
         pub(super) fn set_text(&self, value: String) {
             self.setting_text.set(true);
 
-            if value.is_empty() {
-                self.label.borrow().set_label(&self.placeholder_text());
+            let val = if value.is_empty() {
+                self.placeholder_text()
             } else {
-                self.label.borrow().set_label(&value);
-            }
+                value
+            };
+            self.label.borrow().set_markup(&val);
 
             self.previous_text
                 .replace(self.label.borrow().label().to_string());
@@ -491,8 +494,11 @@ impl TextItem {
             .hexpand(true)
             .build();
 
+        let label_box = gtk::Box::default();
+        label_box.append(&imp.label.borrow().clone());
+
         let stack = imp.stack.borrow();
-        stack.add_named(&imp.label.borrow().clone(), Some("label"));
+        stack.add_named(&label_box, Some("label"));
         stack.add_named(&imp.entry.borrow().clone(), Some("entry"));
         stack.set_visible_child_name("label");
 
@@ -582,9 +588,9 @@ impl TextItem {
                 let text = buf.full_text().to_string();
                 let label = ti.imp().label.borrow();
                 if text.is_empty() {
-                    label.set_label(&ti.imp().placeholder_text());
+                    label.set_markup(&ti.imp().placeholder_text());
                 } else {
-                    label.set_label(&text);
+                    label.set_markup(&text);
                 }
                 // ti.imp().previous_text.replace(text.clone());
                 ti.imp().previous_text.replace(label.label().to_string());

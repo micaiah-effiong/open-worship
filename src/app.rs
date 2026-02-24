@@ -1,4 +1,4 @@
-use crate::application::MainApplication;
+use crate::application::OwApplication;
 use crate::utils::setup_theme_listener;
 
 use gtk::prelude::*;
@@ -8,7 +8,7 @@ pub fn run() {
 
     app_init();
     log_display_info();
-    let app = MainApplication::default();
+    let app = OwApplication::default();
     app.run();
 }
 

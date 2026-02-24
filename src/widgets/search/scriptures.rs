@@ -1,4 +1,4 @@
-mod download;
+pub mod download;
 
 use std::cell::RefCell;
 
@@ -20,10 +20,20 @@ mod signals {
     pub(super) const SEND_TO_SCHEDULE: &str = "send-to-schedule";
 }
 
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
+enum SearchMode {
+    Evaluated(BibleReference),
+    #[default]
+    Fuzz,
+}
+
 mod imp {
     use std::sync::OnceLock;
 
-    use crate::{dto::scripture::ScriptureObject, utils::ListViewExtra};
+    use crate::{
+        dto::scripture::ScriptureObject, utils::ListViewExtra,
+        widgets::canvas::serialise::SlideData,
+    };
 
     use super::*;
     use gtk::{
@@ -60,6 +70,8 @@ mod imp {
         import_btn: gtk::TemplateChild<gtk::Button>,
         #[template_child]
         dropdown: gtk::TemplateChild<gtk::DropDown>,
+
+        search_mode: RefCell<SearchMode>,
     }
 
     #[glib::object_subclass]
@@ -176,6 +188,7 @@ mod imp {
             let tranlations = Self::get_bible_translations();
 
             let win = DownloadBibleWindow::new(tranlations);
+            win.set_modal(false);
             win.connect_new_translation(glib::clone!(
                 #[weak(rename_to = imp)]
                 self,
@@ -204,7 +217,7 @@ mod imp {
             self.translation.replace(t.clone());
 
             println!("SCRP UPDATE \n {:?}, {:?}", t, self.translation.clone());
-            Self::search_bible(
+            self.search_bible(
                 self.search_text.text().to_string(),
                 &self.translation.borrow(),
                 &self.listview.clone(),
@@ -225,16 +238,37 @@ mod imp {
         fn send_to_preview(&self) {
             let selected_verses = Self::get_selected_scripture(&self.listview);
 
-            let list_verse = selected_verses
+            if selected_verses.is_empty() {
+                return;
+            }
+
+            let selected_slide_data: Vec<SlideData> = selected_verses
+                .clone()
                 .iter()
-                .map(|t| t.item().screen_display())
+                .map(|v| v.clone().into())
                 .collect();
-            let payload = SlideManagerData::from_list(
-                self.search_text.text().to_string(),
-                0,
-                list_verse,
-                None,
-            );
+            let mut payload = SlideManagerData::new(0, 0, selected_slide_data);
+
+            match self.search_mode.borrow().clone() {
+                SearchMode::Evaluated(evaluated) => {
+                    let verse = Self::compress_verses(
+                        &selected_verses
+                            .iter()
+                            .map(|t| t.item().verse)
+                            .collect::<Vec<_>>(),
+                    );
+
+                    let new_text = format!(
+                        "{} {}:{}",
+                        evaluated.book,
+                        evaluated.chapter,
+                        verse.join(",")
+                    );
+
+                    payload.title = new_text.clone();
+                }
+                SearchMode::Fuzz => (),
+            };
 
             self.obj().emit_send_scriptures(payload);
         }
@@ -342,20 +376,22 @@ mod imp {
         }
 
         fn search_bible(
+            &self,
             search_text: String,
             bible_translation: &str,
-            // list_view_wrapper: Rc<RefCell<TypedListView<ScriptureListItem, MultiSelection>>>,
             listview: &gtk::ListView,
-        ) -> (Option<String>, std::vec::Vec<u32>) {
+        ) -> std::vec::Vec<u32> {
             let mut verse_index = Vec::new();
             if bible_translation.is_empty() {
                 eprintln!("NO TRANSLATION");
-                return (None, verse_index);
+                return verse_index;
             }
 
             let t = bible_translation.to_owned();
             let (verses, mut evaluated) = match Self::parser_bible_reference(&search_text) {
                 Some(evaluated) => {
+                    self.search_mode
+                        .replace(SearchMode::Evaluated(evaluated.clone()));
                     println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
                     let verses = Query::search_by_chapter_query(
                         t.clone(),
@@ -366,6 +402,7 @@ mod imp {
                     (verses, Some(evaluated))
                 }
                 None => {
+                    self.search_mode.replace(SearchMode::Fuzz);
                     let verses =
                         Query::search_by_partial_text_query(t.clone(), search_text.clone());
                     (verses, None)
@@ -376,18 +413,15 @@ mod imp {
                 Ok(vs) => vs,
                 Err(x) => {
                     println!("SQL ERROR: \n{:?}", x);
-                    return (None, verse_index);
+                    return verse_index;
                 }
             };
 
             listview.remove_all();
-            let mut actual_search = None;
 
             if let Some(e) = &mut evaluated {
                 if let Some(v) = verses.first() {
                     e.book = v.book.clone();
-                    let t = format!("{} {}", v.book, search_text.replace(&e.book, "").trim());
-                    actual_search = Some(t);
                 }
                 e.verses.iter().for_each(|v| {
                     verse_index.push(*v);
@@ -406,7 +440,7 @@ mod imp {
                 listview.append_item(&item);
             });
 
-            (actual_search, verse_index)
+            verse_index
         }
 
         fn select_list_items(
@@ -441,7 +475,7 @@ mod imp {
                 #[weak(rename_to=imp)]
                 self,
                 move |se| {
-                    let (search_term, verses) = Self::search_bible(
+                    let verses = imp.search_bible(
                         se.text().to_string(),
                         &imp.translation.borrow(),
                         &imp.listview,
@@ -586,31 +620,16 @@ mod imp {
                 return;
             };
 
-            let handle_id = model.connect_selection_changed(glib::clone!(
-                #[weak(rename_to = imp)]
-                self,
-                move |_m, _pos, _n_items| {
-                    let listview = imp.listview.clone();
-                    let text_entry = imp.search_text.clone();
-                    let search_signal_handler = imp.search_signal_handler.take();
-                    // send selected to preview
-                    let selected_verses = Self::get_selected_scripture(&listview);
+            let connect_change_fn = |imp: glib::subclass::ObjectImplRef<SearchScripture>| {
+                imp.send_to_preview();
+                let listview = imp.listview.clone();
+                let text_entry = imp.search_text.clone();
 
-                    let payload = SlideManagerData::from_list(
-                        text_entry.text().to_string(),
-                        0,
-                        selected_verses
-                            .iter()
-                            .map(|t| t.item().screen_display())
-                            .collect(),
-                        None,
-                    );
-                    imp.obj().emit_send_scriptures(payload);
+                let selected_verses = Self::get_selected_scripture(&listview);
 
-                    // update text entry
-                    let evaluated =
-                        Self::parser_bible_reference(text_entry.text().to_string().as_ref());
-                    if let Some(evaluated) = evaluated {
+                // update text entry
+                match imp.search_mode.borrow().clone() {
+                    SearchMode::Evaluated(evaluated) => {
                         let verse = Self::compress_verses(
                             &selected_verses
                                 .iter()
@@ -625,6 +644,7 @@ mod imp {
                             verse.join(",")
                         );
 
+                        let search_signal_handler = imp.search_signal_handler.take();
                         if let Some(handler_id) = search_signal_handler {
                             text_entry.block_signal(&handler_id);
                             text_entry.set_text(&new_text);
@@ -632,7 +652,19 @@ mod imp {
                             imp.search_signal_handler.replace(Some(handler_id));
                         }
                     }
-                }
+                    SearchMode::Fuzz => (),
+                };
+            };
+
+            self.listview.connect_activate(glib::clone!(
+                #[weak(rename_to = imp)]
+                self,
+                move |_, _| connect_change_fn(imp)
+            ));
+            let handle_id = model.connect_selection_changed(glib::clone!(
+                #[weak(rename_to = imp)]
+                self,
+                move |_m, _pos, _n_items| connect_change_fn(imp)
             ));
 
             self.selection_signal_handler.replace(Some(handle_id));
@@ -656,12 +688,12 @@ mod imp {
                 listview.append_item(&item);
 
                 if i == 0 {
-                    self.search_text.set_text(&format!(
-                        "{} {}:{}",
-                        verse.book.clone(),
-                        verse.chapter,
-                        verse.verse
-                    ));
+                    let text = format!("{} {}:{}", verse.book, verse.chapter, verse.verse);
+                    self.search_text.set_text(&text);
+
+                    if let Some(eval) = Self::parser_bible_reference(&text) {
+                        self.search_mode.replace(SearchMode::Evaluated(eval));
+                    }
                 }
             }
         }

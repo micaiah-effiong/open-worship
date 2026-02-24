@@ -479,6 +479,22 @@ macro_rules! format_resource {
     };
 }
 
+#[macro_export]
+#[cfg(target_os = "macos")]
+macro_rules! accels {
+    ($key:literal) => {
+        concat!("<Meta>", $key)
+    };
+}
+
+#[macro_export]
+#[cfg(not(target_os = "macos"))]
+macro_rules! accels {
+    ($key:literal) => {
+        concat!("<Primary>", $key)
+    };
+}
+
 pub fn setup_theme_listener() {
     let Some(settings) = gtk::Settings::default() else {
         return;
@@ -515,4 +531,15 @@ fn update_css(provider: &gtk::CssProvider, is_dark: bool) {
 
     let css = if is_dark { dark } else { light };
     provider.load_from_resource(css);
+}
+
+pub fn space_camelcase(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.char_indices() {
+        if c.is_uppercase() && i != 0 {
+            result.push(' ');
+        }
+        result.push(c);
+    }
+    result
 }

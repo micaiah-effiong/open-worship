@@ -8,32 +8,6 @@ use crate::widgets::canvas::serialise::{CanvasData, SlideData};
 use crate::widgets::canvas::text_item::TextItem;
 
 const VISIBLE_CHANGED: &str = "visible-changed";
-pub const EMPTY_SLIDE: &str = r##"{
-    "transition": 0,
-    "items": [
-        {
-            "x": -602,
-            "y": -16,
-            "w": 2710,
-            "h": 1529,
-            "type": "text",
-            "text-data": "",
-            "font": "Open Sans",
-            "font-size": 16,
-            "font-style": "normal",
-            "justification": 1,
-            "align": 1,
-            "color": "#ffffffff",
-            "text-underline": false,
-            "text-outline": false,
-            "text-shadow": false
-        }
-    ],
-    "preview": "",
-    "background-color": "#383e41ff",
-    "background-pattern": ""
-}
-"##;
 
 mod imp {
     use std::cell::{Cell, RefCell};
@@ -42,9 +16,11 @@ mod imp {
     use gtk::glib::subclass::Signal;
     use gtk::glib::subclass::types::ObjectSubclass;
     use gtk::glib::{self, Properties};
+    use gtk::prelude::*;
     use gtk::subclass::prelude::*;
-    use gtk::{StackTransitionType, prelude::*};
 
+    use crate::services::settings::ApplicationSettings;
+    use crate::utils::int_to_transition;
     use crate::widgets::canvas::canvas::Canvas;
     use crate::widgets::canvas::serialise::SlideData;
 
@@ -61,6 +37,9 @@ mod imp {
         pub notes: RefCell<String>,
         #[property(set, get, builder(gtk::StackTransitionType::None))]
         pub transition: RefCell<gtk::StackTransitionType>,
+
+        #[property(set, get, default_value=ApplicationSettings::get_instance().transition_duration())]
+        pub transition_duration: Cell<u32>,
 
         #[property(get, set/* =Self::set_visible_ */, default_value=true, construct)]
         pub visible: Cell<bool>,
@@ -91,15 +70,17 @@ mod imp {
 
     impl Default for SlideImp {
         fn default() -> Self {
+            let settings = ApplicationSettings::get_instance();
             Self {
                 save_data: RefCell::new(None),
                 canvas: RefCell::new(None),
                 preview: RefCell::new(gtk::Picture::default()),
                 preview_data: RefCell::new(String::default()),
                 notes: RefCell::new(String::default()),
-                transition: RefCell::new(StackTransitionType::None),
+                transition: RefCell::new(gtk::StackTransitionType::None),
                 visible: Cell::new(true),
                 presentation_mode: Cell::new(false),
+                transition_duration: Cell::new(settings.transition_duration()),
             }
         }
     }
@@ -177,15 +158,10 @@ impl Slide {
     pub fn empty(/* window: &SpiceWindow */) -> Self {
         let slide = glib::Object::new::<Slide>();
 
-        let data: Option<SlideData> = serde_json::from_str(EMPTY_SLIDE).ok();
-        slide.imp().save_data.replace(data.clone());
+        let data = SlideData::from_default();
+        slide.imp().save_data.replace(Some(data.clone()));
 
-        let canvas_data: Option<CanvasData> = match data {
-            Some(d) => Some(d.into()),
-            None => None,
-        };
-
-        let canvas = Canvas::new(/* window, */ canvas_data);
+        let canvas = Canvas::new(/* window, */ Some(data.into()));
 
         slide
             .bind_property("visible", &canvas, "visible")
@@ -239,6 +215,7 @@ impl Slide {
         }
 
         self.set_transition(utils::int_to_transition(save_data.transition));
+        self.set_transition_duration(save_data.transition_duration);
 
         self.imp().save_data.replace(None);
     }
@@ -291,6 +268,7 @@ impl Slide {
         // );
         SlideData::new(
             utils::transition_to_int(self.transition()),
+            self.transition_duration(),
             c_item_data,
             self.preview_data(),
             canvas.serialise(),
@@ -376,6 +354,7 @@ impl Slide {
         }
 
         self.set_transition(utils::int_to_transition(save_data.transition));
+        self.set_transition_duration(save_data.transition_duration);
         // self.set_notes(save_data.notes);
     }
 

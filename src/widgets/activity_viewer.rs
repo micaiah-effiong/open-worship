@@ -1,6 +1,11 @@
 use gtk::{
+    SingleSelection,
     gio::prelude::ListModelExt,
-    glib::{self, object::ObjectExt, subclass::types::ObjectSubclassIsExt},
+    glib::{
+        self,
+        object::{CastNone, ObjectExt},
+        subclass::types::ObjectSubclassIsExt,
+    },
     prelude::{SelectionModelExt, WidgetExt},
 };
 
@@ -49,7 +54,7 @@ mod imp {
     #[properties(wrapper_type=super::ActivityViewer)]
     pub struct ActivityViewer {
         pub slide_manager: RefCell<SlideManager>,
-        pub(super) listview: RefCell<gtk::ListView>,
+        pub listview: RefCell<gtk::ListView>,
 
         //
         pub title_label: RefCell<gtk::Label>,
@@ -82,6 +87,7 @@ mod imp {
             let listview = {
                 let store_model = gtk::gio::ListStore::new::<Slide>();
                 let selection_model = gtk::SingleSelection::new(Some(store_model));
+
                 let factory = gtk::SignalListItemFactory::new();
 
                 factory.connect_setup(move |_, list_item| {
@@ -283,18 +289,22 @@ impl ActivityViewer {
     pub fn load_data(&self, data: &SlideManagerData) {
         let imp = self.imp();
         let sm = imp.slide_manager.borrow();
+
+        let listview = imp.listview.borrow();
+        let Some(model) = listview.model() else {
+            return;
+        };
+
         sm.set_title(data.title.clone());
         imp.title_label
             .borrow()
             .set_label(&format!("{} - {}", imp.title.borrow(), data.title));
-        let listview = imp.listview.borrow();
 
         listview.remove_all();
         sm.reset();
         sm.load_data(data.clone());
 
         for slide in &sm.slides() {
-            slide.load_slide();
             slide.set_presentation_mode(true);
 
             if let Some(canvas) = slide.canvas()
@@ -306,11 +316,7 @@ impl ActivityViewer {
 
             listview.append_item(slide);
         }
-        sm.set_current_slide(sm.slides().get(data.current_slide as usize));
-
-        let Some(model) = listview.model() else {
-            return;
-        };
+        // sm.set_current_slide(sm.slides().get(data.current_slide as usize));
 
         if model.n_items() > 0 {
             model.select_item(data.current_slide, true);

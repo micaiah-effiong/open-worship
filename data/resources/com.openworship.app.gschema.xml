@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schemalist>
+  <schema id="com.openworship.app" path="/com/openworship/app/" gettext-domain="">
+    <key name="show-reference" type="b">
+      <default>true</default>
+      <summary>Show Reference</summary>
+    </key>
+    <key name="show-verse-number" type="b">
+      <default>true</default>
+      <summary>Show verse number</summary>
+    </key>
+    <key name="show-passage" type="b">
+      <default>true</default>
+      <summary>Show passage</summary>
+    </key>
+    <key name="show-only-reference" type="b">
+      <default>false</default>
+      <summary>Show only reference</summary>
+    </key>
+    <key name="break-new-verse" type="b">
+      <default>true</default>
+      <summary>Break new verse</summary>
+    </key>
+    <key name="scripture-font" type="s">
+      <default>"Tahoma"</default>
+      <summary>Default scripture font</summary>
+    </key>
+    <key name="song-font" type="s">
+      <default>"Tahoma"</default>
+      <summary>Default song font</summary>
+    </key>
+    <key name="transition" type="u">
+      <default>0</default>
+      <range min="0" max="22"/>
+      <summary>Default transition</summary>
+    </key>
+    <key name="transition-duration" type="u">
+      <default>400</default>
+      <range min="100" max="1000"/>
+      <summary>Default transition duration</summary>
+    </key>
+
+  </schema>
+</schemalist>

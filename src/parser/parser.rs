@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::tokenizer::{Token, TokenEnum, Tokenizer};
 
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BibleReference {
     pub book: String,
     pub chapter: u32,

@@ -140,6 +140,8 @@ jobs:
 
           mkdir -p $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0
           cp -r /opt/homebrew/share/glib-2.0/schemas $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0
+          cp data/resources/com.openworship.app.gschema.xml $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0/schemas
+          glib-compile-schemas $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0/schemas
 
           # 2. Copy and fix dependencies
           destDir=$APP_PREFIX/$target/Openworship.app/Contents/Resources/lib

@@ -24,6 +24,7 @@ mod imp {
     use std::sync::OnceLock;
     use std::usize;
 
+    use super::*;
     use crate::utils::WidgetChildrenExt;
     use crate::widgets::canvas::canvas_grid::CanvasGrid;
     use crate::widgets::canvas::canvas_item::CanvasItem;
@@ -77,7 +78,7 @@ mod imp {
 
             // Canvas::set_drawing_preview(true);
 
-            self._snapshot_widget();
+            // self._snapshot_widget();
 
             // Canvas::set_drawing_preview(false);
         }
@@ -95,6 +96,73 @@ mod imp {
     impl ObjectImpl for ImpCanvas {
         fn constructed(&self) {
             self.parent_constructed();
+            let obj = self.obj().clone();
+
+            obj.connect_presentation_mode_notify(|c| {
+                // println!("-NOTIFY C_PRESENTATION_MODE {}", c.presentation_mode());
+                if c.presentation_mode() {
+                    c.unselect_all(None);
+                }
+            });
+
+            let canvas_grid = CanvasGrid::new(obj.clone());
+
+            let overlay = gtk::Overlay::new();
+            obj.append(&overlay);
+            // WARN: this breaks the aspect-ratio
+            // should be implementated to scale by current ratio
+            // overlay.set_size_request(500, 380);
+            overlay.set_child(Some(&canvas_grid));
+            overlay.add_overlay(&gtk::Label::builder().sensitive(false).build());
+            overlay.set_child_visible(true);
+            overlay.add_css_class("canvas");
+
+            overlay.connect_get_child_position({
+                let cc = obj.clone().downgrade();
+                move |ov, widget| {
+                    let Some(cc) = cc.upgrade() else { return None };
+                    return cc.connect_get_child_position(ov, widget);
+                }
+            });
+
+            let click = GestureClick::builder().name("CanvasClick").build();
+            click.set_propagation_phase(gtk::PropagationPhase::Bubble);
+            click.connect_pressed(glib::clone!(
+                #[weak]
+                obj,
+                move |evt, _, _, _| {
+                    obj.emit_clicked(evt);
+                    evt.set_state(gtk::EventSequenceState::Claimed);
+                }
+            ));
+
+            obj.add_controller(click.clone()); // canvas now recieves click event
+            obj.connect_clicked(glib::clone!(
+                #[weak]
+                obj,
+                move |evt| obj.button_press_event(evt)
+            ));
+
+            let esc = EventControllerKey::new();
+            esc.set_propagation_phase(gtk::PropagationPhase::Bubble);
+            esc.connect_key_pressed({
+                let obj = obj.clone();
+                move |_, k, _, _| {
+                    if k == gdk::Key::Escape {
+                        obj.unselect_all(None);
+                    }
+
+                    glib::Propagation::Proceed
+                }
+            });
+            obj.add_controller(esc);
+
+            obj.imp().grid.replace(Some(canvas_grid));
+            obj.imp().widget.replace(overlay);
+
+            obj.imp().calculate_ratio();
+            obj.imp().load_data();
+            obj.style();
         }
 
         fn signals() -> &'static [glib::subclass::Signal] {
@@ -245,7 +313,7 @@ glib::wrapper! {
 
 impl Default for Canvas {
     fn default() -> Self {
-        glib::Object::new::<Self>()
+        Self::base(None)
     }
 }
 
@@ -258,78 +326,18 @@ impl Canvas {
         DRAWING_PREVIEW.load(atomic::Ordering::SeqCst)
     }
 
-    pub fn new(/* window: &SpiceWindow, */ save_data: Option<CanvasData>) -> Self {
+    fn base(/* window: &SpiceWindow, */ save_data: Option<CanvasData>) -> Self {
         let obj = glib::Object::new::<Canvas>();
         // obj.imp().window.set(Some(window));
         obj.imp().sava_data.replace(save_data);
-
-        obj.connect_presentation_mode_notify(|c| {
-            // println!("-NOTIFY C_PRESENTATION_MODE {}", c.presentation_mode());
-            if c.presentation_mode() {
-                c.unselect_all(None);
-            }
-        });
-
-        let canvas_grid = CanvasGrid::new(obj.clone());
-
-        let overlay = gtk::Overlay::new();
-        obj.append(&overlay);
-        // WARN: this breaks the aspect-ratio
-        // should be implementated to scale by current ratio
-        // overlay.set_size_request(500, 380);
-        overlay.set_child(Some(&canvas_grid));
-        overlay.add_overlay(&gtk::Label::builder().sensitive(false).build());
-        overlay.set_child_visible(true);
-        overlay.add_css_class("canvas");
-
-        overlay.connect_get_child_position({
-            let cc = obj.clone().downgrade();
-            move |ov, widget| {
-                let Some(cc) = cc.upgrade() else { return None };
-                return cc.connect_get_child_position(ov, widget);
-            }
-        });
-
-        let click = GestureClick::builder().name("CanvasClick").build();
-        click.set_propagation_phase(gtk::PropagationPhase::Bubble);
-        click.connect_pressed(glib::clone!(
-            #[weak]
-            obj,
-            move |evt, _, _, _| {
-                obj.emit_clicked(evt);
-                evt.set_state(gtk::EventSequenceState::Claimed);
-            }
-        ));
-
-        obj.add_controller(click.clone()); // canvas now recieves click event
-        obj.connect_clicked(glib::clone!(
-            #[weak]
-            obj,
-            move |evt| obj.button_press_event(evt)
-        ));
-
-        let esc = EventControllerKey::new();
-        esc.set_propagation_phase(gtk::PropagationPhase::Bubble);
-        esc.connect_key_pressed({
-            let obj = obj.clone();
-            move |_, k, _, _| {
-                if k == gdk::Key::Escape {
-                    obj.unselect_all(None);
-                }
-
-                glib::Propagation::Proceed
-            }
-        });
-        obj.add_controller(esc);
-
-        obj.imp().grid.replace(Some(canvas_grid));
-        obj.imp().widget.replace(overlay);
-
         obj.imp().calculate_ratio();
         obj.imp().load_data();
         obj.style();
 
         obj
+    }
+    pub fn new(/* window: &SpiceWindow, */ save_data: Option<CanvasData>) -> Self {
+        Self::base(save_data)
     }
 
     pub fn style(&self) {

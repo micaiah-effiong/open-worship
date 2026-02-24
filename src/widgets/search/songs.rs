@@ -166,8 +166,38 @@ mod imp {
                         return;
                     };
 
-                    imp.obj().emit_send_to_preview(&song_list_item.into());
+                    let list: SlideManagerData = song_list_item.into();
+
+                    imp.obj().emit_send_to_preview(&list);
                 }
+            ));
+
+            let Some(model) = listview.model().and_downcast::<gtk::SingleSelection>() else {
+                return;
+            };
+
+            let change_fn =
+                |model: &gtk::SingleSelection, imp: glib::subclass::ObjectImplRef<SearchSong>| {
+                    let Some(song_list_item) = model.selected_item().and_downcast::<SongObject>()
+                    else {
+                        return;
+                    };
+
+                    let list: SlideManagerData = song_list_item.into();
+
+                    imp.obj().emit_send_to_preview(&list);
+                };
+
+            model.connect_selection_changed(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |model, _pos, _| change_fn(model, imp)
+            ));
+
+            model.connect_items_changed(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |model, _pos, _, _| change_fn(model, imp)
             ));
         }
 

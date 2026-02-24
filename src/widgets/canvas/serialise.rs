@@ -1,7 +1,7 @@
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 
-use crate::services;
+use crate::services::{self, settings::ApplicationSettings, slide};
 
 fn default_font_weight() -> String {
     "regular".into()
@@ -56,13 +56,23 @@ impl CanvasItemData {
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "CanvasData")]
+#[serde(default)]
 pub struct CanvasData {
     #[serde(rename = "background-color")]
     pub background_color: String,
     #[serde(rename = "background-pattern")]
     pub background_pattern: Option<String>,
+}
+
+impl Default for CanvasData {
+    fn default() -> Self {
+        Self {
+            background_color: "#383E41".into(),
+            background_pattern: None,
+        }
+    }
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -74,27 +84,42 @@ pub enum CanvasItemType {
     Unknown,
 }
 
-const DEFAULT_SLIDE: &str = services::slide::EMPTY_SLIDE;
-
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "SlideData")]
+#[serde(default)]
 pub struct SlideData {
     pub transition: u32,
+    pub transition_duration: u32,
     pub items: Vec<CanvasItemData>,
     pub preview: String,
     #[serde(flatten)]
     pub canvas_data: CanvasData,
 }
 
+impl Default for SlideData {
+    fn default() -> Self {
+        let settings = ApplicationSettings::get_instance();
+        Self {
+            transition: 0,
+            transition_duration: settings.transition_duration(),
+            items: Vec::default(),
+            preview: String::default(),
+            canvas_data: CanvasData::default(),
+        }
+    }
+}
+
 impl SlideData {
     pub fn new<I: IntoIterator<Item = CanvasItemData>>(
         transition: u32,
+        transition_duration: u32,
         items: I,
         preview: String,
         canvas_data: CanvasData,
     ) -> Self {
         Self {
             transition,
+            transition_duration,
             items: items.into_iter().collect(),
             preview,
             canvas_data,
@@ -102,7 +127,29 @@ impl SlideData {
     }
 
     pub fn from_default() -> Self {
-        serde_json::from_str(DEFAULT_SLIDE).expect("Could not parse DEFAULT_SLIDE")
+        // serde_json::from_str(DEFAULT_SLIDE).expect("Could not parse DEFAULT_SLIDE")
+        let text = {
+            TextItemData {
+                text_data: String::new(),
+                font: "Open Sans".into(),
+                font_size: 16,
+                font_style: "normal".into(),
+                font_weight: "regular".into(),
+                justification: 1,
+                align: 1,
+                color: "#ffffffff".into(),
+                text_underline: false,
+                text_outline: false,
+                text_shadow: false,
+            }
+        };
+        let canvas_item = CanvasItemData::new(-602, -16, 2710, 1529, CanvasItemType::Text(text));
+
+        let mut slide = Self::default();
+        slide.canvas_data = CanvasData::default();
+        slide.items.push(canvas_item);
+
+        slide
     }
 }
 
