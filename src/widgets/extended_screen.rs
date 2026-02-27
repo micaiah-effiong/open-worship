@@ -5,7 +5,10 @@ use gtk::{
     prelude::WidgetExt,
 };
 
-use crate::{utils::WidgetChildrenExt, widgets::canvas::serialise::SlideManagerData};
+use crate::{
+    utils::WidgetChildrenExt,
+    widgets::canvas::{canvas_item::CanvasItem, serialise::SlideManagerData},
+};
 
 mod signals {}
 mod imp {
@@ -23,7 +26,7 @@ mod imp {
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
-        prelude::{GtkWindowExt, WidgetExt},
+        prelude::GtkWindowExt,
         subclass::{widget::WidgetImpl, window::WindowImpl},
     };
 
@@ -52,6 +55,8 @@ mod imp {
 
             #[cfg(not(debug_assertions))]
             {
+                use gtk::prelude::WidgetExt;
+
                 obj.set_decorated(false);
                 let c = gtk::gdk::Cursor::from_name("none", None);
                 obj.set_cursor(c.as_ref());
@@ -88,7 +93,10 @@ pub struct ExtendedScreen(ObjectSubclass<imp::ExtendedScreen>)
 
 impl Default for ExtendedScreen {
     fn default() -> Self {
-        glib::Object::new()
+        let obj: Self = glib::Object::new();
+        obj.imp().slide_manager.borrow().set_log(true);
+
+        obj
     }
 }
 
@@ -103,6 +111,18 @@ impl ExtendedScreen {
         let imp = self.imp();
         let sm = imp.slide_manager.borrow();
 
+        {
+            // let d = sm.serialise();
+            // let mut dd = data.clone();
+            // dd.current_slide = d.current_slide.clone();
+            // if d == dd {
+            //     self.set_pos(data.current_slide);
+            //     println!("exisit");
+            //     return;
+            // }
+        };
+
+        sm.set_title(data.title.clone());
         {
             if let Some(mut end_slide) = data.slides.first().cloned() {
                 end_slide.items.clear();
@@ -119,11 +139,11 @@ impl ExtendedScreen {
             }
         }
 
-        sm.reset();
-        sm.load_data(data.clone());
+        // sm.reset();
+        // sm.load_data(data.clone());
+        sm.reload_data(data.clone());
 
         for slide in &sm.slides() {
-            slide.load_slide();
             slide.set_presentation_mode(true);
         }
 
@@ -162,7 +182,7 @@ impl ExtendedScreen {
                 return;
             };
 
-            for text in c.widget().children() {
+            for text in c.widget().get_children::<CanvasItem>() {
                 text.set_visible(!clear);
             }
         }

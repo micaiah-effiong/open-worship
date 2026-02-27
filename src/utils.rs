@@ -532,3 +532,14 @@ fn update_css(provider: &gtk::CssProvider, is_dark: bool) {
     let css = if is_dark { dark } else { light };
     provider.load_from_resource(css);
 }
+
+pub fn space_camelcase(s: &str) -> String {
+    let mut result = String::new();
+    for (i, c) in s.char_indices() {
+        if c.is_uppercase() && i != 0 {
+            result.push(' ');
+        }
+        result.push(c);
+    }
+    result
+}

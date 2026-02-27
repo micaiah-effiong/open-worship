@@ -1,7 +1,10 @@
 use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 
-use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
+use crate::{
+    services::settings::ApplicationSettings,
+    widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData},
+};
 
 // SONG VERSE
 #[derive(Debug, Clone, Default, PartialEq, Eq, glib::Boxed)]
@@ -131,14 +134,25 @@ impl From<SongObject> for SongData {
 
 impl Into<SlideManagerData> for SongObject {
     fn into(self) -> SlideManagerData {
+        let settings = ApplicationSettings::default();
         let slide_list = self
             .verses()
             .into_iter()
             .map(|s| {
-                s.slide
+                let mut s = s
+                    .slide
                     .as_ref()
                     .and_then(|val| serde_json::from_str(val).ok())
-                    .unwrap_or_else(SlideData::from_default)
+                    .unwrap_or_else(SlideData::from_default);
+                for v in &mut s.items {
+                    match &mut v.item_type {
+                        CanvasItemType::Text(text_item_data) => {
+                            text_item_data.font = settings.song_font();
+                        }
+                        CanvasItemType::Unknown => (),
+                    };
+                }
+                s
             })
             .collect::<Vec<_>>();
 
@@ -210,6 +224,27 @@ pub mod scripture {
     impl Default for ScriptureObject {
         fn default() -> Self {
             glib::Object::new()
+        }
+    }
+
+    impl Into<SlideData> for ScriptureObject {
+        fn into(self) -> SlideData {
+            let settings = ApplicationSettings::default();
+
+            let text = self.item().screen_display();
+            let mut slide_data = SlideData::from_default();
+
+            for v in &mut slide_data.items {
+                match &mut v.item_type {
+                    CanvasItemType::Text(text_item_data) => {
+                        text_item_data.font = settings.scripture_font();
+                        text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
+                    }
+                    CanvasItemType::Unknown => (),
+                };
+            }
+
+            slide_data
         }
     }
 

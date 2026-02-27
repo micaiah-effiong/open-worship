@@ -152,7 +152,6 @@
                         <!-- live -->
                         <property name="end_child">
                           <object class="ActivityViewer" id="live_viewer">
-                            <signal name="slide-change" handler="handle_live_slide_change" swapped="true"/>
                             <property name="title">Live</property>
                           </object>
                         </property>

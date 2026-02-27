@@ -149,19 +149,23 @@
                         <property name="margin_bottom">12</property>
                         <property name="margin_start">12</property>
                         <property name="margin_end">12</property>
+
                         <child>
-                          <object class="GtkLabel">
-                            <property name="label">Default Font</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkDropDown">
-                            <property name="model">
-                              <object class="GtkStringList">
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Default Font</property>
+                                <property name="halign">start</property>
                               </object>
-                            </property>
+                            </child>
+                            <child>
+                              <object class="GtkDropDown" id="song_font_dropdown" >
+                              </object>
+                            </child>
                           </object>
                         </child>
+
                       </object>
                     </property>
 
@@ -183,19 +187,23 @@
                         <property name="margin_bottom">12</property>
                         <property name="margin_start">12</property>
                         <property name="margin_end">12</property>
+
                         <child>
-                          <object class="GtkLabel">
-                            <property name="label">Default Font</property>
-                          </object>
-                        </child>
-                        <child>
-                          <object class="GtkDropDown">
-                            <property name="model">
-                              <object class="GtkStringList">
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Default Font</property>
+                                <property name="halign">start</property>
                               </object>
-                            </property>
+                            </child>
+                            <child>
+                              <object class="GtkDropDown" id="scripture_font_dropdown" >
+                              </object>
+                            </child>
                           </object>
                         </child>
+
                         <child>
                           <object class="GtkBox">
                             <property name="orientation">vertical</property>
@@ -255,11 +263,7 @@
                               </object>
                             </child>
                             <child>
-                              <object class="GtkDropDown">
-                                <property name="model">
-                                  <object class="GtkStringList">
-                                  </object>
-                                </property>
+                              <object class="GtkDropDown" id="transition_dropdown">
                               </object>
                             </child>
                           </object>
@@ -273,7 +277,7 @@
                               </object>
                             </child>
                             <child>
-                              <object class="GtkScale">
+                              <object class="GtkScale" id="transition_scale">
 
                                 <property name="draw-value">true</property>
                                 <property name="round_digits">0</property>
@@ -282,7 +286,7 @@
                                 <!-- <property name="hexpand">true</property> -->
 
                                 <property name="width-request">150</property>
-                                <property name="adjustment">adjustment</property>
+                                <property name="adjustment">transition_duration_adjustment</property>
                                 <!-- <marks> -->
                                 <!--   <mark value="1.0" position="bottom"/> -->
                                 <!--   <mark value="2.0" position="bottom"/> -->
@@ -314,11 +318,12 @@
 
   </template>
 
-  <object class="GtkAdjustment" id="adjustment">
+  <object class="GtkAdjustment" id="transition_duration_adjustment">
     <property name="lower">100</property>
     <property name="upper">1000</property>
     <property name="step_increment">50</property>
-    <property name="page_increment">50</property>
+    <property name="page_increment">100</property>
+    <property name="page_size">0</property>
     <!-- <signal name="value_changed" handler="changed_cb" object="CcFadeSlider" swapped="yes"/> -->
   </object>
 </interface>

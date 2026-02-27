@@ -1,6 +1,8 @@
 # Build Debian package
 # --profile production --no-build --no-strip --variant=modern
 target=$(rustup target list | awk '/installed/ {print $1;}')
+APP_NAME="openworship"
+APP_ID="com.openworship.app"
 cargo deb --target $target --no-strip --profile release
 # echo "[DEB]: $(ls target/$target)"
 mv target/$target/debian/*.deb ./
@@ -15,6 +17,18 @@ if [ ! -f linuxdeploy-plugin-gtk.sh ]; then
 	echo "plugin-gtk not found!"
 	wget https://raw.githubusercontent.com/linuxdeploy/linuxdeploy-plugin-gtk/3b67a1d1c1b0c8268f57f2bce40fe2d33d409cea/linuxdeploy-plugin-gtk.sh
 fi
+
+mkdir -p AppDir/usr/bin
+mkdir -p AppDir/usr/share/applications
+mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+mkdir -p AppDir/usr/share/glib-2.0/schemas
+
+cp target/release/$APP_NAME AppDir/usr/bin/
+cp data/$APP_ID.desktop AppDir/usr/share/applications/
+cp data/icons/$APP_NAME.png AppDir/usr/share/icons/hicolor/256x256/apps/$APP_NAME.png
+cp data/schemas/$APP_ID.gschema.xml AppDir/usr/share/glib-2.0/schemas/
+
+glib-compile-schemas AppDir/usr/share/glib-2.0/schemas
 
 # chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
 # NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \

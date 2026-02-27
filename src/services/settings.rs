@@ -1,5 +1,4 @@
 use std::cell::OnceCell;
-use std::cell::RefCell;
 
 use gtk::gio;
 use gtk::glib;

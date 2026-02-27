@@ -1,19 +1,19 @@
 use gtk::{
     gio::{
         self,
-        prelude::{ActionMapExtManual, ApplicationExt, ApplicationExtManual},
+        prelude::{ActionMapExtManual, ApplicationExt},
     },
-    glib::{self, clone, object::Cast, variant::StaticVariantType},
+    glib::{self, object::Cast},
     prelude::{GtkApplicationExt, GtkWindowExt},
 };
 
 use crate::{
     accels, app_config,
-    widgets::{search::songs::edit_modal::SongEditWindow, settings::SettingsWindow},
+    widgets::{search::songs::edit_modal::SongEditWindow, settings_window::SettingsWindow},
 };
 
 mod imp {
-    use std::cell::{OnceCell, RefCell};
+    use std::cell::RefCell;
 
     use gtk::{
         gdk::{self, prelude::DisplayExt},
@@ -32,17 +32,13 @@ mod imp {
         subclass::prelude::{DerivedObjectProperties, GtkApplicationImpl},
     };
 
-    use crate::{
-        application_window::MainApplicationWindow, format_resource,
-        widgets::settings::SettingsWindow,
-    };
+    use crate::{application_window::MainApplicationWindow, format_resource};
 
     use super::*;
 
     #[derive(Default, Properties)]
     #[properties(wrapper_type = super::OwApplication)]
     pub struct OwApplication {
-        // pub(super) settings: OnceCell<gio::Settings>,
         #[property(get)]
         main_window: RefCell<MainApplicationWindow>,
     }

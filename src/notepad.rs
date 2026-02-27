@@ -30,7 +30,7 @@ use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use crate::widgets::canvas::text_item::{self, TextItem};
 use crate::widgets::entry_combo::EntryCombo;
 use crate::widgets::extended_screen::ExtendedScreen;
-use crate::widgets::settings::SettingsWindow;
+use crate::widgets::settings_window::SettingsWindow;
 use crate::widgets::{self, canvas, search};
 
 pub fn init_app() {
@@ -81,12 +81,12 @@ pub fn init_app() {
             // println!("PRESENT");
             // // SongEditWindow::new().present();
 
-            let win = SettingsWindow::new();
-            app.add_window(&win);
-            win.present();
+            // let win = SettingsWindow::new();
+            // app.add_window(&win);
+            // win.present();
         }
 
-        // build_ui(&app);
+        build_ui(&app);
         // build_dnd_ui(&app);
     });
 
@@ -304,7 +304,10 @@ fn build_ui(app: &gtk::Application) {
         });
 
         let notify_btn = gtk::Button::with_label("Notify");
-        t_box.append(&notify_btn);
+        // t_box.append(&notify_btn);
+        let a = gtk::DropDown::from_strings(&["1", "2", "3"]);
+        t_box.append(&a);
+        a.set_selected(2);
 
         notify_btn.connect_clicked({
             move |btn| {
