@@ -134,7 +134,7 @@ impl From<SongObject> for SongData {
 
 impl Into<SlideManagerData> for SongObject {
     fn into(self) -> SlideManagerData {
-        let settings = ApplicationSettings::default();
+        let settings = ApplicationSettings::get_instance();
         let slide_list = self
             .verses()
             .into_iter()
@@ -229,7 +229,7 @@ pub mod scripture {
 
     impl Into<SlideData> for ScriptureObject {
         fn into(self) -> SlideData {
-            let settings = ApplicationSettings::default();
+            let settings = ApplicationSettings::get_instance();
 
             let text = self.item().screen_display();
             let mut slide_data = SlideData::from_default();

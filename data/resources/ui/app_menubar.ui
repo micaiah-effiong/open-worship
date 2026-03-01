@@ -113,9 +113,24 @@
         </item>
       </section>
     </submenu>
-    <submenu>
-      <attribute name="label" translatable="yes">_Window</attribute>
-      <attribute name="gtk-macos-special">window-submenu</attribute>
+    <!-- <submenu> -->
+    <!--   <attribute name="label" translatable="yes">_Window</attribute> -->
+    <!--   <attribute name="gtk-macos-special">window-submenu</attribute> -->
+    <!-- </submenu> -->
+  <submenu>
+      <attribute name="label" translatable="yes">_Help</attribute>
+      <item>
+        <attribute name="label" translatable="yes">Setting</attribute>
+        <attribute name="action">app.preferences</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">Report bug</attribute>
+        <attribute name="action">app.report-bug</attribute>
+      </item>
+      <item>
+        <attribute name="label" translatable="yes">About Openworship</attribute>
+        <attribute name="action">app.about</attribute>
+      </item>
     </submenu>
   </menu>
 </interface>

@@ -38,7 +38,7 @@ mod imp {
         #[property(set, get, builder(gtk::StackTransitionType::None))]
         pub transition: RefCell<gtk::StackTransitionType>,
 
-        #[property(set, get, default_value=ApplicationSettings::default().transition_duration())]
+        #[property(set, get, default_value=ApplicationSettings::get_instance().transition_duration())]
         pub transition_duration: Cell<u32>,
 
         #[property(get, set/* =Self::set_visible_ */, default_value=true, construct)]
@@ -70,7 +70,7 @@ mod imp {
 
     impl Default for SlideImp {
         fn default() -> Self {
-            let settings = ApplicationSettings::default();
+            let settings = ApplicationSettings::get_instance();
             Self {
                 save_data: RefCell::new(None),
                 canvas: RefCell::new(None),

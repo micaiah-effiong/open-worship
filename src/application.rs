@@ -119,11 +119,11 @@ mod imp {
             let menu_builder =
                 gtk::Builder::from_resource(format_resource!("ui", "app_menubar.ui"));
 
-            let obj: gio::MenuModel = menu_builder
+            let obj: gio::Menu = menu_builder
                 .object("default-menu")
                 .expect("App-menu not found");
 
-            obj
+            obj.into()
         }
     }
 }
@@ -211,12 +211,6 @@ impl OwApplication {
         //     })
         //     .build();
 
-        // let show_preferences_action = gio::ActVionEntry::builder("show-preferences")
-        //     .activate(|obj: &Self, _, _| {
-        //         let dialog = PreferencesDialog::new(obj.settings());
-        //         dialog.present(Some(&obj.window()));
-        //     })
-        //     .build();
         // let show_about_action = gio::ActionEntry::builder("show-about")
         //     .activate(|obj: &Self, _, _| {
         //         about::present_dialog(&obj.window());
@@ -244,10 +238,23 @@ impl OwApplication {
             .activate(|_, _, _| println!("Open activated"))
             .build();
 
+        // HELP
+        let report_bug = gio::ActionEntry::builder("report-bug")
+            .activate(|_, _, _| {
+                let create_issue_url =
+                    format!("{}/issues/new/choose", env!("CARGO_PKG_REPOSITORY"));
+                gtk::UriLauncher::new(&create_issue_url).launch(
+                    None::<&gtk::Window>,
+                    None::<&gio::Cancellable>,
+                    |_| {},
+                );
+                //
+            })
+            .build();
+
         self.add_action_entries([
             // launch_uri_action,
             // show_in_files_action,
-            // show_preferences_action,
             // show_about_action,
             quit_action,
             about_action,
@@ -255,6 +262,8 @@ impl OwApplication {
             // FILE
             open,
             add_song_action,
+            // HELP
+            report_bug,
         ]);
     }
 
@@ -272,10 +281,11 @@ impl OwApplication {
     }
 
     fn setup_accels(&self) {
-        // self.set_accels_for_action("app.preferences", &[accels!("comma")]);
+        self.set_accels_for_action("app.preferences", &[accels!("comma")]);
         // self.set_accels_for_action("app.quit", &[accels!("q")]);
         // self.set_accels_for_action("window.close", &[accels!("w")]);
         self.set_accels_for_action("window.close", &[accels!("w")]);
+        // self.set_accels_for_action("app.preferences", &[accels!(",")]);
 
         //FILE
         self.set_accels_for_action("app.open", &[accels!("o")]);

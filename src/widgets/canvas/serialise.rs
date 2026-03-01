@@ -98,7 +98,7 @@ pub struct SlideData {
 
 impl Default for SlideData {
     fn default() -> Self {
-        let settings = ApplicationSettings::default();
+        let settings = ApplicationSettings::get_instance();
         Self {
             transition: 0,
             transition_duration: settings.transition_duration(),

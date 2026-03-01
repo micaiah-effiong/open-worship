@@ -180,7 +180,7 @@ mod imp {
                 let mut t = transition_to_int(val.transition());
 
                 if t == 0 {
-                    t = ApplicationSettings::default().transition();
+                    t = ApplicationSettings::get_instance().transition();
                 }
 
                 obj.slideshow().set_transition_type(int_to_transition(t));

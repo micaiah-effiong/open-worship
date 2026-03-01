@@ -379,9 +379,11 @@ mod imp {
                             .get()
                             .expect("The variant needs to be of type `String`.");
 
-                        let Some(found) = font_names.iter().position(|v| *v == font) else {
-                            return None;
-                        };
+                        let found = font_names
+                            .iter()
+                            .position(|v| *v == font)
+                            .unwrap_or_default() as u32;
+
                         Some((found as u32).to_value())
                     }
                 ))
@@ -411,9 +413,11 @@ mod imp {
                             .get()
                             .expect("The variant needs to be of type `String`.");
 
-                        let Some(found) = font_names.iter().position(|v| *v == font) else {
-                            return None;
-                        };
+                        let found = font_names
+                            .iter()
+                            .position(|v| *v == font)
+                            .unwrap_or_default() as u32;
+
                         Some((found as u32).to_value())
                     }
                 ))

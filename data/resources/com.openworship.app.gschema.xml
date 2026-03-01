@@ -14,7 +14,7 @@
       <summary>Show passage</summary>
     </key>
     <key name="show-only-reference" type="b">
-      <default>true</default>
+      <default>false</default>
       <summary>Show only reference</summary>
     </key>
     <key name="break-new-verse" type="b">
