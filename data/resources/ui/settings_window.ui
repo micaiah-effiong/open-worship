@@ -1,0 +1,329 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SettingsWindow" parent="GtkWindow">
+    <property name="default_width">600</property>
+    <property name="default_height">400</property>
+
+    <child>
+      <object class="GtkBox">
+
+        <child>
+          <object class="GtkBox" id="side">
+
+            <child>
+              <object class="GtkStackSidebar" id="sidebar">
+              </object>
+            </child>
+
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkBox" id="main">
+
+            <child>
+              <object class="GtkStack" id="stack">
+                <property name="hexpand">true</property>
+
+                <child>
+                  <object class="GtkStackPage">
+
+                    <!-- output -->
+                    <property name="name">output</property>
+                    <property name="title">Output</property>
+                    <property name="child">
+                      <object class="GtkBox" id="output_view">
+                        <!-- <property name="halign">start</property> -->
+                        <property name="orientation">vertical</property>
+                        <property name="valign">start</property>
+                        <property name="margin_top">12</property>
+                        <property name="margin_bottom">12</property>
+                        <property name="margin_start">12</property>
+                        <property name="margin_end">12</property>
+
+                        <child>
+                          <object class="GtkAspectFrame" id="screen_aspect_frame">
+                            <property name="halign">center</property>
+                            <property name="height_request">100</property>
+                            <property name="width_request">100</property>
+                            <property name="ratio">1.77</property>
+                            <property name="obey_child">false</property>
+                            <child>
+                              <object class="Canvas" id="demo_screen">
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <child>
+                          <object class="GtkFrame">
+                            <property name="label">Monitor</property>
+                            <property name="hexpand">true</property>
+
+                            <child>
+                              <object class="GtkBox">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">12</property>
+                                <property name="margin_top">4</property>
+                                <property name="margin_bottom">4</property>
+                                <property name="margin_start">4</property>
+                                <property name="margin_end">4</property>
+                                <child>
+                                  <object class="GtkDropDown" id="monitor_dropdowon">
+                                    <property name="width_request">200</property>
+                                    <property name="model">
+                                      <object class="GtkStringList">
+                                      </object>
+                                    </property>
+
+                                  </object>
+                                </child>
+
+
+                                <child>
+                                  <object class="GtkGrid" id="monitor_details">
+                                    <property name="hexpand">true</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Width</property>
+                                        <layout>
+                                          <property name="column">0</property>
+                                          <property name="row">0</property>
+                                        </layout>
+                                      </object>
+                                    </child>
+
+                                    <child>
+                                      <object class="GtkLabel" id="monitor_width">
+                                        <property name="label">0</property>
+                                        <layout>
+                                          <property name="column">1</property>
+                                          <property name="row">0</property>
+                                        </layout>
+                                      </object>
+                                    </child>
+
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Height</property>
+                                        <layout>
+                                          <property name="column">0</property>
+                                          <property name="row">1</property>
+                                        </layout>
+                                      </object>
+                                    </child>
+
+                                    <child>
+                                      <object class="GtkLabel" id="monitor_height">
+                                        <property name="label">0</property>
+                                        <layout>
+                                          <property name="column">1</property>
+                                          <property name="row">1</property>
+                                        </layout>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+
+                          </object>
+                        </child>
+
+                      </object>
+                    </property>
+
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkStackPage">
+
+                    <property name="name">song</property>
+                    <property name="title">Song</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <property name="halign">start</property>
+                        <property name="margin_top">12</property>
+                        <property name="margin_bottom">12</property>
+                        <property name="margin_start">12</property>
+                        <property name="margin_end">12</property>
+
+                        <child>
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Default Font</property>
+                                <property name="halign">start</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkDropDown" id="song_font_dropdown" >
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                      </object>
+                    </property>
+
+                  </object>
+                </child>
+
+
+                <child>
+                  <object class="GtkStackPage">
+
+                    <property name="name">scripture</property>
+                    <property name="title">Scripture</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">12</property>
+                        <property name="halign">start</property>
+                        <property name="margin_top">12</property>
+                        <property name="margin_bottom">12</property>
+                        <property name="margin_start">12</property>
+                        <property name="margin_end">12</property>
+
+                        <child>
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Default Font</property>
+                                <property name="halign">start</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkDropDown" id="scripture_font_dropdown" >
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <child>
+                          <object class="GtkBox">
+                            <property name="orientation">vertical</property>
+                            <child>
+                              <object class="GtkCheckButton" id="show_reference">
+                                <property name="label">Show Reference</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkCheckButton" id="show_verse_number">
+                                <property name="label">Show verse number</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkCheckButton" id="show_passage">
+                                <property name="label">Show passage</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkCheckButton" id="show_only_reference">
+                                <property name="label">Show only reference</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkCheckButton" id="break_new_verse">
+                                <property name="label">Break new verse</property>
+                              </object>
+                            </child>
+
+
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkStackPage">
+
+                    <property name="name">transition</property>
+                    <property name="title">Transition</property>
+                    <property name="child">
+                      <object class="GtkBox">
+                        <property name="orientation">vertical</property>
+                        <property name="halign">start</property>
+                        <property name="margin_top">12</property>
+                        <property name="margin_bottom">12</property>
+                        <property name="margin_start">12</property>
+                        <property name="margin_end">12</property>
+                        <child>
+                          <object class="GtkBox">
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Transitions</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkDropDown" id="transition_dropdown">
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                        <child>
+                          <object class="GtkBox">
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Duration</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="transition_scale">
+
+                                <property name="draw-value">true</property>
+                                <property name="round_digits">0</property>
+                                <property name="digits">0</property>
+                                <property name="value_pos">right</property>
+                                <!-- <property name="hexpand">true</property> -->
+
+                                <property name="width-request">150</property>
+                                <property name="adjustment">transition_duration_adjustment</property>
+                                <!-- <marks> -->
+                                <!--   <mark value="1.0" position="bottom"/> -->
+                                <!--   <mark value="2.0" position="bottom"/> -->
+                                <!--   <mark value="3.0" position="bottom"/> -->
+                                <!--   <mark value="4.0" position="bottom"/> -->
+                                <!--   <mark value="5.0" position="bottom"/> -->
+                                <!-- </marks> -->
+
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+
+                      </object>
+                    </property>
+
+                  </object>
+                </child>
+
+
+              </object>
+            </child>
+
+          </object>
+        </child>
+
+      </object>
+    </child>
+
+  </template>
+
+  <object class="GtkAdjustment" id="transition_duration_adjustment">
+    <property name="lower">100</property>
+    <property name="upper">1000</property>
+    <property name="step_increment">50</property>
+    <property name="page_increment">100</property>
+    <property name="page_size">0</property>
+    <!-- <signal name="value_changed" handler="changed_cb" object="CcFadeSlider" swapped="yes"/> -->
+  </object>
+</interface>

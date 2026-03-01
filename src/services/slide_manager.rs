@@ -1,13 +1,17 @@
 use std::usize;
 
-use gtk::glib::{
-    self,
-    object::{Cast, ObjectExt},
-    subclass::types::ObjectSubclassIsExt,
+use gtk::{
+    glib::{
+        self,
+        object::{Cast, ObjectExt},
+        subclass::types::ObjectSubclassIsExt,
+    },
+    prelude::WidgetExt,
 };
 
 use crate::{
     services::slide::Slide,
+    utils::WidgetChildrenExt,
     widgets::canvas::{
         CanvasItemType,
         canvas_item::CanvasItem,
@@ -40,14 +44,15 @@ mod imp {
     use gtk::subclass::prelude::*;
 
     use super::*;
+    use crate::services::settings::ApplicationSettings;
     use crate::services::slide::Slide;
-    use crate::utils::WidgetChildrenExt;
+    use crate::utils::{WidgetChildrenExt, int_to_transition, transition_to_int};
     use crate::widgets::canvas::canvas_item::CanvasItem;
     // use crate::services::utils::{self, AspectRatio};
     // use crate::spice_window::SpiceWindow;
     // use crate::widgets::canvas_item::base::CanvasItem;
 
-    #[derive(Debug, Default, Properties)]
+    #[derive(Default, Properties)]
     #[properties(wrapper_type=super::SlideManager)]
     pub struct SlideManager {
         // #[property(get, construct_only)]
@@ -79,6 +84,9 @@ mod imp {
 
         propagating_ratio: Cell<bool>,
         pub checkpoint: RefCell<Option<Slide>>,
+
+        #[property(get, set)]
+        pub log: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -169,8 +177,15 @@ mod imp {
             let Some(val) = value else { return };
 
             if obj.animation() {
-                obj.slideshow().set_transition_type(val.transition());
-                obj.slideshow().set_transition_duration(500);
+                let mut t = transition_to_int(val.transition());
+
+                if t == 0 {
+                    t = ApplicationSettings::get_instance().transition();
+                }
+
+                obj.slideshow().set_transition_type(int_to_transition(t));
+                obj.slideshow()
+                    .set_transition_duration(val.transition_duration());
             }
 
             if self.slides.borrow().contains(&val) {
@@ -208,8 +223,6 @@ impl Default for SlideManager {
             .vhomogeneous(false)
             .build();
         slide_manager.set_slideshow(stack);
-
-        slide_manager.imp().slides.replace(Vec::new());
 
         let empty_slide = Slide::empty(/* &window */ );
         slide_manager
@@ -375,56 +388,91 @@ impl SlideManager {
         let mut data = SlideManagerData::new(current_slide_index, preview_slide_index, data);
         data.title = self.title();
         data
-
-        // return format!(
-        //     "{{\"current-slide\":{}, \"preview-slide\":{}, \"aspect-ratio\":{}, \"slides\": [{}]}}",
-        //     current_slide_index,
-        //     preview_slide_index,
-        //     self.imp().current_ratio() as u32,
-        //     data
-        // );
     }
 
-    pub fn load_data(&self, data: SlideManagerData) {
-        let slides_array = data.slides.clone();
+    /// Reloads the slide manager with new data, replacing all current slides.
+    ///
+    /// This function performs a full reset of the slide state:
+    ///
+    /// - If a current slide exists and differs from the end presentation slide,
+    ///   the existing end presentation slide's canvas is removed from the slideshow
+    ///   and the slide is destroyed. The current slide then becomes the new end
+    ///   presentation slide, with all of its canvas children hidden — intended to
+    ///   serve as a blank/black screen at the end of the presentation.
+    /// - All remaining slides are removed from the slideshow widget and destroyed.
+    /// - The internal slides list is cleared.
+    /// - New slide data is loaded via [`Self::load_data`].
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The new [`SlideManagerData`] to load after clearing existing state.
+    ///
+    /// # Notes
+    ///
+    /// Canvas children on the new end presentation slide are explicitly hidden after
+    /// assignment. If [`Self::load_data`] or any downstream code expects those items
+    /// to be visible, they must be made visible again explicitly.
+    pub fn reload_data(&self, data: SlideManagerData) {
+        let end_slide = self.imp().end_presentation_slide.borrow();
+        if let Some(cur) = self.current_slide()
+            && cur != end_slide.clone()
+        {
+            if let Some(c) = end_slide.canvas() {
+                self.slideshow().remove(&c);
+                end_slide.destroy();
+            }
+            self.imp().slides.borrow_mut().retain(|v| *v != cur);
+            drop(end_slide);
+            self.imp().end_presentation_slide.replace(cur);
 
-        // let Some(mut ratio) = root
-        //     .get("aspect-ratio")
-        //     .and_then(|v| v.as_i64().map(|v| v as i32))
-        // else {
-        //     eprintln!("Error loading date: Could not get \"aspect-ratio\"");
-        //     return;
-        // };
-        //
-        // if let Ok(mut val) = ASPECT_RATIO_OVERRIDE.lock()
-        //     && *val != -1
-        // {
-        //     ratio = *val as i32;
-        //     *val = -1;
-        // }
-
-        // self.imp()
-        //     .set_current_ratio(AspectRatio::get_mode(Some(ratio)));
-        // self.emit_aspect_ratio_changed(&self.imp().current_ratio());
-
-        for slide_object in slides_array {
-            self.new_slide(Some(slide_object.clone()), false);
+            if let Some(c) = self.imp().end_presentation_slide.borrow().canvas() {
+                for item in c.get_children::<CanvasItem>() {
+                    item.set_visible(false);
+                }
+            }
         }
 
-        // if self.slides().len() > data.current_slide as usize {
-        //     self.set_current_slide(self.slides().get(data.current_slide as usize).cloned());
-        //     if let Some(current_slide) = self.current_slide() {
-        //         current_slide.reload_preview_data();
-        //     }
-        // } else {
-        self.set_current_slide(self.slides().get(0).cloned());
-        // }
+        for slide in self.slides() {
+            if let Some(canvas) = slide.imp().canvas.borrow().clone() {
+                self.slideshow().remove(&canvas);
+                slide.destroy();
+            }
+        }
 
-        let slide = match self.slides().len() > data.preview_slide as usize {
-            true => self.slides().get(data.preview_slide as usize).cloned(),
-            false => self.slides().get(0).cloned(),
+        self.imp().slides.borrow_mut().clear();
+        self.load_data(data);
+    }
+
+    /// Loads slide data into the manager, creating all slides.
+    ///
+    /// If `data.slides` is empty, the function returns early with no state changes.
+    ///
+    /// After creating all slides, the current slide is set to the index specified
+    /// by `data.current_slide`, clamped to the last valid index if out of bounds.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The [`SlideManagerData`] containing slides and index state to load.
+    pub fn load_data(&self, data: SlideManagerData) {
+        if data.slides.is_empty() {
+            return;
         };
-        self.set_preview_slide(slide);
+
+        for slide_object in &data.slides {
+            let s = self.new_slide(Some(slide_object.clone()), false);
+            s.load_slide();
+        }
+
+        let current_index = ((data.current_slide as usize) < data.slides.len())
+            .then_some(data.current_slide)
+            .unwrap_or(0);
+        self.set_current_slide(self.slides().get(current_index as usize).cloned());
+
+        // let slide = match self.slides().len() > data.preview_slide as usize {
+        //     true => self.slides().get(data.preview_slide as usize).cloned(),
+        //     false => self.slides().get(0).cloned(),
+        // };
+        // self.set_preview_slide(slide);
     }
 
     ///
@@ -472,7 +520,7 @@ impl SlideManager {
 
                 for s in sm.slides() {
                     if s.visible() {
-                        let Some(s_canvas) = s.imp().canvas.borrow().clone() else {
+                        let Some(s_canvas) = s.canvas() else {
                             return;
                         };
                         s_canvas.set_current_ratio(ratio);

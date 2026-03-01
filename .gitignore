@@ -29,3 +29,5 @@ build/*
 
 # macos
 .DS_Store
+
+data/resources/gschemas.compiled

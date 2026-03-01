@@ -52,6 +52,9 @@ mod imp {
 
         #[property(get)]
         extended_screen: RefCell<ExtendedScreen>,
+
+        //
+        slide_change_handler_id: RefCell<Option<glib::SignalHandlerId>>,
     }
 
     #[glib::object_subclass]
@@ -77,6 +80,15 @@ mod imp {
     impl ObjectImpl for MainApplicationWindow {
         fn constructed(&self) {
             self.parent_constructed();
+
+            let id = self.live_viewer.connect_slide_change(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |_, position| {
+                    imp.extended_screen.borrow().set_pos(position);
+                }
+            ));
+            self.slide_change_handler_id.replace(Some(id));
         }
     }
     impl WidgetImpl for MainApplicationWindow {}
@@ -111,6 +123,16 @@ mod imp {
         }
 
         #[template_callback]
+        fn handle_show_black(&self, _: &gtk::Button) {
+            glib::g_warning!("application_window", "TODO: Show black");
+        }
+
+        #[template_callback]
+        fn handle_show_logo(&self, _: &gtk::Button) {
+            glib::g_warning!("application_window", "TODO: Show logo");
+        }
+
+        #[template_callback]
         fn handle_activate_schedule(&self, data: &SlideManagerData, _: &ScheduleActivityViewer) {
             self.preview_viewer.load_data(data);
         }
@@ -132,14 +154,28 @@ mod imp {
 
         #[template_callback]
         fn handle_preview_activate_slide(&self, data: &SlideManagerData, _: &ActivityViewer) {
+            // block change
+            let id = self.slide_change_handler_id.take();
+            if let Some(id) = id {
+                self.live_viewer.block_signal(&id);
+                self.slide_change_handler_id.replace(Some(id));
+            }
+
             self.live_viewer.load_data(data);
             self.extended_screen.borrow().load_data(data);
+
+            // unblock change
+            let id = self.slide_change_handler_id.take();
+            if let Some(id) = id {
+                self.live_viewer.unblock_signal(&id);
+                self.slide_change_handler_id.replace(Some(id));
+            }
         }
 
-        #[template_callback]
-        fn handle_live_slide_change(&self, position: u32, _: &ActivityViewer) {
-            self.extended_screen.borrow().set_pos(position);
-        }
+        // #[template_callback]
+        // fn handle_live_slide_change(&self, position: u32, _: &ActivityViewer) {
+        //     self.extended_screen.borrow().set_pos(position);
+        // }
     }
 
     impl MainApplicationWindow {
