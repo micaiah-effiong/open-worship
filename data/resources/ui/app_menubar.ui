@@ -120,7 +120,7 @@
   <submenu>
       <attribute name="label" translatable="yes">_Help</attribute>
       <item>
-        <attribute name="label" translatable="yes">Setting</attribute>
+        <attribute name="label" translatable="yes">Settings</attribute>
         <attribute name="action">app.preferences</attribute>
       </item>
       <item>

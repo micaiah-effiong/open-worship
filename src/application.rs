@@ -3,7 +3,7 @@ use gtk::{
         self,
         prelude::{ActionMapExtManual, ApplicationExt},
     },
-    glib::{self, object::Cast},
+    glib::{self, object::Cast, subclass::types::ObjectSubclassIsExt},
     prelude::{GtkApplicationExt, GtkWindowExt},
 };
 
@@ -41,6 +41,9 @@ mod imp {
     pub struct OwApplication {
         #[property(get)]
         main_window: RefCell<MainApplicationWindow>,
+
+        pub(super) settings_window: RefCell<SettingsWindow>,
+        pub(super) about_window: RefCell<Option<gtk::AboutDialog>>,
     }
 
     #[glib::object_subclass]
@@ -221,10 +224,10 @@ impl OwApplication {
             .activate(|obj: &Self, _, _| obj.quit())
             .build();
         let about_action = gtk::gio::ActionEntry::builder("about")
-            .activate(|_, _, _| Self::add_app_about())
+            .activate(|app: &OwApplication, _, _| app.show_about())
             .build();
         let settings_action = gtk::gio::ActionEntry::builder("preferences")
-            .activate(|_, _, _| SettingsWindow::new().present())
+            .activate(|app: &OwApplication, _, _| app.show_settings())
             .build();
 
         // FILE
@@ -267,17 +270,36 @@ impl OwApplication {
         ]);
     }
 
-    fn add_app_about() {
-        let dialog = gtk::AboutDialog::builder()
-            .program_name("About Openworship")
-            .version(env!("CARGO_PKG_VERSION"))
-            .website("https://github.com/micaiah-effiong/open-worship")
-            .license_type(gtk::License::MitX11)
-            .authors(["Micah Effiong"])
-            .logo_icon_name("openworship-symbolic")
-            .build();
+    fn show_about(&self) {
+        let about_win = self.imp().about_window.borrow().clone();
+        let about_app = match about_win {
+            Some(about) => about,
+            None => {
+                let dialog = gtk::AboutDialog::builder()
+                    .program_name("About Openworship")
+                    .version(env!("CARGO_PKG_VERSION"))
+                    .website("https://github.com/micaiah-effiong/open-worship")
+                    .license_type(gtk::License::MitX11)
+                    .authors(["Micah Effiong"])
+                    .logo_icon_name("openworship-symbolic")
+                    .build();
+                self.imp().about_window.replace(Some(dialog.clone()));
+                dialog
+            }
+        };
 
-        dialog.present();
+        about_app.connect_close_request(glib::clone!(
+            #[weak(rename_to=obj)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Stop,
+            move |_| {
+                obj.imp().about_window.replace(None);
+                glib::Propagation::Proceed
+            }
+        ));
+
+        about_app.present();
     }
 
     fn setup_accels(&self) {
@@ -290,5 +312,21 @@ impl OwApplication {
         //FILE
         self.set_accels_for_action("app.open", &[accels!("o")]);
         self.set_accels_for_action("win.add-song", &[accels!("i")]);
+    }
+
+    fn show_settings(&self) {
+        let sw = self.imp().settings_window.borrow();
+
+        sw.connect_close_request(glib::clone!(
+            #[weak(rename_to=obj)]
+            self,
+            #[upgrade_or]
+            glib::Propagation::Stop,
+            move |_| {
+                obj.imp().settings_window.replace(SettingsWindow::new());
+                glib::Propagation::Proceed
+            }
+        ));
+        sw.present();
     }
 }
