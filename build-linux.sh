@@ -23,10 +23,8 @@ mkdir -p AppDir/usr/share/applications
 mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 mkdir -p AppDir/usr/share/glib-2.0/schemas
 
-cp target/release/$APP_NAME AppDir/usr/bin/
-cp data/$APP_ID.desktop AppDir/usr/share/applications/
-cp data/icons/$APP_NAME.png AppDir/usr/share/icons/hicolor/256x256/apps/$APP_NAME.png
-cp data/schemas/$APP_ID.gschema.xml AppDir/usr/share/glib-2.0/schemas/
+# cp data/resources/icons/$APP_NAME.png AppDir/usr/share/icons/hicolor/256x256/apps/$APP_NAME.png
+cp data/resources/$APP_ID.gschema.xml AppDir/usr/share/glib-2.0/schemas/
 
 glib-compile-schemas AppDir/usr/share/glib-2.0/schemas
 
@@ -42,11 +40,12 @@ glib-compile-schemas AppDir/usr/share/glib-2.0/schemas
 chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
     
 # Extract the AppImage
-LINUXDEPLOY_BINARY="linuxdeploy-$(uname -m).AppImage"
-./$LINUXDEPLOY_BINARY --appimage-extract
+# LINUXDEPLOY_BINARY="linuxdeploy-$(uname -m).AppImage"
+# ./$LINUXDEPLOY_BINARY --appimage-extract
 
 # Use the extracted binary
-NO_STRIP=1 ./squashfs-root/AppRun \
+# NO_STRIP=1 ./squashfs-root/AppRun \
+NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
 	--appdir AppDir \
 	--plugin gtk \
 	--executable target/$target/release/openworship \

@@ -43,9 +43,7 @@ serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
 reqwest = { version = "0.12.12", features = ["json","stream"] }
 futures-util = "0.3.31"
-pangocairo = "0.20"
-gtk = { version = "0.10", features = ["v4_18"], package = "gtk4" }
-cairo-rs = { version = "0.21.2", features = ["png"] }
+gtk = { version = "0.9.2", features = ["v4_14"], package = "gtk4" }
 strum = "0.27"
 strum_macros = "0.27"
 gsettings-macro = "0.2.2"

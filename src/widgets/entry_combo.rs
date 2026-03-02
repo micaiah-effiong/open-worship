@@ -1,4 +1,4 @@
-use gtk::glib::subclass::types::ObjectSubclassIsExt;
+use gtk::glib::{UnicodeBreakType, subclass::types::ObjectSubclassIsExt};
 use std::cell::RefCell;
 
 use gtk::{gio, glib, prelude::*};
@@ -59,11 +59,7 @@ mod imp {
                     let dd = obj.dropdown.borrow();
 
                     if let Some(m) = dd.model().and_downcast::<gtk::StringList>() {
-                        let index = m.find(&value);
-                        let index = match index == gtk::INVALID_LIST_POSITION {
-                            true => gtk::INVALID_LIST_POSITION,
-                            false => index,
-                        };
+                        let index = super::EntryCombo::string_list_find(m, &value);
 
                         let id = obj.dropdown_select_handlerid.take();
                         if let Some(signal_id) = id {
@@ -191,16 +187,23 @@ impl EntryCombo {
         let dd = self.imp().dropdown.borrow().clone();
 
         if let Some(m) = dd.model().and_downcast::<gtk::StringList>() {
-            let index = m.find(&value);
-            let i = match index == u32::MAX {
-                true => gtk::INVALID_LIST_POSITION,
-                false => index,
-            };
-            dd.set_selected(i);
+            let index = Self::string_list_find(m, &value);
+            dd.set_selected(index);
         }
 
         self.imp().entry.borrow().set_text(&value);
         self.imp().value.replace(value.clone());
         self.emit_connect_changed(value);
+    }
+
+    fn string_list_find(string_list: gtk::StringList, value: &String) -> u32 {
+        string_list
+            .iter::<glib::Object>()
+            .position(|v| {
+                v.ok()
+                    .and_downcast::<gtk::StringObject>()
+                    .is_some_and(|v| v.string() == *value)
+            })
+            .unwrap_or(gtk::INVALID_LIST_POSITION as usize) as u32
     }
 }

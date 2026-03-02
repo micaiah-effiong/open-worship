@@ -1,7 +1,6 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use cairo;
 use gtk::gdk::Device;
 use gtk::gdk::prelude::DisplayExt;
 use gtk::gdk_pixbuf;
