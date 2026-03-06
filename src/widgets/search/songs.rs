@@ -26,7 +26,7 @@ mod imp {
             subclass::{
                 Signal,
                 object::ObjectImplExt,
-                types::{ObjectSubclass, ObjectSubclassExt},
+                types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt},
             },
             types::StaticType,
             value::ToValue,
@@ -47,7 +47,7 @@ mod imp {
 
     use crate::{
         db::query::Query,
-        dto::SongObject,
+        dto::{SongData, SongObject},
         utils::ListViewExtra,
         widgets::{
             canvas::serialise::SlideManagerData,
@@ -267,12 +267,10 @@ mod imp {
 
             let delete_action = gio::ActionEntry::builder("delete")
                 .activate(glib::clone!(
-                    #[strong]
-                    model,
                     #[weak(rename_to=imp)]
                     self,
                     move |_g: &gio::SimpleActionGroup, _sa, _v| {
-                        imp.remove_song(model.selection().nth(0));
+                        imp.remove_song();
                     }
                 ))
                 .build();
@@ -368,17 +366,30 @@ mod imp {
 
         fn open_edit_modal(&self, song: Option<SongObject>) {
             let edit_window = SongEditWindow::new();
+            let song_id = song.clone().map(|v| v.song_id()).unwrap_or_default();
 
             edit_window.connect_save(glib::clone!(
                 #[weak(rename_to=imp)]
                 self,
-                move |_, song_obj| {
+                move |w, smd| {
                     println!("SONG saved");
 
-                    imp.new_song(song_obj);
+                    let mut _song_obj = SongObject::from(smd.clone());
+                    _song_obj.set_song_id(song_id);
+                    let song_data: SongData = _song_obj.into();
+                    let res = match w.imp().is_new_song.get() {
+                        true => Query::insert_song(song_data),
+                        false => Query::update_song(song_data),
+                    };
+                    let _ = match res {
+                        Ok(()) => w.imp().is_new_song.set(false),
+                        Err(x) => println!("SQL ERROR: {:?}", x),
+                    };
+
+                    imp.new_song(&smd.clone().into());
                 }
             ));
-            edit_window.show(song);
+            edit_window.show(song.map(SongObject::into));
         }
         fn new_song(&self, song: &SongObject) {
             println!("SONG saved NEW SONG");
@@ -396,7 +407,7 @@ mod imp {
             }
         }
 
-        fn remove_song(&self, pos: u32) {
+        fn remove_song(&self) {
             let Some(song_item) = self
                 .listview
                 .get_selected_items()

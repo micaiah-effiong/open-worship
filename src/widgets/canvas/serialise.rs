@@ -1,17 +1,13 @@
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 
-use crate::services::{self, settings::ApplicationSettings, slide};
+use crate::services::settings::ApplicationSettings;
 
+pub const MAGIC_HEADER: &[u8] = b"OPW\x01";
 fn default_font_weight() -> String {
     "regular".into()
 }
-fn default_text_decoration() -> String {
-    "none".into()
-}
-fn default_text_shadow() -> String {
-    "#0000 0px  0px 0px".into()
-}
+
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "TextItemData")]
 pub struct TextItemData {
@@ -162,8 +158,9 @@ impl From<SlideData> for CanvasData {
     }
 }
 
-#[derive(Default, Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
 #[boxed_type(name = "SlideManagerData")]
+#[serde(default)]
 pub struct SlideManagerData {
     #[serde(rename = "current-slide")]
     pub current_slide: u32,
@@ -172,6 +169,19 @@ pub struct SlideManagerData {
     pub title: String,
     // aspect_ratio
     pub slides: Vec<SlideData>,
+    pub note: String,
+}
+
+impl Default for SlideManagerData {
+    fn default() -> Self {
+        Self {
+            current_slide: u32::default(),
+            preview_slide: u32::default(),
+            title: String::default(),
+            slides: Vec::default(),
+            note: String::from("No Item"),
+        }
+    }
 }
 
 impl SlideManagerData {
@@ -180,16 +190,15 @@ impl SlideManagerData {
         preview_slide: u32,
         slides: I,
     ) -> Self {
-        Self {
-            current_slide,
-            preview_slide,
-            slides: slides.into_iter().collect(),
-            title: "".into(),
-        }
+        let mut data = Self::default();
+        data.current_slide = current_slide;
+        data.preview_slide = preview_slide;
+        data.slides.extend(slides);
+        data
     }
 
     pub fn from_list(
-        text: String,
+        title: String,
         position: u32,
         list: Vec<String>,
         background_image: Option<String>,
@@ -215,7 +224,7 @@ impl SlideManagerData {
             .collect::<Vec<_>>();
 
         let mut sm_data = SlideManagerData::new(position, 0, slides);
-        sm_data.title = text;
+        sm_data.title = title;
         sm_data
     }
 }

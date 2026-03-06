@@ -1,32 +1,93 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-    <dict>
-        <key>CFBundleDevelopmentRegion</key>
-        <string>English</string>
-        <key>CFBundleDisplayName</key>
-        <string>openworship</string>
-        <key>CFBundleExecutable</key>
-        <string>openworship.sh</string>
-        <key>CFBundleIconFile</key>
+  <dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>English</string>
+    <key>CFBundleDisplayName</key>
+    <string>Openworship</string>
+    <key>CFBundleExecutable</key>
+    <string>openworship.sh</string>
+    <key>CFBundleIconFile</key>
+    <string>openworship.icns</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.openworship.app</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Openworship</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>%BUNDLE_VERSION%</string>
+    <key>CFBundleVersion</key>
+    <string>%BUNDLE_BUILD%</string>
+    <key>CSResourcesFileMapped</key>
+    <true/>
+    <!-- <key>LSRequiresCarbon</key> -->
+    <!-- <true/> -->
+    <key>NSHighResolutionCapable</key>
+    <true/>
+
+
+    <!-- Tell macOS which file types this app opens -->
+    <key>CFBundleDocumentTypes</key>
+    <array>
+      <dict>
+        <key>CFBundleTypeName</key>
+        <string>Openworship File</string>
+
+        <key>CFBundleTypeExtensions</key>
+        <array>
+          <string>opw</string>   
+        </array>
+
+        <key>CFBundleTypeIconFile</key>
         <string>openworship.icns</string>
-        <key>CFBundleIdentifier</key>
-        <string>com.openworship.app</string>
-        <key>CFBundleInfoDictionaryVersion</key>
-        <string>6.0</string>
-        <key>CFBundleName</key>
-        <string>Openworship</string>
-        <key>CFBundlePackageType</key>
-        <string>APPL</string>
-        <key>CFBundleShortVersionString</key>
-        <string>%BUNDLE_VERSION%</string>
-        <key>CFBundleVersion</key>
-        <string>%BUNDLE_BUILD%</string>
-        <key>CSResourcesFileMapped</key>
-        <true/>
-        <key>LSRequiresCarbon</key>
-        <true/>
-        <key>NSHighResolutionCapable</key>
-        <true/>
-    </dict>
+
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>   <!-- or "Viewer" if read-only -->
+
+        <key>LSHandlerRank</key>
+        <string>Owner</string>    <!-- "Owner" = preferred handler -->
+
+        <key>LSItemContentTypes</key>
+        <array>
+          <string>com.openworship.app.opw</string> 
+        </array>
+      </dict>
+    </array>
+
+    <!-- Define the custom UTI itself -->
+    <key>UTExportedTypeDeclarations</key>
+    <array>
+      <dict>
+        <key>UTTypeIdentifier</key>
+        <string>com.openworship.app.opw</string>
+
+        <key>UTTypeDescription</key>
+        <string>Openworship File Format</string>
+
+        <key>UTTypeIconFile</key>
+        <string>openworship.icns</string>
+
+        <key>UTTypeConformsTo</key>
+        <array>
+          <string>public.data</string>
+        </array>
+
+        <key>UTTypeTagSpecification</key>
+        <dict>
+          <key>public.filename-extension</key>
+          <array>
+            <string>opw</string>
+          </array>
+          <key>public.mime-type</key>
+          <array>
+            <string>application/x-openworship</string>
+          </array>
+        </dict>
+      </dict>
+    </array>
+  </dict>
 </plist>

@@ -15,13 +15,14 @@ include = [
 section = "net"
 assets = [
     # ["res/linux/openworship-autostart.desktop", "/etc/xdg/autostart/com.openworship.app.desktop", "644"],
-    ["target/release/openworship", "/usr/bin/openworship", "755"],
-    # Name must match application ID or else it has a strange behavior
-    ["res/linux/com.openworship.app.desktop", "/usr/share/applications/com.openworship.app.desktop", "644"],
-    ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/openworship.png", "644"],
-    ["data/resources/com.openworship.app.gschema.xml", "usr/share/glib-2.0/schemas/", "644"],
+    ["target/release/openworship", "/usr/bin/", "755"],
+    ["res/linux/com.openworship.app.desktop", "/usr/share/applications/", "644"],
+    ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/", "644"],
+    ["res/linux/application-x-openworship.png", "/usr/share/icons/hicolor/48x48/mimetypes/", "644"],
+    ["data/resources/com.openworship.app.gschema.xml", "/usr/share/glib-2.0/schemas/", "644"],
+    ["data/resources/com.openworship.app.xml", "/usr/share/mime/packages/com.openworship.app.xml", "644"],
 ]
-maintainer-scripts = "debian"
+maintainer-scripts = "debian/"
 
 [package.metadata.deb.variants.modern]
 name = "openworship"

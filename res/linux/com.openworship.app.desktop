@@ -1,11 +1,12 @@
 [Desktop Entry]
 Type=Application
 Name=Openworship
-Categories=AudioVideo
+Categories=Office
 GenericName=Church lyrics projection
 Comment=Project lyrics, bible verses, media and more.
 Keywords=projection,multimedia,videos,music,songs,worship
 Icon=openworship
+MimeType=application/x-openworship
 # X-KDE-SubstituteUID=false
-Exec=openworship 
+Exec=openworship %f
 Terminal=false

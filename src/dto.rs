@@ -3,7 +3,10 @@ use gtk::glib::subclass::types::ObjectSubclassIsExt;
 
 use crate::{
     services::settings::ApplicationSettings,
-    widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData},
+    widgets::canvas::{
+        serialise::{CanvasItemType, SlideData, SlideManagerData},
+        text_item,
+    },
 };
 
 // SONG VERSE
@@ -162,6 +165,34 @@ impl Into<SlideManagerData> for SongObject {
     }
 }
 
+impl From<SlideManagerData> for SongObject {
+    /// Converts [SlideManagerData] into a [SongObject].
+    ///
+    /// # Warning
+    /// The resulting `song_id` is always set to `0`. If this object will be used
+    /// to update the database, call `set_song_id` before doing so.
+    fn from(value: SlideManagerData) -> Self {
+        let verses = value
+            .slides
+            .iter()
+            .filter_map(|slide| {
+                for v in slide.items.iter() {
+                    match v.item_type.clone() {
+                        CanvasItemType::Text(text_item) => {
+                            let b64 = glib::base64_decode(&text_item.text_data);
+                            return String::from_utf8(b64).ok();
+                        }
+                        CanvasItemType::Unknown => continue,
+                    }
+                }
+                None
+            })
+            .collect::<Vec<_>>();
+
+        Self::new(value.title, verses, 0)
+    }
+}
+
 // SCRIPTURE
 
 #[derive(Debug, Default, Clone, glib::Boxed)]
@@ -284,6 +315,7 @@ pub mod schedule_data {
         #[properties(wrapper_type=super::ScheduleData)]
         pub struct ScheduleData {
             #[property(set, get, construct)]
+            #[property(name="note", get, set, type=String, member=note)]
             pub slide_data: RefCell<SlideManagerData>,
             #[property(set, get, construct)]
             pub title: RefCell<String>,

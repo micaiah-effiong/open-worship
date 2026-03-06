@@ -90,7 +90,7 @@ impl Query {
 
     pub fn insert_song(song: SongData) -> RuResult<()> {
         let song_sql = r#"
-            INSERT INTO songs(title) VALUES(?1)
+            INSERT INTO songs(title) VALUES(?1) RETURNING id
         "#;
 
         let song_verse_sql = r#"
@@ -100,11 +100,7 @@ impl Query {
         let r = DatabaseConnection::with_mut_db(|conn| {
             let tx = conn.transaction()?;
 
-            tx.execute(song_sql, [&song.title])?;
-            let song_id =
-                tx.query_row("SELECT id from songs WHERE title = ?1", [song.title], |r| {
-                    r.get::<_, u32>(0)
-                })?;
+            let song_id = tx.query_row(song_sql, [&song.title], |r| r.get::<_, u32>(0))?;
 
             for (i, verse) in song.verses.iter().enumerate() {
                 tx.execute(

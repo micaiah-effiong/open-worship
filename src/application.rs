@@ -9,6 +9,8 @@ use gtk::{
 
 use crate::{
     accels, app_config,
+    application_window::MainApplicationWindow,
+    services::file_manager::FileManager,
     widgets::{search::songs::edit_modal::SongEditWindow, settings_window::SettingsWindow},
 };
 
@@ -18,7 +20,7 @@ mod imp {
     use gtk::{
         gdk::{self, prelude::DisplayExt},
         gio::{
-            prelude::{ListModelExt, ListModelExtManual},
+            prelude::{FileExtManual, ListModelExt, ListModelExtManual},
             subclass::prelude::{ApplicationImpl, ApplicationImplExt},
         },
         glib::{
@@ -32,7 +34,10 @@ mod imp {
         subclass::prelude::{DerivedObjectProperties, GtkApplicationImpl},
     };
 
-    use crate::{application_window::MainApplicationWindow, format_resource};
+    use crate::{
+        application_window::MainApplicationWindow, format_resource,
+        widgets::canvas::serialise::SlideManagerData,
+    };
 
     use super::*;
 
@@ -59,25 +64,57 @@ mod imp {
     impl ApplicationImpl for OwApplication {
         fn activate(&self) {
             self.parent_activate();
+            self.build_ui();
+        }
 
-            let obj = self.obj();
+        fn open(&self, files: &[gio::File], hint: &str) {
+            println!("open()");
+            self.parent_open(files, hint);
+            self.build_ui();
 
-            let main_window = obj.main_window();
-            let extended_screen = main_window.extended_screen();
-            obj.add_window(&main_window);
-            obj.add_window(&extended_screen);
+            let Some(file) = files.first() else {
+                return;
+            };
 
-            self.add_app_menu(Some(&main_window.window_box()));
+            let content = file
+                .load_contents(None::<&gio::Cancellable>)
+                .map(|(bytes, _)| bytes.to_vec())
+                .map_err(|err| {
+                    glib::g_log!(
+                        "FileManager",
+                        glib::LogLevel::Warning,
+                        "Could not read file contents: {}",
+                        err
+                    );
+                });
 
-            main_window.show_all();
+            let content = match content {
+                Ok(c) => String::from_utf8(c),
+                Err(e) => {
+                    println!("vec:\n{:?}", e);
+                    return;
+                }
+            };
 
-            let monitors = WidgetExt::display(&extended_screen).monitors();
-            if monitors.n_items() > 1
-                && let Some(last_monitor) =
-                    monitors.iter::<gdk::Monitor>().last().and_then(|v| v.ok())
-            {
-                extended_screen.fullscreen_on_monitor(&last_monitor);
-            }
+            let content = match content {
+                Ok(c) => c,
+                Err(e) => {
+                    println!("str:\n{:?}", e);
+                    return;
+                }
+            };
+
+            let payload = match serde_json::from_str::<Vec<SlideManagerData>>(&content) {
+                Ok(c) => c,
+                Err(e) => {
+                    println!("serde:\n{:?}", e);
+                    return;
+                }
+            };
+            self.obj()
+                .main_window()
+                .schedule_viewer()
+                .load_schedules(&payload);
         }
 
         fn startup(&self) {
@@ -128,6 +165,27 @@ mod imp {
 
             obj.into()
         }
+
+        fn build_ui(&self) {
+            let obj = self.obj();
+
+            let main_window = obj.main_window();
+            let extended_screen = main_window.extended_screen();
+            obj.add_window(&main_window);
+            obj.add_window(&extended_screen);
+
+            self.add_app_menu(Some(&main_window.window_box()));
+
+            main_window.show_all();
+
+            let monitors = WidgetExt::display(&extended_screen).monitors();
+            if monitors.n_items() > 1
+                && let Some(last_monitor) =
+                    monitors.iter::<gdk::Monitor>().last().and_then(|v| v.ok())
+            {
+                extended_screen.fullscreen_on_monitor(&last_monitor);
+            }
+        }
     }
 }
 
@@ -139,16 +197,30 @@ glib::wrapper! {
 
 impl Default for OwApplication {
     fn default() -> Self {
-        glib::Object::builder()
+        let obj: Self = glib::Object::builder()
             .property("application-id", app_config::APP_ID)
             .property("resource-base-path", app_config::RESOURCE_PATH)
-            .build()
+            .property("register-session", true)
+            .property("flags", gio::ApplicationFlags::HANDLES_OPEN)
+            .build();
+
+        obj
     }
 }
 
 impl OwApplication {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn new_with_args() -> Self {
+        let obj: Self = glib::Object::builder()
+            .property("application-id", app_config::APP_ID)
+            .property("resource-base-path", app_config::RESOURCE_PATH)
+            .build();
+
+        obj.set_flags(gio::ApplicationFlags::HANDLES_OPEN);
+        obj
     }
 
     /// Returns the global instance of `Application`.
@@ -237,9 +309,31 @@ impl OwApplication {
                 win.show(None);
             })
             .build();
+
         let open = gio::ActionEntry::builder("open")
             .activate(|_, _, _| println!("Open activated"))
             .build();
+
+        {
+            let open_schedule = gio::ActionEntry::builder("open-schedule")
+                .activate(|main_window: &MainApplicationWindow, _, _| {
+                    let Some(data) = FileManager::open_schedule_file() else {
+                        return;
+                    };
+
+                    main_window.schedule_viewer().load_schedules(&data);
+                })
+                .build();
+            let save_schedule = gio::ActionEntry::builder("save-schedule")
+                .activate(|main_window: &MainApplicationWindow, _, _| {
+                    let payload = main_window.schedule_viewer().get_schedules();
+                    FileManager::save_schedule_file(payload);
+                })
+                .build();
+
+            self.main_window()
+                .add_action_entries([open_schedule, save_schedule]);
+        }
 
         // HELP
         let report_bug = gio::ActionEntry::builder("report-bug")

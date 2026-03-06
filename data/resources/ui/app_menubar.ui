@@ -64,6 +64,10 @@
       </section>
       <section>
         <item>
+          <attribute name="label" translatable="yes">Save Schedule</attribute>
+          <attribute name="action">win.save-schedule</attribute>
+        </item>
+        <item>
           <attribute name="label" translatable="yes">New song</attribute>
           <attribute name="action">win.add-song</attribute>
         </item>

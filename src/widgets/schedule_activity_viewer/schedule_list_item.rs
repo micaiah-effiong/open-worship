@@ -1,9 +1,13 @@
 use gtk::{
-    glib::{self},
+    glib::{self, subclass::types::ObjectSubclassIsExt},
     prelude::*,
 };
 
+use crate::dto::schedule_data::{self, ScheduleData};
+
 pub mod imp {
+    use std::cell::RefCell;
+
     use gtk::{
         glib::{
             Properties,
@@ -31,7 +35,12 @@ pub mod imp {
         #[property(get)]
         pub label: gtk::TemplateChild<gtk::Label>,
         #[template_child]
+        #[property(get)]
+        pub note_label: gtk::TemplateChild<gtk::EditableLabel>,
+        #[template_child]
         pub preview_box: gtk::TemplateChild<gtk::Box>,
+
+        pub(super) bindings: RefCell<Vec<glib::Binding>>,
     }
 
     #[glib::object_subclass]
@@ -75,5 +84,29 @@ impl Default for ScheduleListItem {
 impl ScheduleListItem {
     pub fn new() -> Self {
         glib::Object::new()
+    }
+
+    pub fn bind(&self, schedule_data: &ScheduleData) {
+        let mut bindings = self.imp().bindings.borrow_mut();
+
+        let label_binding = schedule_data
+            .bind_property("title", &self.label(), "label")
+            .bidirectional()
+            .sync_create()
+            .build();
+        let note_label_binding = schedule_data
+            .bind_property("note", &self.note_label(), "text")
+            .sync_create()
+            .bidirectional()
+            .build();
+
+        bindings.push(label_binding);
+        bindings.push(note_label_binding);
+    }
+
+    pub fn unbind(&self) {
+        for binding in self.imp().bindings.borrow_mut().drain(..) {
+            binding.unbind();
+        }
     }
 }
