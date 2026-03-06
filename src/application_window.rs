@@ -41,12 +41,15 @@ mod imp {
         #[template_child]
         #[property(get)]
         window_box: gtk::TemplateChild<gtk::Box>,
+        #[property(get)]
         #[template_child]
         schedule_viewer: gtk::TemplateChild<ScheduleActivityViewer>,
         #[template_child]
         search_viewer: gtk::TemplateChild<SearchActivityViewer>,
+        #[property(get)]
         #[template_child]
         preview_viewer: gtk::TemplateChild<ActivityViewer>,
+        #[property(get)]
         #[template_child]
         live_viewer: gtk::TemplateChild<ActivityViewer>,
 

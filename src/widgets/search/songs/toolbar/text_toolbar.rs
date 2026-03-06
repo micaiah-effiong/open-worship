@@ -3,7 +3,7 @@ use gtk::glib::{self, subclass::types::ObjectSubclassIsExt};
 use crate::services::slide_manager::SlideManager;
 
 mod imp {
-    use std::cell::RefCell;
+    use std::{cell::RefCell, i32};
 
     use gtk::{
         gdk,
@@ -82,8 +82,7 @@ mod imp {
                     btn.add_css_class("flat");
                 }
 
-                let mut font_desc = gtk::pango::FontDescription::new();
-                font_desc.set_family("Tahoma");
+                let font_desc = gtk::pango::FontDescription::new();
                 font_btn.set_font_desc(&font_desc);
 
                 font_btn.connect_font_desc_notify({
@@ -385,9 +384,10 @@ mod imp {
             };
 
             {
-                let font_desc = gtk::pango::FontDescription::from_string(
-                    format!("{} {}", ti.font(), ti.font_size()).as_str(),
-                );
+                let mut font_desc = gtk::pango::FontDescription::new();
+                font_desc.set_size(ti.font_size() as i32);
+                font_desc.set_family(&ti.font());
+
                 self.font.borrow().set_font_desc(&font_desc);
             }
 
@@ -439,7 +439,6 @@ impl TextToolbar {
             move |_, _| obj.imp().update_props()
         ));
 
-        obj.imp().update_props();
         obj
     }
 }

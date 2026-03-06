@@ -2,12 +2,15 @@ use gtk::{
     FileFilter,
     gio::{
         self,
-        prelude::{FileExt, FileExtManual},
+        prelude::{FileExt, FileExtManual, ListModelExtManual},
     },
     glib,
 };
 
-use crate::app_config::AppConfigDir;
+use crate::{
+    app_config::{self, AppConfigDir},
+    widgets::canvas::serialise::SlideManagerData,
+};
 
 mod imp {
 
@@ -34,12 +37,12 @@ glib::wrapper! {
 }
 
 impl FileManager {
-    fn get_file_from_user(
+    fn save_user_file(
         title: String,
         accept_button_label: String,
         filters: &mut glib::List<gtk::FileFilter>,
         window: Option<&gtk::Window>,
-        chooser_action: gtk::FileChooserAction,
+        data: &[u8],
     ) -> Option<gio::File> {
         let has_all = filters.iter().any(|f| f.name() == Some("All Files".into()));
         if !has_all {
@@ -63,12 +66,45 @@ impl FileManager {
 
         let ctx = glib::MainContext::default();
         ctx.block_on(async move {
-            let res = match chooser_action {
-                gtk::FileChooserAction::Open => dialog.open_future(window).await,
-                gtk::FileChooserAction::Save => dialog.save_future(window).await,
-                _ => return None,
-            };
+            let res = dialog.save_future(window).await;
+            if let Ok(user_file) = &res {
+                let path = user_file.path().unwrap();
+                std::fs::write(path, data).expect("failed to write file");
+            }
 
+            let res = res.inspect_err(|e| eprintln!("Error opening file in dialog: {:?}", e));
+            res.ok()
+        })
+    }
+    fn get_file_from_user(
+        title: String,
+        accept_button_label: String,
+        filters: &mut glib::List<gtk::FileFilter>,
+        window: Option<&gtk::Window>,
+    ) -> Option<gio::File> {
+        let has_all = filters.iter().any(|f| f.name() == Some("All Files".into()));
+        if !has_all {
+            let all_files = FileFilter::new();
+            all_files.set_name(Some("All Files"));
+            all_files.add_pattern("*");
+            filters.push_back(all_files);
+        }
+
+        let mut list_store = gtk::gio::ListStore::new::<gtk::FileFilter>();
+        list_store.extend(filters);
+
+        let filter_model = gtk::FilterListModel::new(Some(list_store), None::<FileFilter>);
+
+        let dialog = gtk::FileDialog::builder()
+            .modal(true)
+            .accept_label(accept_button_label)
+            .filters(&filter_model)
+            .title(title)
+            .build();
+
+        let ctx = glib::MainContext::default();
+        ctx.block_on(async move {
+            let res = dialog.save_future(window).await;
             let res = res.inspect_err(|e| eprintln!("Error opening file in dialog: {:?}", e));
             res.ok()
         })
@@ -79,7 +115,6 @@ impl FileManager {
         accept_button_label: String,
         filters: &mut glib::List<gtk::FileFilter>,
         window: Option<&gtk::Window>,
-        chooser_action: gtk::FileChooserAction,
     ) -> gio::ListModel {
         let has_all = filters.iter().any(|f| f.name() == Some("All Files".into()));
         if !has_all {
@@ -103,11 +138,7 @@ impl FileManager {
 
         let ctx = glib::MainContext::default();
         ctx.block_on(async move {
-            let res = match chooser_action {
-                gtk::FileChooserAction::Open => dialog.open_multiple_future(window).await,
-                _ => return None,
-            };
-
+            let res = dialog.open_multiple_future(window).await;
             let res = res.inspect_err(|e| eprintln!("Error opening file in dialog: {:?}", e));
             res.ok()
         })
@@ -126,7 +157,6 @@ impl FileManager {
             String::from("Open"),
             &mut filters,
             None,
-            gtk::FileChooserAction::Open,
         )
     }
     pub fn open_files(
@@ -139,9 +169,69 @@ impl FileManager {
             accept_button_label.to_string(),
             filters,
             None,
-            gtk::FileChooserAction::Open,
         )
     }
+
+    pub fn open_schedule_file() -> Option<Vec<SlideManagerData>> {
+        let mut filters = glib::List::new();
+        let filter = gtk::FileFilter::new();
+        filter.set_name(Some("Openworship schedule file"));
+        filter.add_pattern(app_config::APP_EXT);
+        filters.push_back(filter);
+
+        let files = Self::open_files("Open Schedule", "Ok", &mut filters);
+        files
+            .iter::<gio::File>()
+            .flatten()
+            .next()
+            .as_ref()
+            .and_then(FileManager::get_data)
+            .and_then(|v| String::from_utf8(v).ok())
+            .and_then(|v| serde_json::from_str::<Vec<SlideManagerData>>(&v).ok())
+
+        // NOTE: we will have to append a head before saving
+    }
+
+    pub fn save_file(
+        title: &str,
+        accept_button_label: &str,
+        filters: &mut glib::List<gtk::FileFilter>,
+        data: &[u8],
+    ) -> Option<gio::File> {
+        FileManager::save_user_file(
+            title.to_string(),
+            accept_button_label.to_string(),
+            filters,
+            None,
+            data,
+        )
+    }
+    pub fn save_schedule_file(payload: Vec<SlideManagerData>) {
+        if payload.is_empty() {
+            return;
+        };
+
+        let mut filters = glib::List::new();
+        let filter = gtk::FileFilter::new();
+        filter.set_name(Some("Openworship schedule file"));
+        filter.add_pattern(app_config::APP_EXT);
+        filters.push_back(filter);
+
+        let content = match serde_json::to_string(&payload) {
+            Ok(c) => c,
+            Err(e) => {
+                println!("Err: {:?}", e);
+                return;
+            }
+        };
+
+        let _ = FileManager::save_file("Save Schedule", "Ok", &mut filters, content.as_bytes());
+
+        // NOTE: if file has head
+        // we will have to verify the header validity and then skip forward
+        // to file content
+    }
+
     pub fn get_data(file: &gio::File) -> Option<Vec<u8>> {
         file.load_contents(None::<&gio::Cancellable>)
             .map(|(bytes, _)| bytes.to_vec())

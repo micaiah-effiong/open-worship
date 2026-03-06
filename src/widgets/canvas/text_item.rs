@@ -366,13 +366,11 @@ mod imp {
         ) -> f32 {
             let ctx = widget.pango_context();
 
-            let family = "Tahoma";
             let (w, h) = (w_rect.width as f32 * scale, w_rect.height as f32 * scale);
             let layout = {
                 let layout = gtk::pango::Layout::new(&ctx);
 
                 let mut font_desc = gtk::pango::FontDescription::new();
-                font_desc.set_family(family);
                 font_desc.set_style(pango::Style::Normal);
                 font_desc.set_weight(pango::Weight::Normal);
                 font_desc.set_size(desired_font_size as i32 * gtk::pango::SCALE);

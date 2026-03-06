@@ -1,15 +1,21 @@
 use crate::application::OwApplication;
 use crate::utils::setup_theme_listener;
+use gtk::glib;
 
 use gtk::prelude::*;
 
-pub fn run() {
+pub fn run() -> glib::ExitCode {
     gtk::init().expect("Could not initialize gtk");
 
     app_init();
     log_display_info();
+
+    let args = std::env::args().collect::<Vec<_>>();
+
     let app = OwApplication::default();
-    app.run();
+    let code = app.run_with_args(&args);
+
+    code
 }
 
 fn log_display_info() {

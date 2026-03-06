@@ -1,7 +1,7 @@
 use crate::dto::{SongData, SongVerse};
 use crate::services::slide::Slide;
 use crate::utils::{ListViewExtra, WidgetChildrenExt};
-use crate::widgets::canvas::serialise::{CanvasItemType, SlideData};
+use crate::widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData};
 use crate::widgets::canvas::text_item::TextItem;
 use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
@@ -47,7 +47,6 @@ mod imp {
     #[properties(wrapper_type = super::SongEditWindow)]
     pub struct SongEditWindow {
         pub is_new_song: Cell<bool>,
-        pub song: RefCell<Option<SongObject>>,
         pub screen: RefCell<gtk::Stack>,
         pub slide_manager: RefCell<SlideManager>,
         pub title_entry: RefCell<gtk::Entry>,
@@ -271,7 +270,9 @@ mod imp {
                             .child(&label)
                             .build();
                         win.set_visible(true);
-                        return;
+                        return true;
+                    } else {
+                        return false;
                     }
                 };
 
@@ -282,8 +283,9 @@ mod imp {
                     #[strong]
                     text_entry,
                     move |_| {
-                        notify_no_title(&text_entry);
-                        obj.save_changes();
+                        if !notify_no_title(&text_entry) {
+                            obj.export_changes();
+                        }
                     }
                 ));
 
@@ -294,8 +296,9 @@ mod imp {
                     #[strong]
                     text_entry,
                     move |_| {
-                        notify_no_title(&text_entry);
-                        obj.ok_reponse();
+                        if !notify_no_title(&text_entry) {
+                            obj.ok_reponse();
+                        }
                     }
                 ));
 
@@ -321,7 +324,7 @@ mod imp {
             SIGNAL.get_or_init(|| {
                 vec![
                     Signal::builder(signals::SAVE)
-                        .param_types([SongObject::static_type()])
+                        .param_types([SlideManagerData::static_type()])
                         .build(),
                 ]
             })
@@ -444,11 +447,9 @@ impl SongEditWindow {
         obj
     }
 
-    pub fn show(&self, song: Option<SongObject>) {
-        self.imp().song.replace(song.clone());
-
-        if let Some(song) = song {
-            self.load_song(&song);
+    pub fn show(&self, song: Option<SlideManagerData>) {
+        if let Some(data) = song {
+            self.load_song(&data);
             self.imp().is_new_song.set(false);
             self.set_title(Some("Edit Song"));
         } else {
@@ -497,101 +498,45 @@ impl SongEditWindow {
     }
 
     pub fn ok_reponse(&self) {
-        self.save_changes();
+        self.export_changes();
         self.imp().list_view.borrow_mut().remove_all();
         self.close();
     }
 
-    fn save_changes(&self) {
-        let mut verses: Vec<SongVerse> = Vec::new();
+    fn export_changes(&self) {
         let imp = self.imp();
 
         let list_view = imp.list_view.borrow_mut().clone();
         let list_items = list_view.get_items();
 
-        for item in list_items {
-            let Some(slide) = item.downcast::<Slide>().ok() else {
-                return;
-            };
-            let mut s_data = slide.serialise();
-            for item in &mut s_data.items {
-                match &mut item.item_type {
-                    CanvasItemType::Text(text_item) => {
-                        text_item.text_data = "".into();
-                        break;
-                    }
-                    _ => (),
-                }
-            }
-
-            let Some(slide_str) = serde_json::to_string(&s_data).ok() else {
-                return;
-            };
-
-            let slide_str_data = (s_data != SlideData::from_default()).then_some(slide_str);
-
-            let Some(buff) = slide.entry_buffer() else {
-                return;
-            };
-
-            verses.push(SongVerse::new(
-                buff.full_text().into(),
-                None,
-                slide_str_data,
-            ));
-        }
-
+        let slides = list_items
+            .iter()
+            .filter_map(|v| v.downcast_ref::<Slide>().map(|v| v.serialise()))
+            .collect::<Vec<_>>();
         let title = imp.title_entry.borrow_mut().buffer();
-        let song = SongData::new(
-            match imp.song.borrow().clone() {
-                Some(s) => s.song_id(),
-                None => 0,
-            },
-            title.text().into(),
-            verses,
-        );
 
-        let res = match imp.is_new_song.get() {
-            true => Query::insert_song(song.clone().into()),
-            false => Query::update_song(song.clone().into()),
-        };
-        let _ = match res {
-            Ok(()) => imp.is_new_song.set(false),
-            Err(x) => println!("SQL ERROR: {:?}", x),
-        };
+        let mut data = SlideManagerData::new(0, 0, slides);
+        data.title = title.text().into();
 
-        self.emit_save(&song.into());
+        self.emit_save(&data);
     }
+
     pub fn cancel_reponse(&self) {
         self.close();
     }
 
-    fn load_song(&self, song: &SongObject) {
+    fn load_song(&self, data: &SlideManagerData) {
         let listview = self.imp().list_view.borrow().clone();
 
         let sm = self.imp().slide_manager.borrow();
         sm.reset();
 
-        for verse in song.verses() {
-            let mut s = match verse
-                .slide
-                .and_then(|v| serde_json::from_str::<SlideData>(&v).ok())
-            {
-                Some(v) => v,
-                None => SlideData::from_default(),
-            };
+        let sobj: SongObject = data.clone().into();
+        let verses = sobj.verses();
+        let slide_obj_zip = data.slides.iter().zip(verses.iter());
 
-            for item in &mut s.items {
-                match &mut item.item_type {
-                    CanvasItemType::Text(text_item) => {
-                        text_item.text_data = verse.text.clone();
-                        break;
-                    }
-                    _ => (),
-                }
-            }
-
-            let slide = sm.new_slide(Some(s), true);
+        for (slide, verse) in slide_obj_zip {
+            let slide = sm.new_slide(Some(slide.clone()), true);
 
             if let Some(canvas) = slide.canvas() {
                 for t in canvas.widget().get_children::<TextItem>() {
@@ -604,7 +549,7 @@ impl SongEditWindow {
             listview.append_item(&slide);
         }
 
-        let title = song.title();
+        let title = data.title.clone();
         self.imp().title_entry.borrow().set_text(&title);
 
         let Some(model) = listview.model() else {
@@ -645,15 +590,18 @@ impl SongEditWindow {
         }
     }
 
-    fn emit_save(&self, song: &SongObject) {
+    fn emit_save(&self, song: &SlideManagerData) {
         self.emit_by_name::<()>(signals::SAVE, &[song]);
     }
 
-    pub fn connect_save<F: Fn(&Self, &SongObject) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn connect_save<F: Fn(&Self, &SlideManagerData) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
         self.connect_closure(
             signals::SAVE,
             false,
-            glib::closure_local!(move |obj: &Self, song: &SongObject| f(obj, song)),
+            glib::closure_local!(move |obj: &Self, song: &SlideManagerData| f(obj, song)),
         )
     }
 }

@@ -8,7 +8,10 @@ use gtk::{
 };
 
 use crate::{
-    dto::{self, schedule_data},
+    dto::{
+        self,
+        schedule_data::{self, ScheduleData},
+    },
     utils::{ListViewExtra, WidgetChildrenExt},
     widgets::canvas::serialise::SlideManagerData,
 };
@@ -89,7 +92,7 @@ mod imp {
             });
 
             factory.connect_bind(move |_, list_item| {
-                let slide = list_item
+                let schedule_data = list_item
                     .downcast_ref::<gtk::ListItem>()
                     .expect("Needs to be ListItem")
                     .item()
@@ -103,7 +106,18 @@ mod imp {
                     .and_downcast::<ScheduleListItem>()
                     .expect("The child has to be a `ScheduleListItem`.");
 
-                view.label().set_label(&slide.title());
+                view.bind(&schedule_data);
+            });
+
+            factory.connect_unbind(move |_, list_item| {
+                let view = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem")
+                    .child()
+                    .and_downcast::<ScheduleListItem>()
+                    .expect("The child has to be a `ScheduleListItem`.");
+
+                view.unbind();
             });
 
             self.register_activate();
@@ -388,6 +402,28 @@ impl ScheduleActivityViewer {
         if let Some(model) = imp.listview.model() {
             self.add_new_item_at(model.n_items(), payload);
         };
+    }
+
+    pub fn load_schedules(&self, payload: &Vec<SlideManagerData>) {
+        let imp = self.imp();
+
+        for item in payload {
+            if let Some(model) = imp.listview.model() {
+                self.add_new_item_at(model.n_items(), item);
+            };
+        }
+    }
+
+    pub fn get_schedules(&self) -> Vec<SlideManagerData> {
+        let imp = self.imp();
+
+        let items = imp.listview.get_items();
+        let data = items
+            .iter()
+            .filter_map(|v| v.downcast_ref::<ScheduleData>().map(|v| v.slide_data()))
+            .collect::<Vec<_>>();
+
+        data
     }
 
     pub fn add_new_item_at(&self, position: u32, payload: &SlideManagerData) {

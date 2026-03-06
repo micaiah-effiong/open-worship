@@ -1,8 +1,18 @@
 #!/bin/sh
 set -e
 
-if command -v glib-compile-schemas >/dev/null 2>&1; then
-    glib-compile-schemas /usr/share/glib-2.0/schemas || true
-fi
+run_if_exists() {
+    cmd="$1"
+    shift
+
+    if command -v "$cmd" >/dev/null 2>&1; then
+        "$cmd" "$@"
+    fi
+}
+
+run_if_exists glib-compile-schemas /usr/share/glib-2.0/schemas
+run_if_exists update-mime-database /usr/share/mime
+run_if_exists update-desktop-database /usr/share/applications
+run_if_exists gtk-update-icon-cache -f -t /usr/share/icons/hicolor/48x48/mimetypes/
 
 exit 0
