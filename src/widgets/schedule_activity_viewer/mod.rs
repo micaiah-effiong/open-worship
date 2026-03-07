@@ -23,7 +23,10 @@ mod signals {
 mod imp {
     use std::{cell::RefCell, sync::OnceLock};
 
-    use crate::{utils::WidgetChildrenExt, widgets::canvas::serialise::SlideManagerData};
+    use crate::{
+        utils::WidgetChildrenExt,
+        widgets::{canvas::serialise::SlideManagerData, search::songs::edit_modal::SongEditWindow},
+    };
 
     use super::*;
     use dto::schedule_data::ScheduleData;
@@ -167,22 +170,68 @@ mod imp {
         fn register_context_menu(&self) {
             let list_view = self.listview.clone();
 
-            let remove_action = ActionEntry::builder("remove_item")
+            let add_action = ActionEntry::builder("add_item")
+                .activate(glib::clone!(
+                    #[strong]
+                    list_view,
+                    move |_g: &SimpleActionGroup, _sa, _v| {
+                        let edit_window = SongEditWindow::new();
+                        edit_window.connect_save(glib::clone!(
+                            #[strong]
+                            list_view,
+                            move |_, smd| {
+                                let schedule_data: ScheduleData = smd.clone().into();
+                                list_view.append_item(&schedule_data);
+                            }
+                        ));
+
+                        edit_window.show(None);
+                    }
+                ))
+                .build();
+            let edit_action = ActionEntry::builder("edit_item")
                 .activate(clone!(
                     #[strong]
                     list_view,
                     move |_g: &SimpleActionGroup, _sa, _v| {
-                        list_view.remove_selected_items();
+                        let Some(item) = list_view
+                            .get_selected_items()
+                            .first()
+                            .cloned()
+                            .and_downcast::<ScheduleData>()
+                        else {
+                            return;
+                        };
+                        let edit_window = SongEditWindow::new();
+
+                        edit_window.connect_save(glib::clone!(
+                            #[strong]
+                            item,
+                            move |_, smd| item.set_slide_data(smd)
+                        ));
+
+                        edit_window.show(Some(item.slide_data()));
                     }
+                ))
+                .build();
+            let remove_action = ActionEntry::builder("remove_item")
+                .activate(clone!(
+                    #[strong]
+                    list_view,
+                    move |_g: &SimpleActionGroup, _sa, _v| list_view.remove_selected_items()
                 ))
                 .build();
 
             let menu_action_group = SimpleActionGroup::new();
-            menu_action_group.add_action_entries([remove_action]);
+            menu_action_group.add_action_entries([add_action, edit_action, remove_action]);
 
             let menu = gtk::gio::Menu::new();
-            let remove_schedule = MenuItem::new(Some("Remove Item"), Some("schedule.remove_item"));
-            menu.insert_item(0, &remove_schedule);
+            let add_item = MenuItem::new(Some("Add Item"), Some("schedule.add_item"));
+            let edit_item = MenuItem::new(Some("Edit Item"), Some("schedule.edit_item"));
+            let remove_item = MenuItem::new(Some("Remove Item"), Some("schedule.remove_item"));
+            menu.insert_item(0, &add_item);
+            menu.insert_item(1, &edit_item);
+            menu.insert_item(2, &remove_item);
 
             let popover_menu = gtk::PopoverMenu::from_model(Some(&menu));
             popover_menu.set_has_arrow(false);
@@ -434,7 +483,7 @@ impl ScheduleActivityViewer {
             return;
         };
 
-        let data = schedule_data::ScheduleData::new(payload.title.clone(), payload.clone());
+        let data = schedule_data::ScheduleData::new(payload.clone());
         listview.insert_item(position, &data);
         model.select_item(position, true);
         for (index, listitem) in listview.children().enumerate() {

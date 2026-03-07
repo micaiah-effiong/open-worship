@@ -20,6 +20,7 @@
         <property name="vexpand">true</property>
         <child>
           <object class="GtkListView" id="listview">
+            <property name="show_separators">true</property>
             <style>
               <class name="drop-zone"/>
             </style>

@@ -3,10 +3,7 @@ use gtk::glib::subclass::types::ObjectSubclassIsExt;
 
 use crate::{
     services::settings::ApplicationSettings,
-    widgets::canvas::{
-        serialise::{CanvasItemType, SlideData, SlideManagerData},
-        text_item,
-    },
+    widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData},
 };
 
 // SONG VERSE
@@ -316,9 +313,8 @@ pub mod schedule_data {
         pub struct ScheduleData {
             #[property(set, get, construct)]
             #[property(name="note", get, set, type=String, member=note)]
+            #[property(name="title", get,set, type=String, member=title)]
             pub slide_data: RefCell<SlideManagerData>,
-            #[property(set, get, construct)]
-            pub title: RefCell<String>,
         }
 
         #[glib::object_subclass]
@@ -342,13 +338,16 @@ pub mod schedule_data {
     }
 
     impl ScheduleData {
-        pub fn new(title: String, data: SlideManagerData) -> Self {
-            let obj: Self = glib::Object::builder()
-                .property("title", title)
-                .property("slide_data", data)
-                .build();
+        pub fn new(data: SlideManagerData) -> Self {
+            let obj: Self = glib::Object::builder().property("slide_data", data).build();
 
             obj
+        }
+    }
+
+    impl From<SlideManagerData> for ScheduleData {
+        fn from(value: SlideManagerData) -> Self {
+            Self::new(value)
         }
     }
 }
