@@ -8,11 +8,12 @@ use gtk::{
 };
 
 use crate::{
+    application_window::MainApplicationWindow,
     dto::{
         self,
         schedule_data::{self, ScheduleData},
     },
-    utils::{ListViewExtra, WidgetChildrenExt},
+    utils::{ListViewExtra, WidgetChildrenExt, WidgetExtrasExt},
     widgets::canvas::serialise::SlideManagerData,
 };
 

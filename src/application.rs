@@ -311,7 +311,12 @@ impl OwApplication {
             .build();
 
         let open = gio::ActionEntry::builder("open")
-            .activate(|_, _, _| println!("Open activated"))
+            .activate(|_, _, _| {
+                let mut filters = glib::List::new();
+                let filter = gtk::FileFilter::new();
+                filters.push_back(filter);
+                let _file = FileManager::open_files("Open File", "Open", &mut filters);
+            })
             .build();
 
         {

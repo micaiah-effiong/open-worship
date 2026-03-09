@@ -68,7 +68,12 @@ impl FileManager {
         ctx.block_on(async move {
             let res = dialog.save_future(window).await;
             if let Ok(user_file) = &res {
-                let path = user_file.path().unwrap();
+                Self::create_file_if_not_exists(user_file);
+
+                let Some(path) = user_file.path() else {
+                    return None;
+                };
+
                 std::fs::write(path, data).expect("failed to write file");
             }
 
@@ -104,7 +109,7 @@ impl FileManager {
 
         let ctx = glib::MainContext::default();
         ctx.block_on(async move {
-            let res = dialog.save_future(window).await;
+            let res = dialog.open_future(window).await;
             let res = res.inspect_err(|e| eprintln!("Error opening file in dialog: {:?}", e));
             res.ok()
         })
@@ -206,10 +211,33 @@ impl FileManager {
             data,
         )
     }
+
     pub fn save_schedule_file(payload: Vec<SlideManagerData>) {
         if payload.is_empty() {
             return;
         };
+
+        // NOTE: very inefficient
+        // alllow for duplicate base64 images across slides
+        let mut payload = payload;
+        for item in &mut payload {
+            for slide in &mut item.slides {
+                if let Some(bg) = &slide.canvas_data.background_pattern {
+                    let p = std::path::Path::new(bg);
+                    let file = gio::File::for_path(p);
+                    let Some(content_type) =
+                        gio::content_type_get_mime_type(&gio::content_type_guess(Some(p), &[]).0)
+                    else {
+                        return;
+                    };
+                    let Some(b64) = Self::file_to_base64(&file) else {
+                        return;
+                    };
+                    let image_b64 = format!("data:{content_type};base64,{b64}");
+                    slide.canvas_data.background_pattern = Some(image_b64);
+                }
+            }
+        }
 
         let mut filters = glib::List::new();
         let filter = gtk::FileFilter::new();
@@ -217,15 +245,48 @@ impl FileManager {
         filter.add_pattern(app_config::APP_EXT);
         filters.push_back(filter);
 
-        let content = match serde_json::to_string(&payload) {
-            Ok(c) => c,
-            Err(e) => {
-                println!("Err: {:?}", e);
-                return;
-            }
-        };
+        let mut list_store = gtk::gio::ListStore::new::<gtk::FileFilter>();
+        list_store.extend(filters);
 
-        let _ = FileManager::save_file("Save Schedule", "Ok", &mut filters, content.as_bytes());
+        let filter_model = gtk::FilterListModel::new(Some(list_store), None::<FileFilter>);
+
+        let dialog = gtk::FileDialog::builder()
+            .modal(true)
+            // .accept_label("Save")
+            .filters(&filter_model)
+            .title("Save Schedule")
+            .build();
+
+        let ctx = glib::MainContext::default();
+        ctx.block_on(async move {
+            let res = dialog.save_future(None::<&gtk::Window>).await;
+
+            let res = res.inspect_err(|e| eprintln!("Error opening file in dialog: {:?}", e));
+            let user_file = match res {
+                Ok(f) => f,
+                Err(e) => {
+                    println!("E: {:?}", e);
+                    return;
+                }
+            };
+            Self::create_file_if_not_exists(&user_file);
+
+            let Some(path) = user_file.path() else {
+                return;
+            };
+
+            let content = match serde_json::to_string(&payload) {
+                Ok(c) => c,
+                Err(e) => {
+                    println!("Err: {:?}", e);
+                    return;
+                }
+            };
+            let mut data = Vec::new();
+            // data.extend_from_slice(MAGIC_HEADER);
+            data.extend_from_slice(content.as_bytes());
+            std::fs::write(path, data).expect("failed to write file");
+        });
 
         // NOTE: if file has head
         // we will have to verify the header validity and then skip forward
@@ -314,5 +375,17 @@ impl FileManager {
         };
 
         Some(path)
+    }
+
+    pub fn create_file_if_not_exists(file: &gio::File) {
+        if !file.query_exists(gio::Cancellable::NONE) {
+            match file.create(
+                gio::FileCreateFlags::REPLACE_DESTINATION,
+                gio::Cancellable::NONE,
+            ) {
+                Ok(_) => (),
+                Err(e) => eprintln!("Could not write file: {:?}", e),
+            };
+        }
     }
 }

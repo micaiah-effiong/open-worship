@@ -19,7 +19,7 @@ pub struct AppConfig {
 }
 pub const APP_ID: &str = "com.openworship.app";
 pub const RESOURCE_PATH: &str = format_resource!("");
-pub const APP_EXT: &str = ".opw";
+pub const APP_EXT: &str = "opw";
 
 static ASPECT_RATIO: OnceLock<Mutex<f32>> = OnceLock::new();
 
@@ -86,17 +86,20 @@ pub enum AppConfigDir {
     Media,
     SlideMedia,
     Backgrounds,
+    Schedule,
 }
 
 impl Into<String> for AppConfigDir {
     fn into(self) -> String {
         match self {
-            Self::Media => String::from("media"),
-            Self::Database => String::from("database"),
-            Self::Downloads => String::from("downloads"),
-            Self::Backgrounds => String::from("backgrounds"),
-            Self::SlideMedia => String::from("slide_media"),
+            Self::Media => "media",
+            Self::Database => "database",
+            Self::Downloads => "downloads",
+            Self::Backgrounds => "backgrounds",
+            Self::SlideMedia => "slide_media",
+            Self::Schedule => "schedule",
         }
+        .into()
     }
 }
 impl TryFrom<String> for AppConfigDir {
@@ -109,6 +112,7 @@ impl TryFrom<String> for AppConfigDir {
             "downloads" => Ok(Self::Downloads),
             "backgrounds" => Ok(Self::Backgrounds),
             "slide_media" => Ok(Self::SlideMedia),
+            "schedule" => Ok(Self::Schedule),
             _ => Err(()),
         }
     }

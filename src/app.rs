@@ -1,3 +1,4 @@
+use crate::app_config;
 use crate::application::OwApplication;
 use crate::utils::setup_theme_listener;
 use gtk::glib;
@@ -5,6 +6,7 @@ use gtk::glib;
 use gtk::prelude::*;
 
 pub fn run() -> glib::ExitCode {
+    app_config::AppConfig::init();
     gtk::init().expect("Could not initialize gtk");
 
     app_init();
