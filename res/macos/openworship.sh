@@ -7,4 +7,4 @@ export GDK_PIXBUF_MODULE_FILE="/Applications/Openworship.app/Contents/Resources/
 
 APP=./openworship
 
-exec "$APP" "$@" >> /tmp/openworship.log
+exec "$APP" "$@"
