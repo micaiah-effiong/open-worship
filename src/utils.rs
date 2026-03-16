@@ -480,18 +480,13 @@ macro_rules! format_resource {
 }
 
 #[macro_export]
-#[cfg(target_os = "macos")]
 macro_rules! accels {
     ($key:literal) => {
-        concat!("<Meta>", $key)
-    };
-}
-
-#[macro_export]
-#[cfg(not(target_os = "macos"))]
-macro_rules! accels {
-    ($key:literal) => {
-        concat!("<Primary>", $key)
+        if cfg!(target_os = "macos") {
+            concat!("<Meta>", $key)
+        } else {
+            concat!("<Primary>", $key)
+        }
     };
 }
 

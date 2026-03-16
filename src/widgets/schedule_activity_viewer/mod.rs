@@ -2,18 +2,17 @@ mod schedule_list_item;
 
 use gtk::{
     gdk,
-    gio::{ActionEntry, MenuItem, SimpleActionGroup},
+    gio::{MenuItem, SimpleActionGroup},
     glib::{self, clone, subclass::types::ObjectSubclassIsExt},
     prelude::*,
 };
 
 use crate::{
-    application_window::MainApplicationWindow,
     dto::{
         self,
         schedule_data::{self, ScheduleData},
     },
-    utils::{ListViewExtra, WidgetChildrenExt, WidgetExtrasExt},
+    utils::{ListViewExtra, WidgetChildrenExt},
     widgets::canvas::serialise::SlideManagerData,
 };
 
@@ -32,6 +31,7 @@ mod imp {
     use super::*;
     use dto::schedule_data::ScheduleData;
     use gtk::{
+        gio::SimpleAction,
         glib::{
             self,
             subclass::{
@@ -169,62 +169,59 @@ mod imp {
         }
 
         fn register_context_menu(&self) {
-            let list_view = self.listview.clone();
+            let listview = self.listview.clone();
 
-            let add_action = ActionEntry::builder("add_item")
-                .activate(glib::clone!(
-                    #[strong]
-                    list_view,
-                    move |_g: &SimpleActionGroup, _sa, _v| {
-                        let edit_window = SongEditWindow::new();
-                        edit_window.connect_save(glib::clone!(
-                            #[strong]
-                            list_view,
-                            move |_, smd| {
-                                let schedule_data: ScheduleData = smd.clone().into();
-                                list_view.append_item(&schedule_data);
-                            }
-                        ));
+            let add_action = SimpleAction::new("add_item", None);
+            add_action.connect_activate(glib::clone!(
+                #[strong]
+                listview,
+                move |_sa, _v| {
+                    let edit_window = SongEditWindow::new();
+                    let listview = listview.clone();
+                    edit_window.connect_save(move |_, smd| {
+                        let schedule_data: ScheduleData = smd.clone().into();
+                        listview.append_item(&schedule_data);
+                    });
 
-                        edit_window.show(None);
-                    }
-                ))
-                .build();
-            let edit_action = ActionEntry::builder("edit_item")
-                .activate(clone!(
-                    #[strong]
-                    list_view,
-                    move |_g: &SimpleActionGroup, _sa, _v| {
-                        let Some(item) = list_view
-                            .get_selected_items()
-                            .first()
-                            .cloned()
-                            .and_downcast::<ScheduleData>()
-                        else {
-                            return;
-                        };
-                        let edit_window = SongEditWindow::new();
+                    edit_window.show(None);
+                }
+            ));
+            let edit_action = SimpleAction::new("edit_item", None);
+            edit_action.connect_activate(clone!(
+                #[strong]
+                listview,
+                move |_sa, _v| {
+                    let Some(item) = listview
+                        .get_selected_items()
+                        .first()
+                        .cloned()
+                        .and_downcast::<ScheduleData>()
+                    else {
+                        return;
+                    };
+                    let edit_window = SongEditWindow::new();
 
-                        edit_window.connect_save(glib::clone!(
-                            #[strong]
-                            item,
-                            move |_, smd| item.set_slide_data(smd)
-                        ));
+                    edit_window.connect_save(glib::clone!(
+                        #[strong]
+                        item,
+                        move |_, smd| item.set_slide_data(smd)
+                    ));
 
-                        edit_window.show(Some(item.slide_data()));
-                    }
-                ))
-                .build();
-            let remove_action = ActionEntry::builder("remove_item")
-                .activate(clone!(
-                    #[strong]
-                    list_view,
-                    move |_g: &SimpleActionGroup, _sa, _v| list_view.remove_selected_items()
-                ))
-                .build();
+                    edit_window.show(Some(item.slide_data()));
+                }
+            ));
+            let remove_action = SimpleAction::new("remove_item", None);
+            remove_action.connect_activate(clone!(
+                #[strong]
+                listview,
+                move |_sa, _v| listview.remove_selected_items()
+            ));
 
             let menu_action_group = SimpleActionGroup::new();
-            menu_action_group.add_action_entries([add_action, edit_action, remove_action]);
+            listview.insert_action_group("schedule", Some(&menu_action_group));
+            menu_action_group.add_action(&add_action);
+            menu_action_group.add_action(&edit_action);
+            menu_action_group.add_action(&remove_action);
 
             let menu = gtk::gio::Menu::new();
             let add_item = MenuItem::new(Some("Add Item"), Some("schedule.add_item"));
@@ -239,23 +236,23 @@ mod imp {
             popover_menu.set_position(gtk::PositionType::Bottom);
             popover_menu.set_halign(gtk::Align::Start);
             popover_menu.set_valign(gtk::Align::Start);
-            popover_menu.set_parent(&list_view);
+            popover_menu.set_parent(&listview);
 
             let gesture_click = gtk::GestureClick::new();
             gesture_click.set_button(gtk::gdk::BUTTON_SECONDARY);
-            gesture_click.connect_pressed(clone!(
-                #[weak]
-                popover_menu,
-                move |gc, _, x, y| {
-                    let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 1, 1);
-                    popover_menu.set_pointing_to(Some(&rect));
-                    popover_menu.popup();
-                    gc.set_state(gtk::EventSequenceState::Claimed);
-                }
-            ));
+            gesture_click.connect_released(clone!(move |gc, _, x, y| {
+                let enable = !listview.get_selected_items().is_empty();
+                edit_action.set_enabled(enable);
+                remove_action.set_enabled(enable);
+                //
 
-            list_view.add_controller(gesture_click);
-            list_view.insert_action_group("schedule", Some(&menu_action_group));
+                let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
+                popover_menu.set_pointing_to(Some(&rect));
+                popover_menu.popup();
+                gc.set_state(gtk::EventSequenceState::Claimed);
+            }));
+
+            self.listview.add_controller(gesture_click);
         }
 
         fn register_drag(&self) {

@@ -169,15 +169,24 @@ impl From<SlideManagerData> for SongObject {
     /// The resulting `song_id` is always set to `0`. If this object will be used
     /// to update the database, call `set_song_id` before doing so.
     fn from(value: SlideManagerData) -> Self {
-        let verses = value
+        let slide_verses = value
+            .clone()
             .slides
-            .iter()
+            .iter_mut()
             .filter_map(|slide| {
-                for v in slide.items.iter() {
-                    match v.item_type.clone() {
+                for v in &mut slide.items.iter_mut() {
+                    match &mut v.item_type {
                         CanvasItemType::Text(text_item) => {
                             let b64 = glib::base64_decode(&text_item.text_data);
-                            return String::from_utf8(b64).ok();
+                            text_item.text_data = "".into();
+                            let slide_data = (*slide != SlideData::from_default())
+                                .then_some(serde_json::to_string(&slide).ok().unwrap_or_default());
+                            let song_verse = SongVerse::new(
+                                String::from_utf8(b64).unwrap_or_default(),
+                                None,
+                                slide_data,
+                            );
+                            return Some(song_verse);
                         }
                         CanvasItemType::Unknown => continue,
                     }
@@ -186,7 +195,7 @@ impl From<SlideManagerData> for SongObject {
             })
             .collect::<Vec<_>>();
 
-        Self::new(value.title, verses, 0)
+        Self::from_verses(value.title, slide_verses, 0)
     }
 }
 
@@ -204,11 +213,107 @@ pub struct Scripture {
 
 impl Scripture {
     pub fn screen_display(&self) -> String {
+        let settings = ApplicationSettings::get_instance();
+        let num = settings
+            .show_verse_number()
+            .then(|| self.verse.to_string())
+            .unwrap_or_default();
+
         let text = format!(
-            "{}\n{} {}:{} ({})",
-            self.text, self.book, self.chapter, self.verse, self.translation
+            "{}{}\n{} {}:{} ({})",
+            num, self.text, self.book, self.chapter, self.verse, self.translation
         );
         text
+    }
+}
+
+#[derive(Debug, Default, Clone, glib::Boxed)]
+#[boxed_type(name = "Scripture")]
+pub struct ScriptureVerseRange {
+    pub book: String,
+    pub chapter: u32,
+    pub verses: Vec<(u32, String)>,
+    pub translation: String,
+}
+
+impl ScriptureVerseRange {
+    pub fn new(
+        book: String,
+        chapter: u32,
+        verses: Vec<(u32, String)>,
+        translation: String,
+    ) -> Self {
+        assert_eq!(verses.len() > 0, true,);
+
+        Self {
+            book,
+            chapter,
+            verses,
+            translation,
+        }
+    }
+    pub fn screen_display(&self) -> String {
+        assert!(!self.verses.is_empty());
+        let settings = ApplicationSettings::get_instance();
+        let show_number = settings.show_verse_number();
+
+        let format_verse = |num: u32, text: &str| {
+            if show_number {
+                format!("{num} {text}")
+            } else {
+                text.to_string()
+            }
+        };
+
+        if self.verses.len() == 1 {
+            let (num, text) = self.verses.first().unwrap();
+
+            let text = format!(
+                "{}\n{} {}:{} ({})",
+                format_verse(*num, text),
+                self.book,
+                self.chapter,
+                num,
+                self.translation
+            );
+            return text;
+        }
+
+        let text = self
+            .verses
+            .iter()
+            .map(|(num, text)| format!("{}", format_verse(*num, text)))
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let first = self.verses.first().unwrap().0;
+        let last = self.verses.last().unwrap().0;
+
+        let text = format!(
+            "{}\n{} {}:{}-{} ({})",
+            text, self.book, self.chapter, first, last, self.translation
+        );
+        text
+    }
+}
+impl Into<SlideData> for ScriptureVerseRange {
+    fn into(self) -> SlideData {
+        let settings = ApplicationSettings::get_instance();
+
+        let text = self.screen_display();
+        let mut slide_data = SlideData::from_default();
+
+        for v in &mut slide_data.items {
+            match &mut v.item_type {
+                CanvasItemType::Text(text_item_data) => {
+                    text_item_data.font = settings.scripture_font();
+                    text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
+                }
+                CanvasItemType::Unknown => (),
+            };
+        }
+
+        slide_data
     }
 }
 

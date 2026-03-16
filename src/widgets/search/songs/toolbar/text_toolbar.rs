@@ -185,7 +185,7 @@ mod imp {
 
             let underline_btn = gtk::ToggleButton::new();
             {
-                self.underline.replace(italics_btn.clone());
+                self.underline.replace(underline_btn.clone());
                 underline_btn.set_tooltip("Underline");
                 obj.append(&underline_btn);
                 underline_btn.set_icon_name("text-underline-filled");
@@ -205,7 +205,7 @@ mod imp {
 
             let shadow_btn = gtk::ToggleButton::new();
             {
-                self.shadow.replace(italics_btn.clone());
+                self.shadow.replace(shadow_btn.clone());
                 shadow_btn.set_tooltip("Text shadow");
                 obj.append(&shadow_btn);
                 shadow_btn.set_icon_name("text-shadow-filled");
@@ -225,7 +225,7 @@ mod imp {
 
             let outline_btn = gtk::ToggleButton::new();
             {
-                self.outline.replace(italics_btn.clone());
+                self.outline.replace(outline_btn.clone());
                 outline_btn.set_tooltip("Text outline");
                 obj.append(&outline_btn);
                 outline_btn.set_icon_name("text-outline-filled");
@@ -366,7 +366,7 @@ mod imp {
 
                     let size = text.parse::<u32>().unwrap_or_default();
 
-                    ti.set_font_size(size);
+                    ti.set_font_size(size as f32);
                     ti.style();
                 }
             });

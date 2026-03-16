@@ -1,17 +1,20 @@
+use std::{ops::Sub, sync::Once};
+
 use gtk::{
     glib::{
         self, clone,
         object::{Cast, ObjectExt},
         subclass::types::ObjectSubclassIsExt,
     },
-    pango,
     prelude::{
-        BoxExt, EventControllerExt, GestureExt, GridExt, TextBufferExt, TextViewExt, WidgetExt,
+        AdjustmentExt, BoxExt, EventControllerExt, GestureExt, GridExt, TextBufferExt, TextViewExt,
+        WidgetExt,
     },
 };
 
 use crate::{
     // services::history_manager::history_action::TypedHistoryAction,
+    services::settings::ApplicationSettings,
     utils::TextBufferExtraExt,
     widgets::canvas::{
         canvas::Canvas,
@@ -33,9 +36,10 @@ mod imp {
     use gtk::subclass::prelude::*;
 
     use super::*;
-    use crate::utils::{self, TextBufferExtraExt};
+    use crate::utils::{self, TextBufferExtraExt, WidgetExtrasExt};
     use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt, CanvasItemImpl};
     use crate::widgets::canvas::serialise::{CanvasItemType, TextItemData};
+    use crate::widgets::extended_screen::ExtendedScreen;
 
     #[derive(Properties, Debug, Default)]
     #[properties(wrapper_type = super::TextItem)]
@@ -48,11 +52,11 @@ mod imp {
         pub justification: Cell<u32>,
         #[property(get, set, default_value = 1, construct)]
         pub align: Cell<u32>,
-        #[property(get, set, default_value = 16, construct)]
-        pub font_size: Cell<u32>,
-        pub alt_font_size: Cell<u32>,
+        #[property(get, set, default_value = 16.0, construct)]
+        pub font_size: Cell<f32>,
+        pub alt_font_size: Cell<f32>,
         // pub display_font_size: Cell<u32>,
-        #[property(get, set, default_value = "Open Sans", construct)]
+        #[property(get, set, default_value = "", construct)]
         pub font: RefCell<String>,
         #[property(get, set, default_value = "#ffffffff", construct)]
         pub font_color: RefCell<String>,
@@ -75,6 +79,8 @@ mod imp {
         // pub text: RefCell<String>,
         #[property(get=Self::get_editing_, set=Self::set_editing_)]
         pub editing: Cell<bool>,
+
+        pub(super) label_scroll: RefCell<gtk::ScrolledWindow>,
     }
 
     #[glib::object_subclass]
@@ -122,13 +128,14 @@ mod imp {
             let text = entry.buffer().full_text();
 
             let encoded = glib::base64_encode(text.as_bytes()).to_string();
+            let font_size = self.obj().check_font_size();
 
             let obj = self.obj();
 
             let data = TextItemData {
                 font: obj.font(),
                 color: obj.font_color(),
-                font_size: obj.font_size(),
+                font_size,
                 font_style: obj.font_style(),
                 font_weight: obj.font_weight(),
                 justification: obj.justification(),
@@ -170,7 +177,6 @@ mod imp {
                 //     ci.rectangle(),
                 // ) as u32;
                 //
-                // TODO:
                 // obj.imp().alt_font_size.set(f);
             }
             // glib::g_message!("TextItem", "FONT CSS \n{css}");
@@ -341,55 +347,92 @@ mod imp {
 
         pub fn resize_entry(&self) {
             let obj = self.obj();
-            let text = self.entry.borrow().buffer().full_text();
+            // let text = self.entry.borrow().buffer().full_text();
 
             gtk::glib::timeout_add_local_once(std::time::Duration::from_millis(80), {
                 let textitem = obj.downgrade().clone();
-                let t = text.clone();
+                // let t = text.clone();
                 move || {
                     let Some(textitem) = textitem.upgrade() else {
                         return;
                     };
-                    textitem.imp().set_text(t.to_string());
+                    // WARN: this could lead to a text overwrite
+                    // textitem.imp().set_text(t.to_string());
                     textitem.imp().entry.borrow().queue_resize();
                 }
             });
         }
 
-        fn calculate_font_scale(
-            // &self,
-            widget: &gtk::TextView,
+        // TODO: remove or review
+        pub(super) fn update_font_scale(&self) {
+            // let obj = self.obj();
+            // let Some(widget) = self.stack.borrow().clone().visible_child() else {
+            //     return;
+            // };
+            // let text = self.entry.borrow().buffer().full_text().to_string();
+            // let ci: CanvasItem = obj.clone().upcast();
+            // let Some(canvas) = ci.canvas() else { return };
+            //
+            // let size = Self::calculate_font_scale(
+            //     &widget,
+            //     text.clone(),
+            //     obj.font_size() as f32,
+            //     canvas.current_ratio() as f32,
+            //     ci.rectangle(),
+            //     // utils::rect::Rect::new(0, 0, ci.width(), ci.height()),
+            // );
+            //
+            // self.alt_font_size.set(size);
+            // println!(
+            //     "check = {}, alt = {size} prev = {} curr_text = {}",
+            //     obj.check_font_size(),
+            //     self.previous_text.borrow().len(),
+            //     text.len()
+            // );
+            // // println!("{}=>{},{}", obj.font_size(), size, canvas.current_ratio());
+            // obj.style();
+        }
+
+        // TODO: remove or review
+        pub fn calculate_font_scale(
+            widget: &impl IsA<gtk::Widget>,
             text: String,
             desired_font_size: f32,
             scale: f32,
             w_rect: utils::rect::Rect,
         ) -> f32 {
-            let ctx = widget.pango_context();
-
             let (w, h) = (w_rect.width as f32 * scale, w_rect.height as f32 * scale);
             let layout = {
-                let layout = gtk::pango::Layout::new(&ctx);
+                let layout = widget.create_pango_layout(Some(&text));
+                layout.set_width((w * gtk::pango::SCALE as f32) as i32);
+                layout.set_height((h * gtk::pango::SCALE as f32) as i32);
 
-                let mut font_desc = gtk::pango::FontDescription::new();
-                font_desc.set_style(pango::Style::Normal);
-                font_desc.set_weight(pango::Weight::Normal);
-                font_desc.set_size(desired_font_size as i32 * gtk::pango::SCALE);
+                println!(
+                    "\n\n==========\n\nlayout font_description = {:?}",
+                    layout.font_description()
+                );
+                // layout.set_height((h * gtk::pango::SCALE as f32) as i32);
 
-                println!("w={w}, h={h}");
-                layout.set_font_description(Some(&font_desc));
-                layout.set_alignment(pango::Alignment::Left);
-                layout.set_width(w as i32 * gtk::pango::SCALE);
-                // layout.set_height(h as i32 * gtk::pango::SCALE);
-                layout.set_wrap(gtk::pango::WrapMode::WordChar);
-                layout.set_text(&text);
                 layout
+
+                // let mut font_desc = gtk::pango::FontDescription::new();
+                // font_desc.set_style(pango::Style::Normal);
+                // font_desc.set_weight(pango::Weight::Normal);
+                // font_desc.set_size(desired_font_size as i32 * gtk::pango::SCALE);
+                //
+                // layout.set_font_description(Some(&font_desc));
+                // layout.set_alignment(pango::Alignment::Center);
+                // layout.set_width((w * gtk::pango::SCALE as f32) as i32);
+                // layout.set_height((h * gtk::pango::SCALE as f32) as i32);
+                // layout.set_wrap(gtk::pango::WrapMode::WordChar);
+                // layout.set_text(&text);
+                // layout
             };
 
-            let (_, layout_rect) = layout.pixel_extents();
+            let (layout_rect, _) = layout.pixel_extents();
             let layout_w = layout_rect.width() as f32 /* / gtk::pango::SCALE */ ;
             let layout_h = layout_rect.height()  as f32 /* / gtk::pango::SCALE */;
             // println!("bound={w} x {h}");
-            // println!("layout={layout_w} x {layout_h}");
 
             //  Calculate scaling factors for width and height
             let w_scale = if layout_w > 0.0 {
@@ -406,6 +449,23 @@ mod imp {
             // get the minimum scale
             let font_scale_factor = f32::min(w_scale, h_scale);
 
+            if !widget
+                .toplevel_window()
+                .and_downcast::<ExtendedScreen>()
+                .is_some()
+            {
+                println!("w={w}, h={h}");
+                println!("layout={layout_w} x {layout_h}");
+                println!(
+                    "factor={font_scale_factor}, desired_font_size={desired_font_size}, should_scale={}",
+                    w / h
+                );
+                println!(
+                    "font_size=16, alt={}",
+                    font_scale_factor * desired_font_size
+                );
+            }
+
             // calculate the scaled font size
             let final_size = if font_scale_factor < 1.0 {
                 desired_font_size * font_scale_factor //.max(8.0) // Don't go below 8pt
@@ -416,6 +476,7 @@ mod imp {
             // println!(
             //     "Scale factor: {font_scale_factor}, Scale ration {scale}, Desired font size: {desired_font_size} Final size: {final_size}"
             // );
+
             final_size
         }
     }
@@ -453,7 +514,9 @@ impl TextItem {
     fn from_instance(ti: Self) -> Self {
         let binding = ti.clone();
         let imp = binding.imp();
-        imp.alt_font_size.set(16);
+        imp.alt_font_size.set(16.0);
+
+        ti.set_font(ApplicationSettings::get_instance().song_font());
 
         let textview = gtk::TextView::builder()
             .justification(gtk::Justification::Center)
@@ -464,6 +527,7 @@ impl TextItem {
             .vexpand(true)
             .hexpand(true)
             .build();
+
         imp.entry.replace(textview.clone());
         {
             // NOTE: this consumes click event on the textview
@@ -483,6 +547,8 @@ impl TextItem {
             .vexpand(true)
             .hexpand(true)
             .wrap(true)
+            .valign(gtk::Align::Fill)
+            .halign(gtk::Align::Fill)
             .build();
 
         *imp.stack.borrow_mut() = gtk::Stack::builder()
@@ -494,9 +560,12 @@ impl TextItem {
 
         let label_box = gtk::Box::default();
         label_box.append(&imp.label.borrow().clone());
+        let label_box_scroll = gtk::ScrolledWindow::new();
+        label_box_scroll.set_child(Some(&label_box));
+        imp.label_scroll.replace(label_box_scroll.clone());
 
         let stack = imp.stack.borrow();
-        stack.add_named(&label_box, Some("label"));
+        stack.add_named(&label_box_scroll, Some("label"));
         stack.add_named(&imp.entry.borrow().clone(), Some("entry"));
         stack.set_visible_child_name("label");
 
@@ -572,6 +641,14 @@ impl TextItem {
                     return;
                 }
 
+                ti.imp().update_font_scale();
+
+                if ti.imp().previous_text.borrow().len().saturating_sub(10) > buf.full_text().len()
+                {
+                    ti.imp().alt_font_size.set(ti.font_size());
+                    ti.style();
+                }
+
                 // let action = TypedHistoryAction::item_changed(&ti, "text");
                 // let Some(window) = ci.canvas().and_then(|c| c.imp().window.upgrade()) else {
                 //     return;
@@ -590,15 +667,39 @@ impl TextItem {
                 } else {
                     label.set_markup(&text);
                 }
-                // ti.imp().previous_text.replace(text.clone());
-                ti.imp().previous_text.replace(label.label().to_string());
+                ti.imp().previous_text.replace(text.clone());
+                // ti.imp().previous_text.replace(label.label().to_string());
             }
         ));
 
+        // Ensures the font scales correctly when the canvas ratio changes
+        // after the initial mount. The scaling logic is executed only once
+        // for ratio change to avoid repeatedly recalculating the font scale.
+        // Without initial font may appear too small due to the initial ratio.
+        let scale_font = Once::new();
         if let Some(canvas) = ci.canvas() {
             canvas.connect_ratio_changed({
-                let ti_clone = ti.clone();
-                move |_| ti_clone.style()
+                let ti = ti.clone();
+                move |_| {
+                    ti.style();
+                    scale_font.call_once(|| {
+                        ti.imp().update_font_scale();
+
+                        let label_box_scroll = ti.imp().label_scroll.borrow();
+                        let vadj = label_box_scroll.vadjustment();
+
+                        let ti = ti.clone();
+                        vadj.connect_changed(move |adj| {
+                            let overflow = adj.upper() > adj.page_size();
+
+                            if overflow {
+                                let size = ti.imp().alt_font_size.get();
+                                ti.imp().alt_font_size.set(size.sub(1.0));
+                                ti.style();
+                            }
+                        });
+                    });
+                }
             });
 
             ti.style();
@@ -640,9 +741,8 @@ impl TextItem {
         self.imp().entry.borrow().buffer()
     }
 
-    fn check_font_size(&self) -> u32 {
-        self.font_size()
-        // TODO:
-        // self.imp().alt_font_size.get().min(self.font_size())
+    fn check_font_size(&self) -> f32 {
+        // self.font_size()
+        self.imp().alt_font_size.get().min(self.font_size())
     }
 }

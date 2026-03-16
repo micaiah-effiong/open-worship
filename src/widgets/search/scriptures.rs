@@ -31,7 +31,9 @@ mod imp {
     use std::sync::OnceLock;
 
     use crate::{
-        dto::scripture::ScriptureObject, utils::ListViewExtra,
+        dto::{ScriptureVerseRange, scripture::ScriptureObject},
+        services::settings::ApplicationSettings,
+        utils::ListViewExtra,
         widgets::canvas::serialise::SlideData,
     };
 
@@ -235,18 +237,46 @@ mod imp {
             }
             self.reload_translations();
         }
-        fn send_to_preview(&self) {
+        fn prepare_to_send(&self) -> Option<SlideManagerData> {
             let selected_verses = Self::get_selected_scripture(&self.listview);
+            let settings = ApplicationSettings::get_instance();
 
             if selected_verses.is_empty() {
-                return;
+                return None;
             }
 
-            let selected_slide_data: Vec<SlideData> = selected_verses
-                .clone()
-                .iter()
-                .map(|v| v.clone().into())
-                .collect();
+            let selected_slide_data: Vec<SlideData> = match self.search_mode.borrow().clone() {
+                SearchMode::Evaluated(bible_reference) if settings.break_new_verse() => {
+                    let compressed_verses =
+                        Self::compress_scripture_object_verses(&selected_verses, |a, b| {
+                            a.item().book == b.item().book
+                                && a.item().chapter == b.item().chapter
+                                && a.item().verse + 1 == b.item().verse
+                        });
+
+                    compressed_verses
+                        .iter()
+                        .map(|v| {
+                            let f = v.first().cloned().unwrap_or_default().item();
+                            let verse_list = v
+                                .iter()
+                                .map(|v| {
+                                    let item = v.item();
+                                    (item.verse, item.text)
+                                })
+                                .collect::<Vec<_>>();
+                            ScriptureVerseRange::new(f.book, f.chapter, verse_list, f.translation)
+                                .into()
+                        })
+                        .collect::<Vec<_>>()
+                }
+                _ => selected_verses
+                    .clone()
+                    .iter()
+                    .map(|v| v.clone().into())
+                    .collect(),
+            };
+
             let mut payload = SlideManagerData::new(0, 0, selected_slide_data);
 
             match self.search_mode.borrow().clone() {
@@ -270,7 +300,12 @@ mod imp {
                 SearchMode::Fuzz => (),
             };
 
-            self.obj().emit_send_scriptures(payload);
+            Some(payload)
+        }
+        fn send_to_preview(&self) {
+            if let Some(data) = self.prepare_to_send() {
+                self.obj().emit_send_scriptures(data);
+            };
         }
     }
 
@@ -354,7 +389,7 @@ mod imp {
                         Err(_) => return,
                     };
 
-                    println!("CONNECT_DIRECTION_CHANGED {:?}", item);
+                    // println!("CONNECT_DIRECTION_CHANGED {:?}", item);
                     imp.change_translation(item.into());
                 }
             ));
@@ -392,7 +427,7 @@ mod imp {
                 Some(evaluated) => {
                     self.search_mode
                         .replace(SearchMode::Evaluated(evaluated.clone()));
-                    println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
+                    // println!("CONNECT_SEARCH_CHANGED {:?}", evaluated);
                     let verses = Query::search_by_chapter_query(
                         t.clone(),
                         evaluated.book.clone(),
@@ -508,26 +543,23 @@ mod imp {
 
         fn register_drag(&self) {
             let listview = self.listview.clone();
-            let text_entry = self.search_text.clone();
 
             let drag_source = gtk::DragSource::new();
             drag_source.set_actions(gtk::gdk::DragAction::COPY);
-            drag_source.connect_prepare({
-                let listview = listview.clone();
+            drag_source.connect_prepare(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                #[upgrade_or]
+                None,
                 move |_, _, _| {
-                    let payload = Self::get_selected_scripture(&listview);
+                    let Some(data) = imp.prepare_to_send() else {
+                        return None;
+                    };
 
-                    let payload = SlideManagerData::from_list(
-                        text_entry.text().to_string(),
-                        0,
-                        payload.iter().map(|t| t.item().screen_display()).collect(),
-                        None,
-                    );
-
-                    let content = gtk::gdk::ContentProvider::for_value(&payload.to_value());
+                    let content = gtk::gdk::ContentProvider::for_value(&data.to_value());
                     Some(content)
                 }
-            });
+            ));
 
             // drag_source.connect_drag_begin({
             //     let lv = listview.clone();
@@ -561,31 +593,23 @@ mod imp {
         }
 
         fn register_context_menu(&self) {
+            let listview = self.listview.clone();
             // action entries
-            let add_to_schedule_action = ActionEntry::builder("add-to-schedule")
-                .activate(clone!(
-                    #[weak(rename_to=imp)]
-                    self,
-                    move |_, _, _| {
-                        let listview = imp.listview.clone();
-                        let text_entry = imp.search_text.clone();
-                        let payload = Self::get_selected_scripture(&listview);
-
-                        let payload = SlideManagerData::from_list(
-                            text_entry.text().to_string(),
-                            0,
-                            payload.iter().map(|t| t.item().screen_display()).collect(),
-                            None,
-                        );
-
-                        imp.obj().emit_send_to_schedule(payload);
-                    }
-                ))
-                .build();
+            let add_to_schedule_action = gio::SimpleAction::new("add-to-schedule", None);
+            add_to_schedule_action.connect_activate(clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |_, _| {
+                    if let Some(data) = imp.prepare_to_send() {
+                        imp.obj().emit_send_to_schedule(data);
+                        println!("{:?}", imp.search_mode.borrow());
+                    };
+                }
+            ));
 
             // action group
             let action_group = SimpleActionGroup::new();
-            action_group.add_action_entries([add_to_schedule_action]);
+            action_group.add_action(&add_to_schedule_action);
 
             // popover menu
             let menu = gtk::gio::Menu::new();
@@ -603,7 +627,9 @@ mod imp {
 
             let gesture = gtk::GestureClick::new();
             gesture.set_button(gtk::gdk::BUTTON_SECONDARY);
-            gesture.connect_pressed(clone!(move |gc, _, x, y| {
+            gesture.connect_released(clone!(move |gc, _, x, y| {
+                add_to_schedule_action.set_enabled(!listview.get_selected_items().is_empty());
+
                 let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
                 popover_menu.set_pointing_to(Some(&rect));
                 popover_menu.popup();
@@ -727,6 +753,36 @@ mod imp {
             } else {
                 result.push(start.to_string());
             }
+
+            result
+        }
+
+        fn compress_scripture_object_verses<T: IsA<ScriptureObject>, F: Fn(&T, &T) -> bool>(
+            list: &[T],
+            f: F,
+        ) -> Vec<Vec<T>> {
+            let mut result = Vec::new();
+            if list.is_empty() {
+                return result;
+            }
+
+            let mut sorted_list = list.to_owned();
+            sorted_list.sort_by_key(|a| a.upcast_ref::<ScriptureObject>().item().verse);
+
+            // (start_index, current_value)
+            let mut group = (0, sorted_list.first().unwrap());
+
+            for curr in sorted_list.iter().enumerate() {
+                let is_valid = f(group.1, curr.1);
+                if !is_valid && curr.0 != 0 {
+                    result.push(sorted_list[group.0..curr.0].to_vec());
+                    group.0 = curr.0;
+                }
+
+                group.1 = curr.1
+            }
+
+            result.push(sorted_list[group.0..].to_vec());
 
             result
         }

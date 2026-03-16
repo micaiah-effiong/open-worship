@@ -52,7 +52,7 @@ mod imp {
         pub grid: RefCell<Option<CanvasGrid>>,
         pub sava_data: RefCell<Option<CanvasData>>,
 
-        #[property(get, set, default_value = "#383E41", construct)]
+        #[property(get, set, default_value = "#383e41ff", construct)]
         pub background_color: RefCell<String>,
         #[property(get, set, default_value = "", construct)]
         pub background_pattern: RefCell<String>,
@@ -218,13 +218,11 @@ mod imp {
             let current_ratio = ratio - ratio * 0.016;
             self.obj().set_current_ratio(current_ratio); // 24/1500 = 0.016; Legacy offset;
 
-            self.default_x_margin.set(
-                ((current_allocated_width - max_width * self.current_ratio.get()) / 2.0) + 0.5,
-            );
+            self.default_x_margin
+                .set(((current_allocated_width - max_width * current_ratio) / 2.0) + 0.5);
 
-            self.default_y_margin.set(
-                ((current_allocated_height - max_height * self.current_ratio.get()) / 2.0) + 0.5,
-            );
+            self.default_y_margin
+                .set(((current_allocated_height - max_height * current_ratio) / 2.0) + 0.5);
         }
 
         pub fn load_data(&self) {

@@ -220,11 +220,15 @@
                             <child>
                               <object class="GtkCheckButton" id="show_passage">
                                 <property name="label">Show passage</property>
+                                <property name="visible">false</property>
+                                <!--TODO: may have to remove looks stupid-->
                               </object>
                             </child>
                             <child>
                               <object class="GtkCheckButton" id="show_only_reference">
                                 <property name="label">Show only reference</property>
+                                <property name="visible">false</property>
+                                <!--TODO: may have to remove looks stupid-->
                               </object>
                             </child>
                             <child>

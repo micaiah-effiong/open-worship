@@ -1,21 +1,21 @@
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 
-use crate::services::settings::ApplicationSettings;
+use crate::services::settings::{self, ApplicationSettings};
 
 pub const MAGIC_HEADER: &[u8] = b"OPW\x01";
 fn default_font_weight() -> String {
     "regular".into()
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
 #[boxed_type(name = "TextItemData")]
 pub struct TextItemData {
     #[serde(rename = "text-data")]
     pub text_data: String,
     pub font: String,
     #[serde(rename = "font-size")]
-    pub font_size: u32,
+    pub font_size: f32,
     #[serde(rename = "font-style")]
     pub font_style: String,
     #[serde(rename = "font-weight", default = "default_font_weight")]
@@ -31,7 +31,7 @@ pub struct TextItemData {
     pub text_shadow: bool,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq /* Eq */)]
 pub struct CanvasItemData {
     pub x: i32,
     pub y: i32,
@@ -65,13 +65,13 @@ pub struct CanvasData {
 impl Default for CanvasData {
     fn default() -> Self {
         Self {
-            background_color: "#383E41".into(),
+            background_color: "#383e41ff".into(),
             background_pattern: None,
         }
     }
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq /* Eq */)]
 #[serde(tag = "type")]
 pub enum CanvasItemType {
     #[serde(rename = "text")]
@@ -80,7 +80,7 @@ pub enum CanvasItemType {
     Unknown,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
 #[boxed_type(name = "SlideData")]
 #[serde(default)]
 pub struct SlideData {
@@ -124,11 +124,13 @@ impl SlideData {
 
     pub fn from_default() -> Self {
         // serde_json::from_str(DEFAULT_SLIDE).expect("Could not parse DEFAULT_SLIDE")
+        let settings = ApplicationSettings::get_instance();
+
         let text = {
             TextItemData {
                 text_data: String::new(),
-                font: "Open Sans".into(),
-                font_size: 16,
+                font: settings.song_font(),
+                font_size: 16.0,
                 font_style: "normal".into(),
                 font_weight: "regular".into(),
                 justification: 1,
@@ -158,7 +160,7 @@ impl From<SlideData> for CanvasData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, glib::Boxed)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
 #[boxed_type(name = "SlideManagerData")]
 #[serde(default)]
 pub struct SlideManagerData {

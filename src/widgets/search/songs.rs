@@ -18,7 +18,7 @@ mod imp {
     use gtk::{
         gio::{
             self,
-            prelude::{ActionMapExtManual, ListModelExt},
+            prelude::{ActionMapExt, ListModelExt},
         },
         glib::{
             self,
@@ -208,80 +208,71 @@ mod imp {
                 None => return,
             };
 
-            let add_song_action = gio::ActionEntry::builder("add-song")
-                .activate(glib::clone!(
-                    #[weak(rename_to=imp)]
-                    self,
-                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
-                        imp.open_edit_modal(None);
+            let add_song_action = gio::SimpleAction::new("add-song", None);
+            add_song_action.connect_activate(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |_sa, _v| imp.open_edit_modal(None)
+            ));
+
+            let edit_action = gio::SimpleAction::new("edit", None);
+            edit_action.connect_activate(glib::clone!(
+                #[strong]
+                model,
+                #[strong]
+                listview,
+                #[weak(rename_to=imp)]
+                self,
+                move |_sa, _v| {
+                    if model.n_items() == 0 {
+                        return;
                     }
-                ))
-                .build();
+                    let Some(song_list_item) = listview
+                        .get_selected_items()
+                        .first()
+                        .cloned()
+                        .and_downcast::<SongObject>()
+                    else {
+                        return;
+                    };
 
-            let edit_action = gio::ActionEntry::builder("edit")
-                .activate(glib::clone!(
-                    #[strong]
-                    model,
-                    #[strong]
-                    listview,
-                    #[weak(rename_to=imp)]
-                    self,
-                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
-                        if model.n_items() == 0 {
-                            return;
-                        }
-                        let Some(song_list_item) = listview
-                            .get_selected_items()
-                            .first()
-                            .cloned()
-                            .and_downcast::<SongObject>()
-                        else {
-                            return;
-                        };
+                    imp.open_edit_modal(Some(song_list_item));
+                }
+            ));
 
-                        imp.open_edit_modal(Some(song_list_item));
-                    }
-                ))
-                .build();
+            let add_to_schedule_action = gio::SimpleAction::new("add-to-schedule", None);
+            add_to_schedule_action.connect_activate(glib::clone!(
+                #[strong]
+                listview,
+                #[weak(rename_to=imp)]
+                self,
+                move |_sa, _v| {
+                    let Some(song_list_item) = listview
+                        .get_selected_items()
+                        .first()
+                        .cloned()
+                        .and_downcast::<SongObject>()
+                    else {
+                        return;
+                    };
 
-            let add_to_schedule_action = gio::ActionEntry::builder("add-to-schedule")
-                .activate(glib::clone!(
-                    #[strong]
-                    listview,
-                    #[weak(rename_to=imp)]
-                    self,
-                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
-                        let Some(song_list_item) = listview
-                            .get_selected_items()
-                            .first()
-                            .cloned()
-                            .and_downcast::<SongObject>()
-                        else {
-                            return;
-                        };
+                    imp.obj().emit_send_to_schedule(&song_list_item.into())
+                }
+            ));
 
-                        imp.obj().emit_send_to_schedule(&song_list_item.into())
-                    }
-                ))
-                .build();
-
-            let delete_action = gio::ActionEntry::builder("delete")
-                .activate(glib::clone!(
-                    #[weak(rename_to=imp)]
-                    self,
-                    move |_g: &gio::SimpleActionGroup, _sa, _v| {
-                        imp.remove_song();
-                    }
-                ))
-                .build();
+            let delete_action = gio::SimpleAction::new("delete", None);
+            delete_action.connect_activate(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |_sa, _v| imp.remove_song()
+            ));
 
             let menu_action_group = gio::SimpleActionGroup::new();
-            menu_action_group.add_action_entries([
-                add_song_action,
-                edit_action,
-                add_to_schedule_action,
-                delete_action,
-            ]);
+            listview.insert_action_group("song", Some(&menu_action_group));
+            menu_action_group.add_action(&add_song_action);
+            menu_action_group.add_action(&edit_action);
+            menu_action_group.add_action(&add_to_schedule_action);
+            menu_action_group.add_action(&delete_action);
 
             let menu = gtk::gio::Menu::new();
             let add_to_schedule =
@@ -306,18 +297,22 @@ mod imp {
 
             let gesture_click = gtk::GestureClick::new();
             gesture_click.set_button(gtk::gdk::BUTTON_SECONDARY);
-            gesture_click.connect_pressed(glib::clone!(
-                #[strong]
-                popover_menu,
+            gesture_click.connect_released(glib::clone!(
+                #[weak]
+                listview,
                 move |gc, _, x, y| {
-                    let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 10, 10);
+                    let enable = !listview.get_selected_items().is_empty();
+                    edit_action.set_enabled(enable);
+                    add_to_schedule_action.set_enabled(enable);
+                    delete_action.set_enabled(enable);
+
+                    let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
                     popover_menu.set_pointing_to(Some(&rect));
                     popover_menu.popup();
                     gc.set_state(gtk::EventSequenceState::Claimed);
                 }
             ));
 
-            listview.insert_action_group("song", Some(&menu_action_group));
             listview.add_controller(gesture_click);
         }
 
@@ -374,9 +369,9 @@ mod imp {
                 move |w, smd| {
                     println!("SONG saved");
 
-                    let mut _song_obj = SongObject::from(smd.clone());
-                    _song_obj.set_song_id(song_id);
-                    let song_data: SongData = _song_obj.into();
+                    let song_obj = SongObject::from(smd.clone());
+                    song_obj.set_song_id(song_id);
+                    let song_data: SongData = song_obj.into();
                     let res = match w.imp().is_new_song.get() {
                         true => Query::insert_song(song_data),
                         false => Query::update_song(song_data),
@@ -386,13 +381,12 @@ mod imp {
                         Err(x) => println!("SQL ERROR: {:?}", x),
                     };
 
-                    imp.new_song(&smd.clone().into());
+                    imp.reload_song_list();
                 }
             ));
             edit_window.show(song.map(SongObject::into));
         }
-        fn new_song(&self, song: &SongObject) {
-            println!("SONG saved NEW SONG");
+        fn reload_song_list(&self) {
             let songs = Query::get_all_songs();
 
             match songs {

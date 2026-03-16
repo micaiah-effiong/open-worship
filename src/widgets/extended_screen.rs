@@ -60,8 +60,8 @@ mod imp {
                 obj.set_decorated(false);
                 let c = gtk::gdk::Cursor::from_name("none", None);
                 obj.set_cursor(c.as_ref());
+                obj.set_resizable(false);
             }
-            obj.set_resizable(false);
 
             let sm = self.slide_manager.borrow();
             sm.set_animation(true);

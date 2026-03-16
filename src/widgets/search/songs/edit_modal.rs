@@ -74,7 +74,6 @@ mod imp {
             obj.set_resizable(false);
             obj.set_accessible_role(gtk::AccessibleRole::Dialog);
             obj.add_css_class("dialog");
-            //TODO: bind "is_active" to window "visible"
 
             let model = gtk::gio::ListStore::new::<Slide>();
             let selection_model = gtk::SingleSelection::new(Some(model));
@@ -122,6 +121,7 @@ mod imp {
                     .expect("The child has to be a `TextView`.");
 
                 textview.set_margin_all(0);
+                textview.set_wrap_mode(gtk::WrapMode::Word);
 
                 if let Some(buf) = slide.entry_buffer() {
                     textview.set_buffer(Some(&buf));
@@ -527,25 +527,10 @@ impl SongEditWindow {
 
     fn load_song(&self, data: &SlideManagerData) {
         let listview = self.imp().list_view.borrow().clone();
-
         let sm = self.imp().slide_manager.borrow();
-        sm.reset();
 
-        let sobj: SongObject = data.clone().into();
-        let verses = sobj.verses();
-        let slide_obj_zip = data.slides.iter().zip(verses.iter());
-
-        for (slide, verse) in slide_obj_zip {
-            let slide = sm.new_slide(Some(slide.clone()), true);
-
-            if let Some(canvas) = slide.canvas() {
-                for t in canvas.widget().get_children::<TextItem>() {
-                    let buff = t.buffer();
-                    buff.set_text(&verse.text);
-                    break;
-                }
-            }
-
+        for slide_data in data.slides.iter() {
+            let slide = sm.new_slide(Some(slide_data.clone()), true);
             listview.append_item(&slide);
         }
 
