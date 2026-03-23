@@ -1,13 +1,17 @@
 use std::usize;
 
 use gtk::{
-    glib::{self, subclass::types::ObjectSubclassIsExt},
-    prelude::WidgetExt,
+    glib::{self, object::CastNone, subclass::types::ObjectSubclassIsExt},
+    prelude::{GtkWindowExt, WidgetExt},
 };
 
 use crate::{
+    services::message_alert_manager::MessageAlertManager,
     utils::WidgetChildrenExt,
-    widgets::canvas::{canvas_item::CanvasItem, serialise::SlideManagerData},
+    widgets::{
+        canvas::{canvas_item::CanvasItem, serialise::SlideManagerData},
+        message_alert_wrapper::MessageAlertWapper,
+    },
 };
 
 mod signals {}
@@ -186,5 +190,18 @@ impl ExtendedScreen {
                 text.set_visible(!clear);
             }
         }
+    }
+
+    pub fn set_alert_manager(&self, alert_manager: &MessageAlertManager) {
+        let imp = self.imp();
+        let sm = imp.slide_manager.borrow();
+
+        let binding = self.child();
+        let Some(a_frame) = binding.and_downcast_ref::<gtk::AspectFrame>() else {
+            return;
+        };
+        a_frame.set_child(None::<&gtk::Widget>);
+        let alert_wrapper = MessageAlertWapper::new(&sm, alert_manager);
+        a_frame.set_child(Some(&alert_wrapper));
     }
 }

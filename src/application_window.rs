@@ -10,28 +10,31 @@ mod imp {
         gio::prelude::{ApplicationExt, ListModelExt},
         glib::{
             self, Properties,
-            object::Cast,
+            object::{Cast, CastNone},
             subclass::{
                 object::{ObjectImpl, ObjectImplExt},
                 types::ObjectSubclass,
             },
             types::StaticTypeExt,
         },
-        prelude::{GtkWindowExt, ObjectExt, ToggleButtonExt, WidgetExt},
+        prelude::{GtkWindowExt, ObjectExt, PopoverExt, ToggleButtonExt, WidgetExt},
         subclass::{
             prelude::{ApplicationWindowImpl, DerivedObjectProperties},
             widget::{
                 CompositeTemplateCallbacksClass, CompositeTemplateClass,
                 CompositeTemplateInitializingExt, WidgetClassExt, WidgetImpl,
             },
-            window::WindowImpl,
+            window::{WindowImpl, WindowImplExt},
         },
     };
 
-    use crate::widgets::{
-        activity_viewer::ActivityViewer, canvas::serialise::SlideManagerData,
-        extended_screen::ExtendedScreen, schedule_activity_viewer::ScheduleActivityViewer,
-        search::SearchActivityViewer,
+    use crate::{
+        services::message_alert_manager::MessageAlertManager,
+        widgets::{
+            activity_viewer::ActivityViewer, canvas::serialise::SlideManagerData,
+            extended_screen::ExtendedScreen, message_alert_viewer::MessageAlertViewer,
+            schedule_activity_viewer::ScheduleActivityViewer, search::SearchActivityViewer,
+        },
     };
 
     #[derive(Default, gtk::CompositeTemplate, Properties)]
@@ -52,12 +55,19 @@ mod imp {
         #[property(get)]
         #[template_child]
         live_viewer: gtk::TemplateChild<ActivityViewer>,
+        #[template_child]
+        alert_popover: gtk::TemplateChild<gtk::Popover>,
+        #[template_child]
+        alert_btn: gtk::TemplateChild<gtk::MenuButton>,
 
+        //
         #[property(get)]
         extended_screen: RefCell<ExtendedScreen>,
 
         //
         slide_change_handler_id: RefCell<Option<glib::SignalHandlerId>>,
+
+        alert_manager: RefCell<MessageAlertManager>,
     }
 
     #[glib::object_subclass]
@@ -70,6 +80,7 @@ mod imp {
             SearchActivityViewer::ensure_type();
             ScheduleActivityViewer::ensure_type();
             ActivityViewer::ensure_type();
+            MessageAlertViewer::ensure_type();
 
             klass.bind_template();
             klass.bind_template_callbacks();
@@ -84,6 +95,9 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
 
+            self.extended_screen
+                .borrow()
+                .set_alert_manager(&self.alert_manager.borrow().clone());
             let id = self.live_viewer.connect_slide_change(glib::clone!(
                 #[weak(rename_to=imp)]
                 self,
@@ -92,10 +106,27 @@ mod imp {
                 }
             ));
             self.slide_change_handler_id.replace(Some(id));
+
+            // set popover viewer
+            self.alert_popover
+                .set_child(Some(&self.alert_manager.borrow().viewer()));
+            if let Some(btn) = self
+                .alert_btn
+                .first_child()
+                .and_downcast_ref::<gtk::ToggleButton>()
+            {
+                btn.add_css_class("flat");
+            }
         }
     }
     impl WidgetImpl for MainApplicationWindow {}
-    impl WindowImpl for MainApplicationWindow {}
+    impl WindowImpl for MainApplicationWindow {
+        fn close_request(&self) -> glib::Propagation {
+            println!("application_window.rs close");
+            self.parent_close_request();
+            glib::Propagation::Proceed
+        }
+    }
     impl ApplicationWindowImpl for MainApplicationWindow {}
 
     #[gtk::template_callbacks]

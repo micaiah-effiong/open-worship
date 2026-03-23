@@ -87,6 +87,12 @@ mod imp {
         #[template_child]
         transition_scale: gtk::TemplateChild<gtk::Scale>,
 
+        // alert
+        #[template_child]
+        alert_dropdown: gtk::TemplateChild<gtk::DropDown>,
+        #[template_child]
+        alert_count_btn: gtk::TemplateChild<gtk::SpinButton>,
+
         monitor_map: RefCell<HashMap<String, gdk::Monitor>>,
 
         fonts_map: RefCell<HashMap<String, pango::FontFamily>>,
@@ -114,6 +120,7 @@ mod imp {
             self.register_transtions();
             self.register_song_fonts();
             self.register_scripture_fonts();
+            self.register_alert();
 
             self.sidebar.set_stack(&self.stack);
 
@@ -199,6 +206,41 @@ mod imp {
             let mut fonts = font_map.keys().map(|v| v.clone()).collect::<Vec<_>>();
             fonts.sort();
             fonts
+        }
+        fn register_alert(&self) {
+            let positions = ["Top", "Bottom"];
+            let model = gtk::StringList::new(&positions);
+
+            let model = gtk::SingleSelection::new(Some(model));
+            let alert_position_dropdown = self.alert_dropdown.clone();
+
+            let Some(factory) = alert_position_dropdown
+                .factory()
+                .and_downcast::<gtk::SignalListItemFactory>()
+            else {
+                return;
+            };
+
+            factory.connect_bind(move |_, list_item| {
+                let li = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem");
+
+                let li_box = li.child().expect("Needs to be a box");
+                let label = li_box
+                    .get_children::<gtk::Label>()
+                    .next()
+                    .expect("Need to be a label");
+
+                let item = li
+                    .item()
+                    .and_downcast::<gtk::StringObject>()
+                    .expect("Needs to be a label");
+
+                label.set_label(&item.string());
+            });
+
+            alert_position_dropdown.set_model(Some(&model));
         }
         fn register_scripture_fonts(&self) {
             let binding = self.get_fonts();
@@ -434,6 +476,14 @@ mod imp {
                         Some(font.to_variant())
                     }
                 ))
+                .build();
+
+            settings
+                .bind_alert_position(&self.alert_dropdown.clone(), "selected")
+                .build();
+
+            settings
+                .bind_alert_count(&self.alert_count_btn.clone(), "value")
                 .build();
         }
     }

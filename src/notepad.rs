@@ -12,8 +12,9 @@ use gtk::glib::object::IsA;
 use gtk::glib::prelude::*;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{
-    AccessibleExt, BoxExt, ButtonExt, DialogExt, GtkApplicationExt, GtkWindowExt, SnapshotExt,
-    StyleContextExt, TextBufferExt, TextViewExt, WidgetExt,
+    AccessibleExt, AdjustmentExt, BoxExt, ButtonExt, DialogExt, GtkApplicationExt, GtkWindowExt,
+    ScrollableExt, SnapshotExt, StyleContextExt, TextBufferExt, TextViewExt, WidgetExt,
+    WidgetExtManual,
 };
 use gtk::subclass::window;
 use gtk::{CssProvider, pango};
@@ -21,6 +22,8 @@ use serde::Serialize;
 
 use crate::app_config::{self, AppConfig};
 use crate::format_resource;
+use crate::services::alert::Alert;
+use crate::services::message_alert_manager::MessageAlertManager;
 use crate::services::slide::Slide;
 use crate::services::slide_manager::SlideManager;
 use crate::utils::{WidgetChildrenExt, WidgetExtrasExt, setup_theme_listener};
@@ -29,6 +32,11 @@ use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use crate::widgets::canvas::text_item::{self, TextItem};
 use crate::widgets::entry_combo::EntryCombo;
 use crate::widgets::extended_screen::ExtendedScreen;
+use crate::widgets::message_alert::{self, MessageAlert};
+use crate::widgets::message_alert_editor::MessageAlertEditor;
+use crate::widgets::message_alert_editor_window::MessageAlertEditorWindow;
+use crate::widgets::message_alert_viewer::MessageAlertViewer;
+use crate::widgets::message_alert_wrapper::MessageAlertWapper;
 use crate::widgets::settings_window::SettingsWindow;
 use crate::widgets::{self, canvas, search};
 
@@ -81,6 +89,13 @@ pub fn init_app() {
             // // SongEditWindow::new().present();
 
             // let win = SettingsWindow::new();
+            // app.add_window(&win);
+            // win.present();
+        }
+        {
+            // let win = gtk::Window::new();
+            // let alert_viewer = MessageAlertViewer::new();
+            // win.set_child(Some(&alert_viewer));
             // app.add_window(&win);
             // win.present();
         }
@@ -303,7 +318,7 @@ fn build_ui(app: &gtk::Application) {
         });
 
         let notify_btn = gtk::Button::with_label("Notify");
-        // t_box.append(&notify_btn);
+        t_box.append(&notify_btn);
         let a = gtk::DropDown::from_strings(&["1", "2", "3"]);
         t_box.append(&a);
         a.set_selected(2);
@@ -322,9 +337,10 @@ fn build_ui(app: &gtk::Application) {
     v_box.append(&buff_tv);
     v_box.append(&picture);
 
-    // sm.new_slide(None, false);
-    // sm.next_slide();
-    aspect_frame.set_child(Some(&sm.slideshow()));
+    let alert_manager = MessageAlertManager::new();
+    let wrap = MessageAlertWapper::new(&sm, &alert_manager);
+
+    aspect_frame.set_child(Some(&wrap));
 
     app_window.set_child(Some(&v_box));
     app_window.present();

@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="MessageAlertEditorWindow" parent="GtkWindow">
+    <property name="title">Alert Editor</property>
+    <property name="default_width">500</property>
+    <property name="default_height">300</property>
+    <!-- <property name="modal">true</property> -->
+    <property name="focus_visible">true</property>
+    <property name="resizable">false</property>
+
+    <child>
+      <object class="GtkBox"> 
+        <property name="orientation">vertical</property>
+        <child>
+          <object class="GtkBox" id="header"> 
+            <property name="height_request">40</property>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="margin_top">5</property>
+                <property name="margin_bottom">5</property>
+                <property name="margin_start">5</property>
+                <property name="margin_end">5</property>
+
+                <child>
+                  <object class="GtkLabel">
+                    <property name="halign">start</property>
+                    <property name="use-markup">true</property>
+                    <property name="label"><![CDATA[<span size="x-large"><b>Alert Editor</b></span>]]></property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="halign">start</property>
+                    <property name="label">Create new alerts or edit existing ones</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkSeparator"></object>
+        </child>
+
+        <child>
+          <object class="GtkBox"> 
+            <property name="vexpand">true</property>
+            <child>
+              <object class="GtkBox"> 
+                <property name="width_request">120</property>
+                <property name="orientation">vertical</property>
+
+                <child>
+                  <object class="GtkStackSidebar" id="sidebar"> 
+                    <property name="width_request">120</property>
+                    <property name="vexpand">true</property>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkSeparator"> </object>
+                </child>
+
+                <child>
+                  <object class="GtkBox"> 
+                    <property name="height_request">15</property>
+                    <property name="margin_top">3</property>
+                    <property name="margin_bottom">3</property>
+                    <property name="margin_start">3</property>
+                    <property name="margin_end">3</property>
+                    <child>
+                      <object class="GtkButton"> 
+                        <style>
+                          <class name="small-btn"/>
+                        </style>
+                        <property name="icon_name">plus</property>
+                        <property name="margin_end">3</property>
+                        <signal name="clicked" handler="handle_add_alert" swapped="true"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkButton"> 
+                        <style>
+                          <class name="small-btn"/>
+                        </style>
+                        <property name="icon_name">minus</property>
+                        <signal name="clicked" handler="handle_remove_alert" swapped="true"/>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+
+            <child>
+              <object class="GtkSeparator"> </object>
+            </child>
+
+            <child>
+              <object class="GtkStack" id="stack"> 
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkSeparator"></object>
+        </child>
+
+        <child>
+          <object class="GtkBox" id="footer"> 
+            <property name="height_request">15</property>
+            <property name="margin_top">5</property>
+            <property name="margin_bottom">5</property>
+            <property name="margin_start">5</property>
+            <property name="margin_end">5</property>
+            <child>
+              <object class="GtkBox">
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton">
+                <property name="label">Close</property>
+                <property name="action-name">window.close</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+      </object>
+    </child>
+  </template>
+</interface>

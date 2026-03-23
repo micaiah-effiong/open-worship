@@ -28,6 +28,25 @@
                 <property name="spacing">5</property>
                 
                 <child>
+                  <object class="GtkMenuButton" id="alert_btn">
+                    <!-- <signal name="clicked" handler="handle_open_alert" swapped="true"/> -->
+
+                    <property name="popover">
+                      <object class="GtkPopover" id="alert_popover">
+                        <property name="autohide">false</property>
+                      </object>
+                    </property>
+
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Alert</property>
+                      </object>
+                    </child>
+
+                  </object>
+                </child>
+
+                <child>
                   <object class="GtkButton">
                     <signal name="clicked" handler="handle_go_live" swapped="true"/>
                     <style>
@@ -175,7 +194,7 @@
 
             <child>
               <object class="GtkLabel">
-                <property name="label">footer</property>
+                <property name="label"></property>
               </object>
             </child>
           </object>

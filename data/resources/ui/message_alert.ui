@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="MessageAlert" parent="GtkBox">
+
+    <child>
+      <object class="GtkStack" id="stack">
+        <property name="transition_type">slide-down</property>
+        <property name="transition_duration">1000</property>
+
+        <child>
+          <object  class="GtkStackPage">
+            <property name="name">label</property>
+            <property name="child">
+              <object class="GtkBox" id="label_box">
+              </object>
+            </property>
+          </object>
+        </child>
+
+        <child>
+          <object  class="GtkStackPage">
+            <property name="name">scroll</property>
+            <property name="child">
+              <object  class="GtkScrolledWindow" id="scrolled">
+                <property name="hexpand">true</property>
+
+
+                <child>
+                  <object  class="GtkBox" id="scrolled_box">
+                    <property name="orientation">horizontal</property>
+
+                    <child> 
+                      <object class="GtkBox" id="front_spacer">
+                        <property name="orientation">horizontal</property>
+                        <property name="hexpand">true</property>
+                        <style>
+                          <class name="alert-label" />
+                        </style>
+                      </object>
+                    </child>
+
+                    <child> 
+                      <object class="GtkBox" id="back_spacer">
+                        <property name="orientation">horizontal</property>
+                        <property name="hexpand">true</property>
+                        <style>
+                          <class name="alert-label" />
+                        </style>
+                      </object>
+                    </child>
+
+                  </object>
+                </child>
+
+              </object>
+            </property>
+          </object>
+        </child>
+
+      </object>
+    </child>
+
+
+  </template>
+</interface>

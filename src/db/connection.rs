@@ -55,6 +55,7 @@ pub fn load_db() {
     create_song_verses_table();
     create_bible_books_table();
     create_translations_table();
+    create_alerts_table();
     insert_bible_books();
 
     let _ = DatabaseConnection::with_db(|c| c.pragma_update(None, "journal_mode", "WAL"));
@@ -71,25 +72,6 @@ pub fn create_bible_books_table() {
 
     if ex.is_err() {
         panic!("Could not create bible_books table {:?}", ex);
-    }
-}
-
-pub fn create_bible_book_verses_table(translation: String) {
-    let sql = format!(
-        "CREATE TABLE IF NOT EXISTS {translation}_verses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            book_id INTEGER NOT NULL,
-            chapter INTEGER NOT NULL,
-            verse INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            FOREIGN KEY (book_id) REFERENCES {translation}_books(id)
-        )"
-    );
-
-    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
-
-    if ex.is_err() {
-        panic!("Could not create {translation}_verses table {:?}", ex);
     }
 }
 
@@ -145,6 +127,22 @@ fn insert_bible_books() {
     let ex = DatabaseConnection::with_db(|c| c.execute_batch(&sql));
     if ex.is_err() {
         panic!("Could not create song verses table {:?}", ex);
+    }
+}
+
+pub fn create_alerts_table() {
+    let sql = "CREATE TABLE IF NOT EXISTS alerts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            message TEXT NOT NULL,
+            count INTEGER NOT NULL DEFAULT 0,
+            active BOOLEAN NOT NULL DEFAULT FALSE
+        )"
+    .to_string();
+
+    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
+    if ex.is_err() {
+        panic!("Could not create alerts table {:?}", ex);
     }
 }
 

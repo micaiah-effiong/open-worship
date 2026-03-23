@@ -39,6 +39,15 @@
       <range min="100" max="1000"/>
       <summary>Default transition duration</summary>
     </key>
-
+    <key name="alert-count" type="u">
+      <default>3</default>
+      <range min="0" max="100"/>
+      <summary>Default Alert Count</summary>
+    </key>
+    <key name="alert-position" type="u">
+      <range min="0" max="1"/>
+      <default>1</default>
+      <summary>Alert position</summary>
+    </key>
   </schema>
 </schemalist>

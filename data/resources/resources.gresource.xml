@@ -54,7 +54,12 @@
     <file compressed="true">ui/app_window.ui</file>
     <file compressed="true">ui/settings_window.ui</file>
     <file compressed="true">ui/app_menubar.ui</file>
+    <file compressed="true">ui/message_alert.ui</file>
+    <file compressed="true">ui/message_alert_editor_window.ui</file>
+    <file compressed="true">ui/message_alert_editor.ui</file>
+    <file compressed="true">ui/message_alert_viewer.ui</file>
   </gresource>
+
   <gresource prefix="/com/openworship/app/data">
     <file compressed="true">bible.json</file>
   </gresource>

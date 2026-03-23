@@ -273,11 +273,11 @@ impl SlideManager {
         self.emit_by_name::<()>(signals::SLIDES_SORTED, &[]);
     }
 
-    pub fn connect_new_slide_created<F: Fn(&Slide) -> () + 'static>(&self, f: F) {
+    pub fn connect_new_slide_created<F: Fn(&Self, &Slide) -> () + 'static>(&self, f: F) {
         self.connect_closure(
             signals::NEW_SLIDE_CREATED,
             false,
-            glib::closure_local!(move |_: &Self, slide: &Slide| f(slide)),
+            glib::closure_local!(move |obj: &Self, slide: &Slide| f(obj, slide)),
         );
     }
 

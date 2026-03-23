@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="MessageAlertViewer" parent="GtkBox">
+    <property name="width_request">400</property>
+    <property name="height_request">250</property>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="margin_top">5</property>
+        <property name="margin_bottom">5</property>
+        <property name="margin_start">5</property>
+        <property name="margin_end">5</property>
+        <property name="hexpand">true</property>
+
+        <child>
+          <object class="GtkBox">
+            <property name="margin_bottom">5</property>
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Message Alert</property>
+                <property name="margin_end">10</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton">
+
+                <style>
+                  <class name="small-btn"/>
+                </style>
+                <property name="label">Edit</property>
+                <property name="halign">end</property>
+                <signal name="clicked" handler="handle_open_editor_window" swapped="true"/>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkScrolledWindow">
+            <property name="vexpand">true</property>
+            <child>
+              <object class="GtkColumnView" id="column_view">
+                <style>
+                  <class name="frame"/>
+                </style>
+                <property name="show_column_separators">true</property>
+                <property name="reorderable">false</property>
+                <property name="model">
+                  <object class="GtkSingleSelection"> </object>
+                </property>
+                <child>
+                  <object class="GtkColumnViewColumn">
+                    <property name="factory">
+                      <object class="GtkBuilderListItemFactory">
+                        <property name="bytes">
+                          <![CDATA[
+                          <?xml version="1.0" encoding="UTF-8"?>
+                          <interface>
+                            <template class="GtkListItem">
+                              <property name="child">
+                                <object class="GtkImage">
+                                  <binding name="icon-name">
+                                    <closure type="gchararray" function="get_active_icon">
+                                      <lookup type="Alert" name="active">
+                                        <lookup name="item">GtkListItem</lookup>
+                                      </lookup>
+                                    </closure>
+                                  </binding>
+                                </object>
+                              </property>
+                            </template>
+                          </interface>
+                            ]]>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkColumnViewColumn">
+                    <property name="title" translatable="yes">Message</property>
+                    <property name="expand">true</property>
+
+                    <property name="factory">
+                      <object class="GtkBuilderListItemFactory">
+                        <property name="bytes">
+                          <![CDATA[
+                          <?xml version="1.0" encoding="UTF-8"?>
+                          <interface>
+                            <template class="GtkListItem">
+                              <property name="child">
+                                <object class="GtkLabel">
+                                  <property name="xalign">0</property>
+                                  <binding name="label">
+                                    <lookup type="Alert" name="name">
+                                      <lookup name="item">GtkListItem</lookup>
+                                    </lookup>
+                                  </binding>
+                                </object>
+                              </property>
+                            </template>
+                          </interface>
+                            ]]>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkColumnViewColumn">
+                    <property name="title" translatable="yes">Count</property>
+                    <property name="factory">
+                      <object class="GtkBuilderListItemFactory">
+                        <property name="bytes">
+                          <![CDATA[
+                          <?xml version="1.0" encoding="UTF-8"?>
+                          <interface>
+                            <template class="GtkListItem">
+                              <property name="child">
+                                <object class="GtkLabel">
+                                  <property name="xalign">0</property>
+                                  <binding name="label">
+                                    <lookup name="count" type="Alert">
+                                      <lookup name="item">GtkListItem</lookup>
+                                    </lookup>
+                                  </binding>
+                                </object>
+                              </property>
+                            </template>
+                          </interface>
+                            ]]>
+                        </property>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkBox" id="footer">
+            <property name="margin_top">5</property>
+            <property name="spacing">5</property>
+            <child>
+              <object class="GtkToggleButton" id="toggle_alert_btn">
+                <property name="label">Show</property>
+                <signal name="toggled" handler="handle_toggle_alert" swapped="true"/>
+              </object>
+            </child>
+
+            <child>
+              <object class="GtkBox" >
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+
+            <child>
+              <object class="GtkButton" id="increase_count_btn">
+                <property name="icon_name">plus</property>
+                <signal name="clicked" handler="handle_inc_count" swapped="true"/>
+              </object>
+            </child>
+
+            <child>
+              <object class="GtkButton" id="decrease_count_btn">
+                <property name="icon_name">minus</property>
+                <signal name="clicked" handler="handle_dec_count" swapped="true"/>
+              </object>
+            </child>
+
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>
+
+

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="MessageAlertEditor" parent="GtkBox">
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">vertical</property>
+        <property name="margin_top">5</property>
+        <property name="margin_bottom">5</property>
+        <property name="margin_start">5</property>
+        <property name="margin_end">5</property>
+
+        <child>
+          <object class="GtkBox">
+            <child>
+              <object class="GtkLabel">
+                <property name="label">Alert name</property>
+                <property name="margin_end">10</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkEntry" id="alert_name">
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkBox">
+            <property name="hexpand">true</property>
+            <child>
+              <object class="GtkTextView" id="alert_message">
+                <property name="editable">true</property>
+                <property name="wrap_mode">word</property>
+                <property name="hexpand">true</property>
+                <property name="vexpand">true</property>
+                <property name="margin_top">10</property>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkBox">
+            <property name="hexpand">true</property>
+            <child>
+              <object class="GtkBox">
+                <property name="hexpand">true</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="alert_use_btn">
+                <property name="margin_top">10</property>
+                <property name="halign">end</property>
+                <property name="label">Use</property>
+                <signal name="clicked" handler="handler_use_alert" swapped="true"/>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </template>
+</interface>
