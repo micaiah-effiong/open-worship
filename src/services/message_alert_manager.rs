@@ -84,6 +84,20 @@ mod imp {
                 #[strong]
                 obj,
                 move |_, alert| {
+                    let alerts = obj.alerts();
+                    let Some(model) = alerts.model().and_downcast::<gio::ListStore>() else {
+                        return;
+                    };
+
+                    for i in 0..model.n_items() {
+                        let Some(item) = model.item(i).and_downcast::<Alert>() else {
+                            continue;
+                        };
+                        if item == *alert {
+                            return;
+                        }
+                    }
+
                     obj.add_alert(alert.clone());
                 }
             ));

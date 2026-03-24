@@ -4,7 +4,7 @@ use rusqlite::{Result as RuResult, params};
 use crate::{
     db::connection::BibleVerse,
     dto::{SongData, SongVerse},
-    services::alert::Alert,
+    services::{alert::Alert, settings::ApplicationSettings},
     widgets::canvas::serialise::{CanvasItemType, SlideData},
 };
 
@@ -332,19 +332,19 @@ impl Query {
     }
 
     pub fn get_alerts() -> RuResult<Vec<Alert>> {
-        let get_alert_sql = "SELECT id, name, message, count, active FROM alerts";
+        let get_alert_sql = "SELECT id, name, message FROM alerts";
 
         DatabaseConnection::with_db(|conn| {
+            let count = ApplicationSettings::get_instance().alert_count();
+
             let mut stmt = conn.prepare(get_alert_sql)?;
             let values = stmt
                 .query_map([], |row| {
                     let id = row.get::<_, u32>(0)?;
                     let name = row.get::<_, String>(1)?;
                     let message = row.get::<_, String>(2)?;
-                    let count = row.get::<_, u32>(3)?;
-                    let active = row.get::<_, bool>(4)?;
 
-                    let alert = Alert::new(name, message, count, active);
+                    let alert = Alert::new(name, message, count, false);
                     alert.set_id(id);
                     Ok(alert)
                 })?
@@ -355,21 +355,12 @@ impl Query {
     }
 
     pub fn insert_alerts(alerts: Vec<Alert>) -> RuResult<()> {
-        let insert_alert_sql =
-            "INSERT INTO alerts(name, message, count, active) VALUES(?1,?2,?3,?4)";
+        let insert_alert_sql = "INSERT INTO alerts(name, message) VALUES(?1,?2)";
 
         let r = DatabaseConnection::with_mut_db(|conn| {
             let trx = conn.transaction()?;
             for alert in alerts {
-                trx.execute(
-                    insert_alert_sql,
-                    (
-                        &alert.name(),
-                        &alert.message(),
-                        &alert.count(),
-                        &alert.active(),
-                    ),
-                )?;
+                trx.execute(insert_alert_sql, (&alert.name(), &alert.message()))?;
             }
 
             trx.commit()
@@ -379,21 +370,14 @@ impl Query {
     }
 
     pub fn update_alerts(alerts: Vec<Alert>) -> RuResult<()> {
-        let update_alert_sql =
-            "UPDATE alerts SET name=?2, message=?3, count=?4, active=?5 WHERE id=?1";
+        let update_alert_sql = "UPDATE alerts SET name=?2, message=?3 WHERE id=?1";
 
         let r = DatabaseConnection::with_mut_db(|conn| {
             let trx = conn.transaction()?;
             for alert in alerts {
                 trx.execute(
                     update_alert_sql,
-                    (
-                        &alert.id(),
-                        &alert.name(),
-                        &alert.message(),
-                        &alert.count(),
-                        &alert.active(),
-                    ),
+                    (&alert.id(), &alert.name(), &alert.message()),
                 )?;
             }
 

@@ -3,6 +3,7 @@ use gtk::glib::object::ObjectExt;
 use gtk::{self};
 
 use crate::services::alert::Alert;
+use crate::services::settings::ApplicationSettings;
 
 mod signals {
     pub(super) const USE_ALERT: &str = "use-alert";
@@ -193,6 +194,8 @@ impl MessageAlertEditorWindow {
     }
 
     pub fn emit_use_alert(&self, alert: &Alert) {
+        let settings = ApplicationSettings::get_instance();
+        alert.set_count(settings.alert_count());
         self.emit_by_name::<()>(signals::USE_ALERT, &[alert]);
     }
 

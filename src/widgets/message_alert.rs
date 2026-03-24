@@ -249,6 +249,7 @@ impl MessageAlert {
                 .get_children::<Label>()
                 .for_each(|v| v.unparent());
         });
+        self.imp().scrolled.hadjustment().set_value(0.0);
         tick_id.remove();
     }
 
