@@ -1,12 +1,9 @@
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 
-use crate::services::settings::{self, ApplicationSettings};
+use crate::services::settings::ApplicationSettings;
 
 pub const MAGIC_HEADER: &[u8] = b"OPW\x01";
-fn default_font_weight() -> String {
-    "regular".into()
-}
 
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
 #[boxed_type(name = "TextItemData")]
@@ -16,15 +13,9 @@ pub struct TextItemData {
     pub font: String,
     #[serde(rename = "font-size")]
     pub font_size: f32,
-    #[serde(rename = "font-style")]
-    pub font_style: String,
-    #[serde(rename = "font-weight", default = "default_font_weight")]
-    pub font_weight: String,
     pub justification: u32, // should be enum
     pub align: u32,         // should be enum
-    pub color: String,
-    #[serde(rename = "text-underline")]
-    pub text_underline: bool,
+
     #[serde(rename = "text-outline")]
     pub text_outline: bool,
     #[serde(rename = "text-shadow")]
@@ -131,14 +122,10 @@ impl SlideData {
                 text_data: String::new(),
                 font: settings.song_font(),
                 font_size: 16.0,
-                font_style: "normal".into(),
-                font_weight: "regular".into(),
                 justification: 1,
                 align: 1,
-                color: "#ffffffff".into(),
-                text_underline: false,
                 text_outline: false,
-                text_shadow: false,
+                text_shadow: true,
             }
         };
         let canvas_item = CanvasItemData::new(-602, -16, 2710, 1529, CanvasItemType::Text(text));

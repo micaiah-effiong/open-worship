@@ -1,11 +1,6 @@
 use gtk::{
-    SingleSelection,
     gio::prelude::ListModelExt,
-    glib::{
-        self,
-        object::{CastNone, ObjectExt},
-        subclass::types::ObjectSubclassIsExt,
-    },
+    glib::{self, object::ObjectExt, subclass::types::ObjectSubclassIsExt},
     prelude::{SelectionModelExt, WidgetExt},
 };
 

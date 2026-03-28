@@ -421,10 +421,13 @@ pub trait WidgetExtrasExt: IsA<gtk::Widget> {
 }
 impl<O: IsA<gtk::Widget>> WidgetExtrasExt for O {}
 
-pub trait ColorDialogButtonExtra: IsA<gtk::ColorDialogButton> {
-    fn hex(&self) -> String {
-        let obj = self.upcast_ref::<gtk::ColorDialogButton>();
-        let rgba = obj.rgba();
+pub trait RGBExtra {
+    fn to_hex(&self) -> String;
+}
+
+impl RGBExtra for gtk::gdk::RGBA {
+    fn to_hex(&self) -> String {
+        let rgba = self.clone();
         let r = (rgba.red() * 255.0) as u8;
         let g = (rgba.green() * 255.0) as u8;
         let b = (rgba.blue() * 255.0) as u8;
@@ -432,7 +435,6 @@ pub trait ColorDialogButtonExtra: IsA<gtk::ColorDialogButton> {
         format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a).to_lowercase()
     }
 }
-impl<O: IsA<gtk::ColorDialogButton>> ColorDialogButtonExtra for O {}
 
 //
 #[macro_export]
@@ -537,4 +539,202 @@ pub fn space_camelcase(s: &str) -> String {
         result.push(c);
     }
     result
+}
+
+pub mod text_tags {
+    pub const BOLD: &str = "bold";
+    pub const ITALIC: &str = "italic";
+    pub const UNDERLINE: &str = "underline";
+}
+
+pub mod buffer_markup {
+
+    use gtk::{
+        TextIter,
+        glib::{
+            self,
+            object::{Cast, IsA, ObjectExt},
+        },
+        prelude::TextBufferExt,
+    };
+
+    use crate::utils::RGBExtra;
+
+    pub fn buffer_to_markup(buffer: &gtk::TextBuffer) -> String {
+        let mut markup = String::new();
+        let start = buffer.start_iter();
+        let end = buffer.end_iter();
+
+        let mut iter = start;
+        while iter < end {
+            // Collect tags turning ON at this position
+            for tag in iter.toggled_tags(true) {
+                // println!("tag: {:?}", get_truthy_properties(&tag));
+                let attrs = get_truthy_properties(&tag)
+                    .iter()
+                    .filter_map(|(n, v)| Some(format!("{n}=\"{v}\"")))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+
+                markup.push_str(&format!("<span {attrs}>"));
+            }
+
+            // Append the character (escaped for Pango markup)
+            let ch = iter.char();
+            match ch {
+                '<' => markup.push_str("&lt;"),
+                '>' => markup.push_str("&gt;"),
+                '&' => markup.push_str("&amp;"),
+                _ => markup.push(ch),
+            }
+
+            // Collect tags turning OFF after this character
+            iter.forward_char();
+            for _tag in iter.toggled_tags(false) {
+                markup.push_str("</span>");
+            }
+        }
+
+        markup
+    }
+
+    fn get_truthy_properties<T: glib::object::IsA<glib::Object>>(obj: &T) -> Vec<(String, String)> {
+        let object = obj.as_ref();
+
+        object
+            .list_properties()
+            .iter()
+            .filter(|p| p.flags().contains(glib::ParamFlags::READABLE))
+            .filter(|p| p.name().ends_with("-set"))
+            .filter(|p| obj.property_value(p.name()).get::<bool>().unwrap_or(false))
+            .filter_map(|p| {
+                let name = p.name().trim_end_matches("-set").to_string();
+                let readable_name = match name.as_str() {
+                    "foreground" => "foreground-rgba",
+                    "background" => "background-rgba",
+                    "paragraph-background" => "paragraph-background-rgba",
+                    _ => &name,
+                };
+
+                let raw = obj.property_value(&readable_name);
+
+                match cast_value(&raw) {
+                    Some(pv) => Some((name, pv)),
+                    None => None,
+                }
+            })
+            .filter_map(|(n, v)| is_truthy(&v).then(|| (n, v.to_display_string())))
+            .collect()
+    }
+
+    #[derive(Debug)]
+    enum PropValue {
+        Bool(bool),
+        I32(i32),
+        U32(u32),
+        I64(i64),
+        U64(u64),
+        F32(f32),
+        F64(f64),
+        String(String),
+        Object(glib::Object),
+        Other(String), // fallback: type name as string
+    }
+    impl PropValue {
+        pub fn to_display_string(&self) -> String {
+            match self {
+                PropValue::Bool(v) => v.to_string(),
+                PropValue::I32(v) => v.to_string(),
+                PropValue::U32(v) => v.to_string(),
+                PropValue::I64(v) => v.to_string(),
+                PropValue::U64(v) => v.to_string(),
+                PropValue::F32(v) => v.to_string(),
+                PropValue::F64(v) => v.to_string(),
+                PropValue::String(v) => v.clone(),
+                PropValue::Object(_) => "".to_string(),
+                PropValue::Other(_) => "".to_string(),
+            }
+        }
+    }
+    fn is_truthy(value: &PropValue) -> bool {
+        match value {
+            PropValue::Bool(b) => *b != false,
+            PropValue::I32(i) => *i != 0,
+            PropValue::U32(i) => *i != 0,
+            PropValue::I64(i) => *i != 0,
+            PropValue::U64(i) => *i != 0,
+            PropValue::F32(i) => *i != 0.0,
+            PropValue::F64(i) => *i != 0.0,
+            PropValue::String(s) => !s.is_empty(),
+            PropValue::Object(_) => false,
+            PropValue::Other(_) => false,
+        }
+    }
+
+    fn cast_value(value: &glib::Value) -> Option<PropValue> {
+        use glib::types::Type;
+        match value.type_() {
+            Type::BOOL => Some(PropValue::Bool(value.get::<bool>().ok()?)),
+            Type::I32 => Some(PropValue::I32(value.get::<i32>().ok()?)),
+            Type::U32 => Some(PropValue::U32(value.get::<u32>().ok()?)),
+            Type::I64 => Some(PropValue::I64(value.get::<i64>().ok()?)),
+            Type::U64 => Some(PropValue::U64(value.get::<u64>().ok()?)),
+            Type::F32 => Some(PropValue::F32(value.get::<f32>().ok()?)),
+            Type::F64 => Some(PropValue::F64(value.get::<f64>().ok()?)),
+            Type::STRING => Some(PropValue::String(value.get::<String>().ok()?)),
+
+            _ => {
+                if let Ok(val) = value.clone().get::<gtk::pango::Style>() {
+                    let val = format!("{:?}", val).to_lowercase();
+                    return Some(PropValue::String(val));
+                };
+                if let Ok(val) = value.clone().get::<gtk::pango::Underline>() {
+                    let val = format!("{:?}", val).to_lowercase();
+                    return Some(PropValue::String(val));
+                };
+                if let Ok(val) = value.clone().get::<gtk::gdk::RGBA>() {
+                    return Some(PropValue::String(val.to_hex()));
+                };
+                println!("cast = {:?}", value.type_());
+                return None;
+            }
+        }
+    }
+
+    pub trait TextBufferExtra: IsA<gtk::TextBuffer> {
+        fn markup(&self) -> String {
+            let buff = self.upcast_ref::<gtk::TextBuffer>();
+            buffer_to_markup(&buff)
+        }
+        fn cursor_is_between(&self, start: &gtk::TextIter, end: &gtk::TextIter) -> bool {
+            let buf = self.upcast_ref::<gtk::TextBuffer>();
+            let cursor = buf.iter_at_offset(buf.cursor_position());
+            println!("cursor {}, end {:?} ", cursor.offset(), end.offset());
+            cursor.offset() >= start.offset() && cursor.offset() <= end.offset()
+            // cursor.in_range(start, end)
+        }
+
+        fn get_tags_by<F: Fn(&gtk::TextTag) -> bool>(&self, f: F) -> Vec<gtk::TextTag> {
+            let buffer = self.upcast_ref::<gtk::TextBuffer>();
+
+            let mut v = Vec::new();
+            buffer.tag_table().foreach(|i| v.push(i.clone()));
+            v.into_iter().filter(|t| f(t)).collect::<Vec<_>>()
+        }
+        fn remove_tags_by<F: Fn(&gtk::TextTag) -> bool>(
+            &self,
+            f: F,
+            start: &gtk::TextIter,
+            end: &TextIter,
+        ) {
+            let buffer = self.upcast_ref::<gtk::TextBuffer>();
+
+            let tags = buffer.get_tags_by(f);
+            tags.iter()
+                // .filter(|v| v.is_weight_set())
+                .for_each(|tag| buffer.remove_tag(tag, &start, &end));
+        }
+    }
+
+    impl<O: IsA<gtk::TextBuffer>> TextBufferExtra for O {}
 }

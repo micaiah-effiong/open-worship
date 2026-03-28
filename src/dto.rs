@@ -211,6 +211,13 @@ pub struct Scripture {
     pub translation: String,
 }
 
+trait ScriptureDisplay {
+    fn scripture_display(&self, text: String) -> String {
+        format!("<span line-height=\"1.2\" weight=\"bold\">{text}</span>")
+    }
+}
+
+impl ScriptureDisplay for Scripture {}
 impl Scripture {
     pub fn screen_display(&self) -> String {
         let settings = ApplicationSettings::get_instance();
@@ -220,10 +227,10 @@ impl Scripture {
             .unwrap_or_default();
 
         let text = format!(
-            "{}{}\n{} {}:{} ({})",
+            "{} {}\n{} {}:{} ({})",
             num, self.text, self.book, self.chapter, self.verse, self.translation
         );
-        text
+        self.scripture_display(text)
     }
 }
 
@@ -236,6 +243,7 @@ pub struct ScriptureVerseRange {
     pub translation: String,
 }
 
+impl ScriptureDisplay for ScriptureVerseRange {}
 impl ScriptureVerseRange {
     pub fn new(
         book: String,
@@ -276,7 +284,7 @@ impl ScriptureVerseRange {
                 num,
                 self.translation
             );
-            return text;
+            return self.scripture_display(text);
         }
 
         let text = self
@@ -293,7 +301,7 @@ impl ScriptureVerseRange {
             "{}\n{} {}:{}-{} ({})",
             text, self.book, self.chapter, first, last, self.translation
         );
-        text
+        self.scripture_display(text)
     }
 }
 impl Into<SlideData> for ScriptureVerseRange {

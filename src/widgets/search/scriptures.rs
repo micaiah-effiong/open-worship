@@ -2,7 +2,7 @@ pub mod download;
 
 use std::cell::RefCell;
 
-use gtk::gio::{ActionEntry, MenuItem, SimpleActionGroup};
+use gtk::gio::{MenuItem, SimpleActionGroup};
 use gtk::glib::{self, SignalHandlerId, clone};
 use gtk::prelude::*;
 use gtk::{MultiSelection, StringObject};
@@ -455,12 +455,13 @@ mod imp {
             listview.remove_all();
 
             if let Some(e) = &mut evaluated {
-                if let Some(v) = verses.first() {
+                if let Some(v) = verses.first()
+                    && e.book != v.book
+                {
                     e.book = v.book.clone();
                 }
-                e.verses.iter().for_each(|v| {
-                    verse_index.push(*v);
-                });
+
+                verse_index.extend_from_slice(&e.verses);
             }
 
             verses.iter().for_each(|verse| {
@@ -561,34 +562,6 @@ mod imp {
                 }
             ));
 
-            // drag_source.connect_drag_begin({
-            //     let lv = listview.clone();
-            //     move |ds, drag| {
-            //         // let Some(model) = lv.model().and_downcast::<gtk::MultiSelection>() else {
-            //         //     return;
-            //         // };
-            //         //
-            //         // let li = lv
-            //         //     .children()
-            //         //     .filter_map(|v| {
-            //         //         (v.accessible_role() == gtk::AccessibleRole::ListItem).then_some(v)
-            //         //     })
-            //         //     .collect::<Vec<_>>();
-            //         //
-            //         // let selections = model.selection();
-            //         // let mut selected_w = Vec::new();
-            //         // for (i, w) in li.iter().enumerate() {
-            //         //     if selections.contains(i as u32) {
-            //         //         ds.set_icon(w.snap().as_ref(), 0, 0);
-            //         //         selected_w.push(w);
-            //         //     }
-            //         // }
-            //
-            //         // let item_text = item_text.to_string();
-            //         // drag.set_icon_name(Some("document-properties"), 0, 0);
-            //     }
-            // });
-
             listview.add_controller(drag_source);
         }
 
@@ -663,12 +636,12 @@ mod imp {
                                 .collect::<Vec<_>>(),
                         );
 
-                        let new_text = format!(
-                            "{} {}:{}",
-                            evaluated.book,
-                            evaluated.chapter,
-                            verse.join(",")
-                        );
+                        let book = selected_verses
+                            .first()
+                            .and_then(|v| Some(v.item().book))
+                            .unwrap_or(evaluated.book);
+                        let new_text =
+                            format!("{} {}:{}", book, evaluated.chapter, verse.join(","));
 
                         let search_signal_handler = imp.search_signal_handler.take();
                         if let Some(handler_id) = search_signal_handler {

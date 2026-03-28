@@ -1,19 +1,16 @@
-use crate::dto::{SongData, SongVerse};
 use crate::services::slide::Slide;
 use crate::utils::{ListViewExtra, WidgetChildrenExt};
-use crate::widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData};
-use crate::widgets::canvas::text_item::TextItem;
+use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::*;
-
-use crate::{db::query::Query, dto::SongObject, utils::TextBufferExtraExt};
 
 const WIDTH: i32 = 1000;
 
 mod signals {
     pub const SAVE: &str = "save";
 }
+
 mod imp {
     use std::{
         cell::{Cell, RefCell},

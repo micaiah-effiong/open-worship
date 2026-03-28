@@ -120,7 +120,7 @@ mod imp {
                 5.3 * value * font_size
             );
 
-            println!("font {value} {}", 5.3 * value * font_size);
+            // println!("font {value} {}", 5.3 * value * font_size);
             for item in self.scrolled_box.get_children::<gtk::Label>() {
                 utils::set_style(&item, &css);
             }

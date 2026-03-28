@@ -1,12 +1,24 @@
-use gtk::glib::{self, subclass::types::ObjectSubclassIsExt};
+use gtk::{
+    glib::{
+        self,
+        object::{CastNone, ObjectExt},
+        subclass::types::ObjectSubclassIsExt,
+    },
+    prelude::{TextBufferExt, TextTagExt, ToggleButtonExt},
+};
 
-use crate::services::slide_manager::SlideManager;
+use crate::{
+    services::slide_manager::SlideManager,
+    widgets::canvas::{canvas_item::CanvasItem, text_item::TextItem},
+};
 
 mod imp {
-    use std::{cell::RefCell, i32};
+    use std::{
+        cell::{Cell, RefCell},
+        i32,
+    };
 
     use gtk::{
-        gdk,
         glib::{
             self,
             object::CastNone,
@@ -15,15 +27,18 @@ mod imp {
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
-        prelude::{BoxExt, ButtonExt, ToggleButtonExt, WidgetExt},
+        prelude::{BoxExt, ButtonExt, TextBufferExt, TextTagExt, ToggleButtonExt, WidgetExt},
         subclass::{box_::BoxImpl, widget::WidgetImpl},
     };
 
     use crate::{
         services::slide_manager::SlideManager,
-        utils::{ColorDialogButtonExtra, WidgetExtrasExt},
+        utils::{self, WidgetChildrenExt, WidgetExtrasExt, buffer_markup::TextBufferExtra},
         widgets::{
-            canvas::{canvas_item::CanvasItemExt, text_item::TextItem},
+            canvas::{
+                canvas_item::{CanvasItem, CanvasItemExt},
+                text_item::TextItem,
+            },
             entry_combo::EntryCombo,
             group_toggle_button::GroupToggleButton,
         },
@@ -43,6 +58,11 @@ mod imp {
         pub outline: RefCell<gtk::ToggleButton>,
         pub justification: RefCell<GroupToggleButton>,
         pub alignment: RefCell<GroupToggleButton>,
+
+        //
+        pub(super) cursor_handler_id: RefCell<Option<(gtk::TextBuffer, glib::SignalHandlerId)>>,
+
+        pub(super) checking_cursor_position: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -104,23 +124,6 @@ mod imp {
                 });
             }
 
-            /* let superscript_btn = gtk::ToggleButton::new();
-            {
-                wrapper.append(&superscript_btn);
-                superscript_btn.set_active(false);
-                superscript_btn.set_icon_name("text-superscript-regular");
-                superscript_btn.add_css_class("flat");
-            };
-
-            let subscript_btn = gtk::ToggleButton::new();
-            {
-                wrapper.append(&subscript_btn);
-                subscript_btn.set_active(false);
-                subscript_btn.set_icon_name("text-subscript-regular");
-                subscript_btn.add_css_class("flat");
-                superscript_btn.set_group(Some(&subscript_btn));
-            }; */
-
             let color_btn = gtk::ColorDialogButton::new(Some(gtk::ColorDialog::new()));
             {
                 self.color.replace(color_btn.clone());
@@ -130,16 +133,37 @@ mod imp {
                 if let Some(btn) = color_btn.first_child().and_downcast::<gtk::Button>() {
                     btn.add_css_class("flat");
                 }
-                color_btn.connect_rgba_notify({
-                    let sm = sm.clone();
+
+                color_btn.connect_rgba_notify(glib::clone!(
+                    #[weak(rename_to=imp)]
+                    self,
                     move |c| {
-                        let Some(ti) = sm.current_item().and_downcast::<TextItem>() else {
+                        if imp.checking_cursor_position.get() {
                             return;
                         };
-                        ti.set_font_color(c.hex());
+                        let Some(ti) = imp.get_current_item() else {
+                            return;
+                        };
+
+                        let buffer = ti.buffer();
+                        let Some((start, end)) = buffer.selection_bounds() else {
+                            return;
+                        };
+
+                        if !buffer.cursor_is_between(&start, &end) {
+                            return;
+                        }
+
+                        let tag_table = buffer.tag_table();
+
+                        let color_tag = gtk::TextTag::builder().foreground_rgba(&c.rgba()).build();
+                        tag_table.add(&color_tag);
+                        buffer.apply_tag(&color_tag, &start, &end);
+
+                        // ti.set_font_color(c.hex());
                         ti.style();
                     }
-                });
+                ));
             }
 
             let bold_btn = gtk::ToggleButton::new();
@@ -150,17 +174,42 @@ mod imp {
                 bold_btn.set_icon_name("text-bold-filled");
                 bold_btn.add_css_class("flat");
 
-                bold_btn.connect_toggled({
-                    let sm = sm.clone();
-                    move |t| {
-                        let Some(ti) = sm.current_item().and_downcast::<TextItem>() else {
+                bold_btn.connect_toggled(glib::clone!(
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |btn| {
+                        if imp.checking_cursor_position.get() {
+                            return;
+                        };
+                        let Some(ti) = imp.get_current_item() else {
                             return;
                         };
 
-                        ti.set_font_weight(if t.is_active() { "bold" } else { "regular" });
+                        let buffer = ti.buffer();
+                        let tag_table = buffer.tag_table();
+
+                        let Some(tag) = tag_table.lookup(utils::text_tags::BOLD) else {
+                            return;
+                        };
+                        let Some((start, end)) = buffer.selection_bounds() else {
+                            return;
+                        };
+
+                        if !buffer.cursor_is_between(&start, &end) {
+                            return;
+                        }
+
+                        if btn.is_active() {
+                            buffer.apply_tag(&tag, &start, &end);
+                        } else {
+                            // buffer.remove_tag(&tag, &start, &end);
+                            buffer.remove_tags_by(|v| v.is_weight_set(), &start, &end);
+                        }
+
+                        // ti.set_font_weight(if t.is_active() { "bold" } else { "regular" });
                         ti.style();
                     }
-                });
+                ));
             };
 
             let italics_btn = gtk::ToggleButton::new();
@@ -170,17 +219,38 @@ mod imp {
                 obj.append(&italics_btn);
                 italics_btn.set_icon_name("text-italic-filled");
                 italics_btn.add_css_class("flat");
-                italics_btn.connect_toggled({
-                    let sm = sm.clone();
-                    move |t| {
-                        let Some(ti) = sm.current_item().and_downcast::<TextItem>() else {
+                italics_btn.connect_toggled(glib::clone!(
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |btn| {
+                        if imp.checking_cursor_position.get() {
+                            return;
+                        };
+                        let Some(ti) = imp.get_current_item() else {
                             return;
                         };
 
-                        ti.set_font_style(if t.is_active() { "italic" } else { "normal" });
+                        let buffer = ti.buffer();
+                        let tag_table = buffer.tag_table();
+
+                        let Some(tag) = tag_table.lookup(utils::text_tags::ITALIC) else {
+                            return;
+                        };
+                        let Some((start, end)) = buffer.selection_bounds() else {
+                            return;
+                        };
+
+                        if btn.is_active() {
+                            buffer.apply_tag(&tag, &start, &end);
+                        } else {
+                            // buffer.remove_tag(&tag, &start, &end);
+                            buffer.remove_tags_by(|v| v.is_style_set(), &start, &end);
+                        }
+
+                        // ti.set_font_style(if t.is_active() { "italic" } else { "normal" });
                         ti.style();
                     }
-                });
+                ));
             };
 
             let underline_btn = gtk::ToggleButton::new();
@@ -190,17 +260,38 @@ mod imp {
                 obj.append(&underline_btn);
                 underline_btn.set_icon_name("text-underline-filled");
                 underline_btn.add_css_class("flat");
-                underline_btn.connect_toggled({
-                    let sm = sm.clone();
-                    move |t| {
-                        let Some(ti) = sm.current_item().and_downcast::<TextItem>() else {
+                underline_btn.connect_toggled(glib::clone!(
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |btn| {
+                        if imp.checking_cursor_position.get() {
+                            return;
+                        };
+                        let Some(ti) = imp.get_current_item() else {
                             return;
                         };
 
-                        ti.set_text_underline(t.is_active());
+                        let buffer = ti.buffer();
+                        let tag_table = buffer.tag_table();
+
+                        let Some(tag) = tag_table.lookup(utils::text_tags::UNDERLINE) else {
+                            return;
+                        };
+                        let Some((start, end)) = buffer.selection_bounds() else {
+                            return;
+                        };
+
+                        if btn.is_active() {
+                            buffer.apply_tag(&tag, &start, &end);
+                        } else {
+                            // buffer.remove_tag(&tag, &start, &end);
+                            buffer.remove_tags_by(|v| v.is_underline_set(), &start, &end);
+                        }
+
+                        // ti.set_text_underline(t.is_active());
                         ti.style();
                     }
-                });
+                ));
             };
 
             let shadow_btn = gtk::ToggleButton::new();
@@ -396,21 +487,24 @@ mod imp {
                 .clone()
                 .set_text(ti.font_size().to_string());
 
-            if let Ok(color) = gdk::RGBA::parse(&ti.font_color()) {
-                self.color.borrow().set_rgba(&color);
-            }
-
-            self.bold
-                .borrow()
-                .set_active(ti.font_weight().contains("bold"));
-            self.italic
-                .borrow()
-                .set_active(ti.font_style().contains("italic"));
-            self.underline.borrow().set_active(ti.text_underline());
             self.shadow.borrow().set_active(ti.text_shadow());
             self.outline.borrow().set_active(ti.text_outline());
             self.justification.borrow().set_active(ti.justification());
             self.alignment.borrow().set_active(ti.align());
+        }
+
+        pub(super) fn get_current_item(&self) -> Option<TextItem> {
+            let Some(sm) = self.slide_manager.upgrade() else {
+                return None;
+            };
+            sm.current_item()
+                .or_else(|| {
+                    sm.current_slide()
+                        .and_then(|v| v.canvas())
+                        .and_then(|v| v.widget().get_children::<TextItem>().next())
+                        .and_upcast::<CanvasItem>()
+                })
+                .and_downcast::<TextItem>()
         }
     }
 }
@@ -436,9 +530,85 @@ impl TextToolbar {
         slide_manager.connect_item_clicked(glib::clone!(
             #[weak]
             obj,
-            move |_, _| obj.imp().update_props()
+            move |_, ci| {
+                obj.imp().update_props();
+                obj.listen_to_cursor_move(ci);
+            }
         ));
 
         obj
     }
+
+    fn listen_to_cursor_move(&self, ci: Option<CanvasItem>) {
+        if let Some((buff, id)) = self.imp().cursor_handler_id.take() {
+            buff.disconnect(id);
+        }
+        let Some(ti) = ci
+            .and_downcast::<TextItem>()
+            .or_else(|| self.imp().get_current_item())
+        else {
+            return;
+        };
+
+        let id = ti.buffer().connect_cursor_position_notify(glib::clone!(
+            #[weak(rename_to=obj)]
+            self,
+            move |buff| {
+                let cursor = buff.cursor_position();
+                let iter = buff.iter_at_offset(cursor);
+
+                let imp = obj.imp();
+                imp.checking_cursor_position.set(true);
+                check_and_do(
+                    |v| v.is_weight_set(),
+                    |(a, _)| imp.bold.borrow().set_active(a),
+                    &iter,
+                );
+                check_and_do(
+                    |v| v.is_style_set(),
+                    |(a, _)| imp.italic.borrow().set_active(a),
+                    &iter,
+                );
+                check_and_do(
+                    |v| v.is_underline_set(),
+                    |(a, _)| imp.underline.borrow().set_active(a),
+                    &iter,
+                );
+                check_and_do(
+                    |v| v.is_foreground_set(),
+                    |(_, t)| {
+                        let rgba = if let Some(tag) = t
+                            && let Some(rgba) = tag.foreground_rgba()
+                        {
+                            rgba
+                        } else {
+                            gtk::gdk::RGBA::new(1.0, 1.0, 1.0, 1.0)
+                        };
+
+                        imp.color.borrow().set_rgba(&rgba);
+                    },
+                    &iter,
+                );
+
+                imp.checking_cursor_position.set(false);
+            }
+        ));
+        self.imp()
+            .cursor_handler_id
+            .replace(Some((ti.buffer(), id)));
+    }
+}
+
+fn check_and_do<F: Fn(&gtk::TextTag) -> bool, A: Fn((bool, Option<gtk::TextTag>))>(
+    tag_fn: F,
+    action: A,
+    iter: &gtk::TextIter,
+) {
+    let active = iter
+        .tags()
+        .into_iter()
+        .filter(|t| tag_fn(t))
+        .find(|tag| iter.has_tag(tag));
+
+    action((active.is_some(), active))
 }

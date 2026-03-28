@@ -69,8 +69,7 @@ mod imp {
                 let settings = ApplicationSettings::get_instance();
                 settings
                     .bind_alert_position(&b1, "vexpand")
-                    .mapping(|v, t| {
-                        println!("t={:?}", t);
+                    .mapping(|v, _| {
                         let value: u32 = v.get().expect("The variant needs to be of type `u32`.");
                         Some((value != 0).to_value())
                     })

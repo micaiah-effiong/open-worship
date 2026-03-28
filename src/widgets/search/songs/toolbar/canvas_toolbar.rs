@@ -3,13 +3,13 @@ use gtk::glib::{self, subclass::types::ObjectSubclassIsExt};
 use crate::services::slide_manager::SlideManager;
 
 mod imp {
-    use std::cell::{Cell, RefCell};
+    use std::cell::RefCell;
 
     use gtk::{
         gdk,
         glib::{
             self,
-            object::{Cast, CastNone},
+            object::CastNone,
             subclass::{
                 object::ObjectImpl,
                 types::{ObjectSubclass, ObjectSubclassExt},
@@ -22,7 +22,7 @@ mod imp {
     use crate::{
         app_config::AppConfigDir,
         services::{file_manager::FileManager, slide_manager::SlideManager},
-        utils::{self, ColorDialogButtonExtra, WidgetExtrasExt},
+        utils::{self, RGBExtra, WidgetExtrasExt},
     };
 
     #[derive(Debug, Default)]
@@ -161,7 +161,7 @@ mod imp {
                             return;
                         };
 
-                        canvas.set_background_color(c.hex());
+                        canvas.set_background_color(c.rgba().to_hex());
                         canvas.style();
                     }
                 });
