@@ -1,11 +1,19 @@
+use std::{
+    cell::RefCell,
+    collections::{HashSet, VecDeque},
+    fs,
+};
+
+use futures_util::TryFutureExt;
 use gtk::{
-    FileFilter,
+    FileFilter, gdk,
     gio::{
         self,
         prelude::{FileExt, FileExtManual, ListModelExtManual},
     },
     glib,
 };
+use sha2::{Digest, Sha256};
 
 use crate::{
     app_config::{self, AppConfigDir},
@@ -192,9 +200,76 @@ impl FileManager {
             .as_ref()
             .and_then(FileManager::get_data)
             .and_then(|v| String::from_utf8(v).ok())
-            .and_then(|v| serde_json::from_str::<Vec<SlideManagerData>>(&v).ok())
+            .and_then(|v| Self::parse_schedule_file(v))
 
         // NOTE: we will have to append a head before saving
+    }
+
+    pub fn parse_schedule_file(data: String) -> Option<Vec<SlideManagerData>> {
+        let mut payload = match serde_json::from_str::<Vec<SlideManagerData>>(&data) {
+            Ok(data) => data,
+            Err(e) => {
+                glib::g_warning!("FileManager", "serder error: {:?}", e);
+                return None;
+            }
+        };
+
+        //
+        let mut images = HashSet::new();
+        let mut decom = |v: &mut SlideManagerData| {
+            for slide in v.slides.iter_mut() {
+                let Some(bg) = slide.canvas_data.background_pattern.clone() else {
+                    slide.canvas_data.background_pattern = None;
+                    continue;
+                };
+
+                if bg.is_empty() {
+                    slide.canvas_data.background_pattern = None;
+                    continue;
+                };
+
+                let bg64 = bg.split(&[':', ';', ','][..]).collect::<Vec<_>>();
+
+                let content_type = if let Some(content_type) = bg64.get(1)
+                    && content_type.contains("image")
+                {
+                    content_type.replace("image/", "")
+                } else {
+                    slide.canvas_data.background_pattern = None;
+                    continue;
+                };
+                let Some(content) = bg64.get(3).map(|v| v.to_string()) else {
+                    slide.canvas_data.background_pattern = None;
+                    continue;
+                };
+
+                let checksum = hex::encode(Sha256::digest(content.as_bytes()));
+                let mut path = AppConfigDir::dir_path(AppConfigDir::SlideMedia);
+                path.push(format!("{checksum}.{content_type}"));
+                slide.canvas_data.background_pattern = Some(path.display().to_string());
+
+                images.insert((path, content));
+            }
+        };
+
+        for i in payload.iter_mut() {
+            decom(i);
+        }
+
+        for (path, content) in images {
+            let bytes = glib::base64_decode(&content);
+            if std::path::Path::new(&path).exists() {
+                glib::g_warning!("FileManager", "file already exists");
+                continue;
+            };
+
+            let _ = fs::write(path, bytes).map_err(|e| {
+                glib::g_warning!("FileManager", "Error: writing slide image: {:?}", e)
+            });
+        }
+        //
+
+        Some(payload)
     }
 
     pub fn save_file(
@@ -388,4 +463,101 @@ impl FileManager {
             };
         }
     }
+
+    pub fn load_backgrounds() -> Vec<String> {
+        let mut path_list = Vec::new();
+        let dir = match AppConfigDir::dir_path(AppConfigDir::Backgrounds).read_dir() {
+            Ok(d) => d,
+            Err(e) => {
+                println!(
+                    "ERROR: could not read {:?} = {:?}",
+                    AppConfigDir::Backgrounds,
+                    e
+                );
+                return path_list;
+            }
+        };
+
+        for entry in dir {
+            let file_entry = match entry {
+                Ok(f) => f,
+                Err(_) => continue,
+            };
+
+            match file_entry.metadata() {
+                // TODO: ensure file is image
+                Ok(entry) if entry.is_file() => (),
+                _ => continue,
+            };
+
+            path_list.push(file_entry.path().display().to_string());
+        }
+
+        path_list
+    }
+
+    pub fn get_background_image<F: FnOnce(Option<gdk::Texture>) + 'static>(
+        path: &std::path::Path,
+        size: Option<(i32, i32)>,
+        cb: F,
+    ) {
+        let path = path.display().to_string();
+        let texture = LOADED_BACKGROUND_IMAGES.with_borrow_mut({
+            let path = path.clone();
+            move |v| {
+                if let Some(item) = v
+                    .iter()
+                    .position(|(s, _)| *s == path)
+                    .and_then(|p| v.remove(p))
+                {
+                    v.push_back(item.clone());
+                    return Some(item.1);
+                }
+
+                None
+            }
+        });
+
+        if texture.is_some() {
+            cb(texture);
+            return;
+        }
+
+        glib::spawn_future_local(async move {
+            let texture = gio::spawn_blocking({
+                let path = path.clone();
+                let size = size.clone().unwrap_or((1920, 1080));
+                move || {
+                    let pixbuf =
+                        gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(&path, size.0, size.1, true)
+                            .map_err(|e| glib::g_warning!("FileManager", "Failed to load: {:?}", e))
+                            .ok()?;
+                    Some(gdk::Texture::for_pixbuf(&pixbuf))
+                }
+            })
+            .map_err(|e| glib::g_warning!("FileManager", "Error in spawn_blocking: {:?}", e))
+            .await
+            .ok();
+
+            if let Some(texture) = texture {
+                LOADED_BACKGROUND_IMAGES.with_borrow_mut(|v| {
+                    if size.is_some() {
+                        return;
+                    };
+                    let Some(texture) = texture.clone() else {
+                        return;
+                    };
+                    if v.len() >= 5 {
+                        v.pop_front();
+                    }
+                    v.push_back((path, texture));
+                });
+                cb(texture);
+            }
+        });
+    }
+}
+
+thread_local! {
+    static  LOADED_BACKGROUND_IMAGES:RefCell<VecDeque<(String, gdk::Texture)>> = RefCell::new(VecDeque::with_capacity(5));
 }

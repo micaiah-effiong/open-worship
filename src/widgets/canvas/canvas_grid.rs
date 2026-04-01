@@ -7,6 +7,7 @@ use std::path::Path;
 use std::cell::RefCell;
 use std::str;
 
+use crate::services::file_manager::FileManager;
 use crate::utils;
 use crate::widgets::canvas::canvas::Canvas;
 
@@ -17,6 +18,10 @@ mod imp {
     pub struct ImpCanvasGrid {
         pub canvas: glib::WeakRef<Canvas>,
         pub grid: RefCell<gtk::Grid>,
+
+        //
+        pub(super) stack: RefCell<gtk::Stack>,
+        pub(super) picture: RefCell<gtk::Picture>,
     }
 
     #[glib::object_subclass]
@@ -26,7 +31,18 @@ mod imp {
         type ParentType = gtk::Box;
     }
 
-    impl ObjectImpl for ImpCanvasGrid {}
+    impl ObjectImpl for ImpCanvasGrid {
+        fn dispose(&self) {
+            self.picture.borrow().unparent();
+            self.stack.borrow().unparent();
+            self.grid.borrow().unparent();
+            self.canvas.set(None);
+
+            self.picture
+                .borrow()
+                .set_paintable(None::<&gtk::gdk::Paintable>);
+        }
+    }
     impl WidgetImpl for ImpCanvasGrid {}
     impl BoxImpl for ImpCanvasGrid {}
 
@@ -41,61 +57,79 @@ glib::wrapper! {
 
 impl CanvasGrid {
     pub fn new(canvas: Canvas) -> Self {
-        let cg = glib::Object::new::<Self>();
-        cg.imp().canvas.set(Some(&canvas));
+        let obj: Self = glib::Object::new();
+        let imp = obj.imp();
+        imp.canvas.set(Some(&canvas));
 
         let clicked = gtk::GestureClick::new();
         clicked.set_propagation_phase(gtk::PropagationPhase::Bubble);
         clicked.connect_pressed(glib::clone!(
-            #[weak(rename_to=cg)]
-            cg,
+            #[weak(rename_to=obj)]
+            obj,
             move |g, _, _, _| {
                 println!("canvas_grid pressed");
-                if let Some(c) = cg.imp().canvas.upgrade() {
+                if let Some(c) = obj.imp().canvas.upgrade() {
                     c.emit_clicked(g);
                 }
                 g.set_state(gtk::EventSequenceState::Claimed);
             }
         ));
 
-        cg.add_controller(clicked);
+        obj.add_controller(clicked);
 
-        let grid = gtk::Grid::new();
+        let grid = imp.grid.borrow().clone();
         grid.add_css_class("ow-pattern");
-        cg.imp().grid.replace(grid.clone());
+        grid.set_row_homogeneous(true);
+        grid.set_column_homogeneous(true);
+        obj.imp().grid.replace(grid.clone());
 
-        cg.set_homogeneous(true);
-        cg.set_css_classes(&["canvas", "view", "ow-canvas-grid"]);
-        cg.set_vexpand(true);
-        cg.set_hexpand(true);
+        obj.set_homogeneous(true);
+        obj.set_css_classes(&["canvas", "view", "ow-canvas-grid"]);
+        obj.set_vexpand(true);
+        obj.set_hexpand(true);
 
-        cg.append(&grid);
+        let stack = imp.stack.borrow().clone();
+        grid.attach(&stack, 0, 0, 1, 1);
+        let picture = imp.picture.borrow().clone();
+        picture.set_content_fit(gtk::ContentFit::Cover);
 
-        cg
+        stack.add_named(&picture, Some("image"));
+        stack.set_visible_child_name("image");
+
+        obj.append(&grid.clone());
+
+        obj
     }
 
     pub fn style(&self, pattern: String) {
         let grid = self.imp().grid.borrow().clone();
 
-        let has_pattern =
-            !pattern.is_empty() && !(pattern.starts_with("/") && !Path::new(&pattern).exists());
+        let has_pattern = !pattern.is_empty() && Path::new(&pattern).exists();
 
         let res = match has_pattern {
-            true => Self::pattern_css(&pattern),
+            true => {
+                let path = std::path::PathBuf::from(pattern);
+                let picture = self.imp().picture.borrow().clone();
+                FileManager::get_background_image(&path.clone(), None, move |v| {
+                    picture.set_paintable(v.clone().as_ref());
+                    if let Some(v) = v {
+                        println!("OK: {:?} {:?}", path.file_name(), v.ref_count());
+                    }
+                });
+                Self::pattern_css()
+            }
             false => Self::no_pattern_css(),
         };
 
         utils::set_style(&grid, &res);
     }
 
-    fn pattern_css(path: &str) -> String {
-        let url = if path.starts_with("/") { "file://" } else { "" };
+    fn pattern_css() -> String {
         format!(
             r##".ow-pattern {{
                 background-size: cover;
                 background-position: center center;
                 box-shadow: inset 0 0 0 2px alpha(#ffffffff, 0.05);
-                background-image: url("{url}{path}");
                 border-radius: 6px;
             }}"##
         )

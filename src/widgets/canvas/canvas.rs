@@ -2,12 +2,11 @@ use std::sync::atomic::{self, AtomicBool};
 
 use gtk::glib::object::{Cast, IsA, ObjectExt};
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
-use gtk::prelude::{BoxExt, EventControllerExt, GestureExt, WidgetExt};
+use gtk::prelude::WidgetExt;
 
 use gtk::{EventControllerKey, GestureClick, Overlay, gdk, glib};
 
 use crate::utils::{self, WidgetChildrenExt};
-use crate::widgets::canvas::canvas_grid::CanvasGrid;
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::CanvasData;
 
@@ -184,6 +183,13 @@ mod imp {
                         .build(),
                 ]
             })
+        }
+
+        fn dispose(&self) {
+            if let Some(g) = self.grid.borrow().clone() {
+                g.unparent();
+            }
+            self.grid.replace(None);
         }
     }
 
@@ -631,5 +637,20 @@ impl Canvas {
 
     pub fn widget(&self) -> gtk::Overlay {
         self.imp().widget.borrow().clone()
+    }
+
+    pub fn destroy(self) {
+        for i in self.widget().get_children::<CanvasItem>() {
+            i.unselect();
+            self.widget().remove_overlay(&i);
+        }
+
+        self.unparent();
+        if let Some(g) = self.imp().grid.borrow().clone() {
+            g.unparent();
+        }
+        self.imp().grid.replace(None);
+
+        drop(self);
     }
 }

@@ -20,7 +20,6 @@ mod imp {
     use gtk::subclass::prelude::*;
 
     use crate::services::settings::ApplicationSettings;
-    use crate::utils::int_to_transition;
     use crate::widgets::canvas::canvas::Canvas;
     use crate::widgets::canvas::serialise::SlideData;
 
@@ -291,10 +290,12 @@ impl Slide {
         self.set_visible(false);
     }
 
-    pub fn destroy(&self) {
+    pub fn destroy(self) {
         if let Some(c) = self.imp().canvas.borrow().clone() {
-            c.unparent();
+            c.destroy();
         }
+        self.imp().canvas.replace(None);
+        drop(self);
     }
 
     pub fn reload_preview_data(&self) {

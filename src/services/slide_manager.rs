@@ -338,8 +338,8 @@ impl SlideManager {
         for slide in self.slides() {
             if let Some(canvas) = slide.imp().canvas.borrow().clone() {
                 self.slideshow().remove(&canvas);
-                slide.destroy();
             }
+            slide.destroy();
         }
 
         self.imp().slides.borrow_mut().clear();
@@ -413,16 +413,15 @@ impl SlideManager {
     /// assignment. If [`Self::load_data`] or any downstream code expects those items
     /// to be visible, they must be made visible again explicitly.
     pub fn reload_data(&self, data: SlideManagerData) {
-        let end_slide = self.imp().end_presentation_slide.borrow();
+        let end_slide = self.imp().end_presentation_slide.borrow().clone();
         if let Some(cur) = self.current_slide()
             && cur != end_slide.clone()
         {
             if let Some(c) = end_slide.canvas() {
                 self.slideshow().remove(&c);
-                end_slide.destroy();
             }
+            end_slide.destroy();
             self.imp().slides.borrow_mut().retain(|v| *v != cur);
-            drop(end_slide);
             self.imp().end_presentation_slide.replace(cur);
 
             if let Some(c) = self.imp().end_presentation_slide.borrow().canvas() {
@@ -432,14 +431,19 @@ impl SlideManager {
             }
         }
 
-        for slide in self.slides() {
+        loop {
+            if self.slides().is_empty() {
+                break;
+            }
+            let Some(slide) = self.imp().slides.borrow_mut().pop() else {
+                continue;
+            };
             if let Some(canvas) = slide.imp().canvas.borrow().clone() {
                 self.slideshow().remove(&canvas);
-                slide.destroy();
             }
+            slide.destroy();
         }
 
-        self.imp().slides.borrow_mut().clear();
         self.load_data(data);
     }
 

@@ -3,6 +3,8 @@ use gtk::{
     glib::{self, subclass::types::ObjectSubclassIsExt},
 };
 
+use crate::services::file_manager::FileManager;
+
 //
 mod imp {
     use gtk::{
@@ -63,7 +65,12 @@ impl BackgroundListItem {
     pub fn set_label(&self, text: &str) {
         self.imp().title_label.set_label(text);
     }
-    pub fn set_picture_src(&self, text: &str) {
-        self.imp().bg_picture.set_filename(Some(text));
+    pub fn set_picture_src(&self, src: &str) {
+        let path = std::path::PathBuf::from(src);
+        let pic = self.imp().bg_picture.clone();
+
+        FileManager::get_background_image(&path, Some((40, 40)), move |t| {
+            pic.set_paintable(t.as_ref())
+        });
     }
 }

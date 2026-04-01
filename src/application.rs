@@ -15,7 +15,7 @@ use crate::{
 };
 
 mod imp {
-    use std::cell::RefCell;
+    use std::{cell::RefCell, collections::HashSet};
 
     use gtk::{
         gdk::{self, prelude::DisplayExt},
@@ -34,10 +34,7 @@ mod imp {
         subclass::prelude::{DerivedObjectProperties, GtkApplicationImpl},
     };
 
-    use crate::{
-        application_window::MainApplicationWindow, format_resource,
-        widgets::canvas::serialise::SlideManagerData,
-    };
+    use crate::{application_window::MainApplicationWindow, format_resource};
 
     use super::*;
 
@@ -88,29 +85,21 @@ mod imp {
                     );
                 });
 
-            let content = match content {
-                Ok(c) => String::from_utf8(c),
+            let content = match content
+                .and_then(|v| String::from_utf8(v).map_err(|e| println!("e: {:?}", e)))
+            {
+                Ok(c) => c,
                 Err(e) => {
                     println!("vec:\n{:?}", e);
                     return;
                 }
             };
 
-            let content = match content {
-                Ok(c) => c,
-                Err(e) => {
-                    println!("str:\n{:?}", e);
-                    return;
-                }
+            let payload = match FileManager::parse_schedule_file(content) {
+                Some(c) => c,
+                None => return,
             };
 
-            let payload = match serde_json::from_str::<Vec<SlideManagerData>>(&content) {
-                Ok(c) => c,
-                Err(e) => {
-                    println!("serde:\n{:?}", e);
-                    return;
-                }
-            };
             self.obj()
                 .main_window()
                 .schedule_viewer()

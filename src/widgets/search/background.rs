@@ -105,7 +105,7 @@ mod imp {
                 child.set_picture_src(&item.src());
             });
 
-            let list = Self::load_backgrounds();
+            let list = FileManager::load_backgrounds();
             self.append_background(list, false);
         }
 
@@ -186,37 +186,7 @@ mod imp {
         }
     }
     impl SearchBackground {
-        fn load_backgrounds() -> Vec<String> {
-            let mut path_list = Vec::new();
-            let dir = match AppConfigDir::dir_path(AppConfigDir::Backgrounds).read_dir() {
-                Ok(d) => d,
-                Err(e) => {
-                    println!(
-                        "ERROR: could not read {:?} = {:?}",
-                        AppConfigDir::Backgrounds,
-                        e
-                    );
-                    return path_list;
-                }
-            };
-
-            for entry in dir {
-                let entry = match entry {
-                    Ok(f) => f,
-                    Err(_) => continue,
-                };
-
-                if let Ok(entry) = entry.metadata() {
-                    if !entry.is_file() {
-                        continue;
-                    }
-                }
-
-                path_list.push(entry.path().display().to_string());
-            }
-
-            path_list
-        }
+        /// appends backgrounds to listview
         fn append_background(&self, bg: Vec<String>, should_link: bool) {
             let view = self.gridview.clone();
 
