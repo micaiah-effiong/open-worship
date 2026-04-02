@@ -246,7 +246,7 @@ mod imp {
             }
 
             let selected_slide_data: Vec<SlideData> = match self.search_mode.borrow().clone() {
-                SearchMode::Evaluated(bible_reference) if settings.break_new_verse() => {
+                SearchMode::Evaluated(bible_reference) if !settings.break_new_verse() => {
                     let compressed_verses =
                         Self::compress_scripture_object_verses(&selected_verses, |a, b| {
                             a.item().book == b.item().book
