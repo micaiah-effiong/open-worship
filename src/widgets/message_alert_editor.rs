@@ -19,9 +19,7 @@ mod imp {
             },
             types::StaticType,
         },
-        prelude::{
-            AccessibleExtManual, EditableExt, ObjectExt, TextBufferExt, TextViewExt, WidgetExt,
-        },
+        prelude::{EditableExt, ObjectExt, TextBufferExt, TextViewExt, WidgetExt},
         subclass::{
             box_::BoxImpl,
             prelude::DerivedObjectProperties,

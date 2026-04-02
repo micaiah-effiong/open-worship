@@ -3,7 +3,7 @@ use gtk::{
     prelude::*,
 };
 
-use crate::dto::schedule_data::{self, ScheduleData};
+use crate::dto::schedule_data::ScheduleData;
 
 pub mod imp {
     use std::cell::RefCell;

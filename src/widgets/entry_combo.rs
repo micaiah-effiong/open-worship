@@ -1,4 +1,4 @@
-use gtk::glib::{UnicodeBreakType, subclass::types::ObjectSubclassIsExt};
+use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use std::cell::RefCell;
 
 use gtk::{gio, glib, prelude::*};

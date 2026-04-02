@@ -112,9 +112,6 @@ impl CanvasGrid {
                 let picture = self.imp().picture.borrow().clone();
                 FileManager::get_background_image(&path.clone(), None, move |v| {
                     picture.set_paintable(v.clone().as_ref());
-                    if let Some(v) = v {
-                        println!("OK: {:?} {:?}", path.file_name(), v.ref_count());
-                    }
                 });
                 Self::pattern_css()
             }

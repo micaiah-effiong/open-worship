@@ -15,7 +15,6 @@ mod imp {
                 types::{ObjectSubclass, ObjectSubclassExt, ObjectSubclassIsExt},
             },
             value::ToValue,
-            variant::ToVariant,
         },
         prelude::{BoxExt, ObjectExt, WidgetExt},
         subclass::{box_::BoxImpl, prelude::DerivedObjectProperties, widget::WidgetImpl},

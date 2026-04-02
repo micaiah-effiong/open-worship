@@ -8,7 +8,7 @@ use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
 use crate::{
-    db::{self, connection::DatabaseConnection},
+    db::{self},
     format_resource,
 };
 

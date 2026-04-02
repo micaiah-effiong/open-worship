@@ -15,7 +15,7 @@ use crate::{
 };
 
 mod imp {
-    use std::{cell::RefCell, collections::HashSet};
+    use std::cell::RefCell;
 
     use gtk::{
         gdk::{self, prelude::DisplayExt},
