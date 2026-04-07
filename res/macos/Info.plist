@@ -7,7 +7,7 @@
     <key>CFBundleDisplayName</key>
     <string>Openworship</string>
     <key>CFBundleExecutable</key>
-    <string>openworship.sh</string>
+    <string>openworship</string>
     <key>CFBundleIconFile</key>
     <string>openworship.icns</string>
     <key>CFBundleIdentifier</key>
