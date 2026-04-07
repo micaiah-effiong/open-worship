@@ -11,6 +11,7 @@ use crate::{
     widgets::{
         canvas::{canvas_item::CanvasItem, serialise::SlideManagerData},
         message_alert_wrapper::MessageAlertWapper,
+        stream_wrapper::WidgetMediaStream,
     },
 };
 
@@ -34,7 +35,10 @@ mod imp {
         subclass::{widget::WidgetImpl, window::WindowImpl},
     };
 
-    use crate::{app_config::AppConfig, services::slide_manager::SlideManager};
+    use crate::{
+        app_config::AppConfig, services::slide_manager::SlideManager,
+        widgets::extended_screen::build_source_box,
+    };
 
     #[derive(Default, Properties)]
     #[properties(wrapper_type = super::ExtendedScreen)]
@@ -74,7 +78,9 @@ mod imp {
             let frame = gtk::AspectFrame::new(0.5, 0.5, AppConfig::aspect_ratio(), false);
             frame.set_child(Some(&sm.slideshow()));
 
-            obj.set_child(Some(&frame));
+            let binding = frame.into();
+            let root = build_source_box(&binding);
+            obj.set_child(Some(root));
         }
 
         fn signals() -> &'static [glib::subclass::Signal] {
@@ -204,4 +210,17 @@ impl ExtendedScreen {
         let alert_wrapper = MessageAlertWapper::new(&sm, alert_manager);
         a_frame.set_child(Some(&alert_wrapper));
     }
+}
+
+pub fn build_source_box(source_box: &gtk::Widget) -> &gtk::Widget {
+    let stream = WidgetMediaStream::new(source_box);
+
+    let video = gtk::Video::builder().hexpand(true).vexpand(true).build();
+    video.set_media_stream(Some(&stream));
+
+    let w = gtk::Window::new();
+    w.set_child(Some(&video));
+    w.present();
+
+    source_box.into()
 }

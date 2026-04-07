@@ -11,3 +11,4 @@ pub mod message_alert_wrapper;
 pub mod schedule_activity_viewer;
 pub mod search;
 pub mod settings_window;
+pub mod stream_wrapper;
