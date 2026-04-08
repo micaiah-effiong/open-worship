@@ -208,12 +208,10 @@ impl MessageAlert {
                 }
 
                 if obj.imp().request_next_message.get()
-                    && let Some(point) =
-                        // obj.imp().back_spacer.translate_coordinates(&sw, 0.0, 0.0)
-                        obj
-                            .imp()
-                            .back_spacer
-                            .compute_point(&sw, &gtk::graphene::Point::new(0.0, 0.0))
+                    && let Some(point) = obj
+                        .imp()
+                        .back_spacer
+                        .compute_point(&sw, &gtk::graphene::Point::new(0.0, 0.0))
                 {
                     let space = point.x() - sw.width() as f32;
 

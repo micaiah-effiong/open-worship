@@ -360,6 +360,11 @@ impl ActivityViewer {
         let sm = imp.slide_manager.borrow();
         self.set_background_image(img);
 
+        if sm.slides().is_empty() {
+            let slide = sm.make_new_slide();
+            self.imp().listview.borrow().append_item(&slide);
+        }
+
         for slide in sm.slides() {
             let Some(canvas) = slide.canvas() else {
                 continue;
