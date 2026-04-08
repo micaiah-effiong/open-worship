@@ -221,17 +221,28 @@ mod imp {
 
             let font_css = obj.get_font_css(obj.font(), converted_font_size);
 
+            let ratio = canvas.current_ratio();
             let outline = if obj.text_outline() {
-                "#000 -1px -1px 1px, 
-                #000 1px -1px 1px, 
-                #000 -1px  1px 1px,
-                #000 1px  1px 1px"
+                let offset = 3.0 * ratio;
+                let radius = 1.0 * ratio;
+                &format!(
+                    "#000 {} #000 {} #000 {} #000 {}",
+                    format!("-{}px -{}px {}px,", offset, offset, radius),
+                    format!("{}px -{}px {}px,", offset, offset, radius),
+                    format!("-{}px  {}px {}px,", offset, offset, radius),
+                    format!("{}px {}px {}px", offset, offset, radius)
+                )
             } else {
                 "#0000 0px  0px 0px"
             };
 
             let shadow = if obj.text_shadow() {
-                &format!("{outline}, -2px 2px 1px black")
+                &format!(
+                    "{outline}, -{}px {}px {}px black",
+                    8.0 * ratio,
+                    8.0 * ratio,
+                    12.0 * ratio
+                )
             } else {
                 outline
             };
@@ -242,8 +253,10 @@ mod imp {
                     color: white;
                     padding: 0px;
                     background: 0;
+                    letter-spacing: {}px;
                     text-shadow: {shadow};
                 }}",
+                2.0 * ratio
             );
 
             css

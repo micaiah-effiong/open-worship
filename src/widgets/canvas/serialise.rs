@@ -124,7 +124,7 @@ impl SlideData {
                 font_size: 16.0,
                 justification: 1,
                 align: 1,
-                text_outline: false,
+                text_outline: true,
                 text_shadow: true,
             }
         };
