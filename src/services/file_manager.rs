@@ -485,9 +485,15 @@ impl FileManager {
             };
 
             match file_entry.metadata() {
-                // TODO: ensure file is image
                 Ok(entry) if entry.is_file() => (),
                 _ => continue,
+            };
+
+            let guess = gio::content_type_guess(Some(file_entry.path()), &[]);
+            if let Some(mime_type) = gio::content_type_get_mime_type(&guess.0)
+                && !mime_type.contains("image")
+            {
+                continue;
             };
 
             path_list.push(file_entry.path().display().to_string());

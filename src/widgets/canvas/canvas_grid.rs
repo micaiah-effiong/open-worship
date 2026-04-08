@@ -8,7 +8,7 @@ use std::cell::RefCell;
 use std::str;
 
 use crate::services::file_manager::FileManager;
-use crate::utils;
+use crate::utils::{self, WidgetExtrasExt};
 use crate::widgets::canvas::canvas::Canvas;
 
 mod imp {
@@ -85,8 +85,7 @@ impl CanvasGrid {
 
         obj.set_homogeneous(true);
         obj.set_css_classes(&["canvas", "view", "ow-canvas-grid"]);
-        obj.set_vexpand(true);
-        obj.set_hexpand(true);
+        obj.set_expand(true);
 
         let stack = imp.stack.borrow().clone();
         grid.attach(&stack, 0, 0, 1, 1);
