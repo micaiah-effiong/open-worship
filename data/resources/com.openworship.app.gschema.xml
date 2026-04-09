@@ -49,5 +49,14 @@
       <default>1</default>
       <summary>Alert position</summary>
     </key>
+    <key name="alert-speed" type="u">
+      <range min="0" max="10"/>
+      <default>1</default>
+      <summary>Alert speed</summary>
+    </key>
+    <key name="alert-color" type="s">
+      <default>"#ff0000"</default>
+      <summary>Alert color</summary>
+    </key>
   </schema>
 </schemalist>

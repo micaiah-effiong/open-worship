@@ -4,6 +4,7 @@ use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{AdjustmentExt, BoxExt, WidgetExt, WidgetExtManual};
 use gtk::{self, Label};
 
+use crate::services::settings::ApplicationSettings;
 use crate::utils::WidgetChildrenExt;
 
 mod signals {
@@ -38,6 +39,7 @@ mod imp {
     };
 
     use crate::{
+        services::settings::ApplicationSettings,
         utils::{self, WidgetChildrenExt},
         widgets::message_alert::signals,
     };
@@ -120,9 +122,33 @@ mod imp {
                 5.3 * value * font_size
             );
 
+            let scale = self.font_scale.get() as f32;
+            let offset = 3.0 * scale;
+            let radius = 1.0 * scale;
+            let shadow = format!(
+                "#000 {} #000 {} #000 {} #000 {}",
+                format!("-{}px -{}px {}px,", offset, offset, radius),
+                format!("{}px -{}px {}px,", offset, offset, radius),
+                format!("-{}px  {}px {}px,", offset, offset, radius),
+                format!("{}px {}px {}px", offset, offset, radius)
+            );
+
+            let settings = ApplicationSettings::get_instance();
+
             // println!("font {value} {}", 5.3 * value * font_size);
-            for item in self.scrolled_box.get_children::<gtk::Label>() {
+            for item in self.scrolled_box.children() {
                 utils::set_style(&item, &css);
+
+                utils::set_style(
+                    &item,
+                    &format!(
+                        ".alert-label-color {{
+                            background-color: {};
+                            text-shadow: {shadow};
+                        }}",
+                        settings.alert_color()
+                    ),
+                );
             }
         }
     }
@@ -151,7 +177,7 @@ impl MessageAlert {
     pub fn add_message(&self, msg: &str) {
         let imp = self.imp();
         let message_label = gtk::Label::new(Some(&format!("{msg}...")));
-        message_label.set_css_classes(&["alert-label", "alert-label-size"]);
+        message_label.set_css_classes(&["alert-label", "alert-label-size", "alert-label-color"]);
 
         imp.scrolled_box.append(&message_label);
         imp.scrolled_box
@@ -195,7 +221,8 @@ impl MessageAlert {
                     return glib::ControlFlow::Continue;
                 }
 
-                let speed = 1.0;
+                let settings = ApplicationSettings::get_instance();
+                let speed = settings.alert_speed() as f64 / 10.0;
                 let next_adj_value = current + speed;
 
                 if next_adj_value >= diff {

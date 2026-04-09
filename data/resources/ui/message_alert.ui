@@ -35,6 +35,7 @@
                         <property name="hexpand">true</property>
                         <style>
                           <class name="alert-label" />
+                          <class name="alert-label-color" />
                         </style>
                       </object>
                     </child>
@@ -45,6 +46,7 @@
                         <property name="hexpand">true</property>
                         <style>
                           <class name="alert-label" />
+                          <class name="alert-label-color" />
                         </style>
                       </object>
                     </child>

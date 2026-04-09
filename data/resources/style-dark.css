@@ -132,16 +132,10 @@ editablelabel.schedule-list-item-editable {
 }
 
 .alert-label {
-  background-color: red;
-  font-weight: bold;
+  font-weight: 900;
   padding-left: 13px;
   padding-right: 13px;
-  text-shadow:
-    #000 -1px -1px 1px,
-    #000 1px -1px 1px,
-    #000 -1px 1px 1px,
-    #000 1px 1px 1px,
-    -2px 2px 1px black;
+  color: white;
 }
 
 .error {

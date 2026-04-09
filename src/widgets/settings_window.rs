@@ -36,7 +36,7 @@ mod imp {
         application::OwApplication,
         services::settings::ApplicationSettings,
         structs::integer_object::IntegerObject,
-        utils::{self, WidgetChildrenExt},
+        utils::{self, RGBExtra, WidgetChildrenExt},
         widgets::canvas::{canvas::Canvas, serialise::CanvasData},
     };
 
@@ -92,6 +92,10 @@ mod imp {
         alert_dropdown: gtk::TemplateChild<gtk::DropDown>,
         #[template_child]
         alert_count_btn: gtk::TemplateChild<gtk::SpinButton>,
+        #[template_child]
+        alert_speed_btn: gtk::TemplateChild<gtk::SpinButton>,
+        #[template_child]
+        alert_color_btn: gtk::TemplateChild<gtk::ColorDialogButton>,
 
         monitor_map: RefCell<HashMap<String, gdk::Monitor>>,
 
@@ -485,6 +489,31 @@ mod imp {
             settings
                 .bind_alert_count(&self.alert_count_btn.clone(), "value")
                 .build();
+            settings
+                .bind_alert_speed(&self.alert_speed_btn.clone(), "value")
+                .build();
+            settings
+                .bind_alert_color(&self.alert_color_btn.clone(), "rgba")
+                .mapping(|rgba, _| {
+                    let rgba: String = rgba
+                        .get()
+                        .expect("The variant needs to be of type `String`.");
+
+                    let (r, g, b) = hex_to_rgba(&rgba[0..7]).unwrap_or((0, 0, 0));
+
+                    let color =
+                        gdk::RGBA::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, 1.0);
+
+                    Some(color.to_value())
+                })
+                .set_mapping(move |rgba, _| {
+                    let rgba: gdk::RGBA =
+                        rgba.get().expect("The variant needs to be of type `RGBA`.");
+
+                    let hex = rgba.to_hex();
+                    Some(hex.to_variant())
+                })
+                .build();
         }
     }
 }
@@ -505,4 +534,27 @@ impl SettingsWindow {
     pub fn new() -> Self {
         glib::Object::new()
     }
+}
+
+fn hex_to_rgba(val: &str) -> Option<(u8, u8, u8)> {
+    let val = val.strip_prefix('#')?;
+
+    let hex = match val.len() {
+        3 => {
+            let mut hex_str = String::with_capacity(6);
+            for ch in val.chars() {
+                hex_str.push(ch);
+                hex_str.push(ch);
+            }
+            hex_str
+        }
+        6 => val.to_string(),
+        _ => return None,
+    };
+
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+    Some((r, g, b))
 }
