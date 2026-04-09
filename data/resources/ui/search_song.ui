@@ -12,9 +12,10 @@
         <property name="height_request">48</property>
 
         <child>
-          <object class="GtkSearchEntry" id="search_field">
+          <object class="GtkEntry" id="search_field">
             <property name="placeholder_text">Search title...</property>
             <property name="hexpand">true</property>
+            <property name="primary-icon-name">system-search</property>
           </object>
         </child>
 

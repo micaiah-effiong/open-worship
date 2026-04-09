@@ -45,7 +45,7 @@ impl SongData {
 }
 
 mod imp {
-    use std::cell::RefCell;
+    use std::cell::{Cell, RefCell};
 
     use super::*;
     use gtk::glib::{
@@ -60,6 +60,9 @@ mod imp {
         #[property(name="title", get, set, type=String, member=title)]
         #[property(name="song-id", get, set, type=u32, member=song_id)]
         pub data: RefCell<SongData>,
+
+        #[property(get, set, default_value = true, construct)]
+        pub filter_active: Cell<bool>,
     }
 
     #[glib::object_subclass]

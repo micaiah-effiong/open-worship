@@ -169,10 +169,18 @@ impl Query {
         r
     }
 
-    pub fn get_songs(search_text: String) -> RuResult<Vec<SongData>> {
+    pub fn search_songs(search_text: String, title_mode: bool) -> RuResult<Vec<SongData>> {
         let r = DatabaseConnection::with_mut_db(|conn| {
-            let mut songs_sql =
-                conn.prepare("SELECT id, title FROM songs WHERE title LIKE ?1 ORDER BY title ASC")?;
+            let song_sql = match title_mode {
+                true => "SELECT id, title FROM songs WHERE title LIKE ?1 ORDER BY title ASC",
+                false => {
+                    "SELECT DISTINCT songs.id, songs.title from song_verses  
+                    INNER JOIN songs on songs.id=song_id
+                    where text LIKE ?1 ORDER BY title ASC"
+                }
+            };
+
+            let mut songs_sql = conn.prepare(song_sql)?;
             let mut songs_verses_sql = conn.prepare(
                 "SELECT verse, text, tag, json(slide) FROM song_verses WHERE song_id = ?1",
             )?;
@@ -227,7 +235,7 @@ impl Query {
     }
 
     pub fn get_all_songs() -> RuResult<Vec<SongData>> {
-        Self::get_songs(String::new())
+        Self::search_songs(String::new(), true)
     }
 
     pub fn insert_verse(

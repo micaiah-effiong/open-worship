@@ -12,8 +12,15 @@ mod signals {
     pub(super) const SEND_TO_SCHEDULE: &str = "send-to-schedule";
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+enum SearchMode {
+    #[default]
+    Title,
+    Verse,
+}
+
 mod imp {
-    use std::sync::OnceLock;
+    use std::{cell::RefCell, collections::HashSet, sync::OnceLock};
 
     use gtk::{
         gio::{
@@ -32,8 +39,8 @@ mod imp {
             value::ToValue,
         },
         prelude::{
-            EditableExt, GestureExt, GestureSingleExt, ListItemExt, PopoverExt, SelectionModelExt,
-            WidgetExt,
+            EditableExt, EntryExt, FilterExt, GestureExt, GestureSingleExt, ListItemExt,
+            PopoverExt, SelectionModelExt, WidgetExt,
         },
         subclass::{
             box_::BoxImpl,
@@ -51,7 +58,9 @@ mod imp {
         utils::ListViewExtra,
         widgets::{
             canvas::serialise::SlideManagerData,
-            search::songs::{edit_modal::SongEditWindow, list_item::SongListItem, signals},
+            search::songs::{
+                SearchMode, edit_modal::SongEditWindow, list_item::SongListItem, signals,
+            },
         },
     };
 
@@ -61,7 +70,12 @@ mod imp {
         #[template_child]
         listview: gtk::TemplateChild<gtk::ListView>,
         #[template_child]
-        search_field: gtk::TemplateChild<gtk::SearchEntry>,
+        search_field: gtk::TemplateChild<gtk::Entry>,
+
+        //
+        search_mode: RefCell<SearchMode>,
+        filter: RefCell<gtk::CustomFilter>,
+        search_timeout_id: RefCell<Option<glib::SourceId>>,
     }
 
     #[glib::object_subclass]
@@ -82,8 +96,17 @@ mod imp {
             self.parent_constructed();
 
             let listview = self.listview.clone();
-            let model = gtk::gio::ListStore::new::<SongObject>();
-            let model = gtk::SingleSelection::new(Some(model));
+            let store = gtk::gio::ListStore::new::<SongObject>();
+            let filter = gtk::CustomFilter::new(|item| {
+                let song_obj = item
+                    .downcast_ref::<SongObject>()
+                    .expect("Should be `SongObject`");
+                song_obj.filter_active()
+            });
+            self.filter.replace(filter.clone());
+            let filter_model = gtk::FilterListModel::new(Some(store), Some(filter));
+
+            let model = gtk::SingleSelection::new(Some(filter_model));
             listview.set_model(Some(&model));
 
             let factory = gtk::SignalListItemFactory::new();
@@ -320,23 +343,62 @@ mod imp {
             let search = self.search_field.clone();
             let list = self.listview.clone();
 
-            search.connect_search_changed(glib::clone!(
+            search.connect_changed(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
                 #[strong]
                 list,
                 move |se| {
-                    let songs = match Query::get_songs(se.text().to_string()) {
-                        Ok(q) => q,
-                        Err(e) => {
-                            eprintln!("SQL ERROR: {:?}", e);
-                            return;
-                        }
-                    };
+                    if let Some(id) = imp.search_timeout_id.take() {
+                        id.remove();
+                    }
 
-                    list.remove_all();
-                    songs.iter().for_each(|s| {
-                        let ss: SongObject = s.clone().into();
-                        list.append_item(&ss);
-                    });
+                    let timeout_id = glib::timeout_add_local_once(
+                        std::time::Duration::from_millis(300),
+                        glib::clone!(
+                            #[weak]
+                            imp,
+                            #[strong]
+                            list,
+                            #[strong]
+                            se,
+                            move || {
+                                if se.text().is_empty() {
+                                    list.get_items().iter().for_each(|v| {
+                                        let v = v
+                                            .downcast_ref::<SongObject>()
+                                            .expect("Should be `SongObject`");
+                                        v.set_filter_active(true);
+                                    });
+                                } else {
+                                    let title_search =
+                                        *imp.search_mode.borrow() == SearchMode::Title;
+                                    let query =
+                                        Query::search_songs(se.text().to_string(), title_search);
+
+                                    let songs_ids: HashSet<_> = match query {
+                                        Ok(q) => q.iter().map(|v| v.song_id).collect(),
+                                        Err(e) => {
+                                            eprintln!("SQL ERROR: {:?}", e);
+                                            HashSet::new()
+                                        }
+                                    };
+
+                                    list.get_items().iter().for_each(|v| {
+                                        let v = v
+                                            .downcast_ref::<SongObject>()
+                                            .expect("Should be `SongObject`");
+                                        v.set_filter_active(songs_ids.contains(&v.song_id()));
+                                    });
+                                }
+                                //
+                                imp.filter.borrow().changed(gtk::FilterChange::Different);
+                                imp.search_timeout_id.take();
+                            }
+                        ),
+                    );
+
+                    imp.search_timeout_id.replace(Some(timeout_id));
                 }
             ));
 
@@ -354,9 +416,33 @@ mod imp {
                 }
             ));
 
-            search.connect_next_match(|m| {
-                println!("N_MATCH <C-g> {:?}", m);
-            });
+            search.connect_icon_release(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |s, icon_position| {
+                    if icon_position != gtk::EntryIconPosition::Primary {
+                        return;
+                    };
+
+                    let mode = match *imp.search_mode.borrow() {
+                        SearchMode::Title => {
+                            s.set_primary_icon_name(Some("view-list"));
+                            s.set_placeholder_text(Some("Search verses..."));
+                            true
+                        }
+                        SearchMode::Verse => {
+                            s.set_primary_icon_name(Some("system-search"));
+                            s.set_placeholder_text(Some("Search title..."));
+                            false
+                        }
+                    };
+
+                    match mode {
+                        true => imp.search_mode.replace(SearchMode::Verse),
+                        false => imp.search_mode.replace(SearchMode::Title),
+                    };
+                }
+            ));
         }
 
         fn open_edit_modal(&self, song: Option<SongObject>) {

@@ -249,20 +249,25 @@ fn get_list_store(list_view: &gtk::ListView) -> Option<gio::ListStore> {
         return None;
     };
 
-    if let Ok(single) = selection_model.clone().downcast::<gtk::SingleSelection>() {
-        single
-            .model()
-            .and_then(|m| m.downcast::<gtk::gio::ListStore>().ok())
+    let mut model = if let Ok(single) = selection_model.clone().downcast::<gtk::SingleSelection>() {
+        single.model()?
     } else if let Ok(multi) = selection_model.clone().downcast::<gtk::MultiSelection>() {
-        multi
-            .model()
-            .and_then(|m| m.downcast::<gtk::gio::ListStore>().ok())
+        multi.model()?
     } else if let Ok(none) = selection_model.clone().downcast::<gtk::NoSelection>() {
-        none.model()
-            .and_then(|m| m.downcast::<gtk::gio::ListStore>().ok())
+        none.model()?
     } else {
-        None
+        return None;
+    };
+
+    if let Ok(filter_model) = model.clone().downcast::<gtk::FilterListModel>() {
+        model = filter_model.model()?;
     }
+
+    if let Ok(sort_model) = model.clone().downcast::<gtk::SortListModel>() {
+        model = sort_model.model()?;
+    }
+
+    model.downcast::<gtk::gio::ListStore>().ok()
 }
 
 pub trait ListViewExtra: IsA<gtk::ListView> {
