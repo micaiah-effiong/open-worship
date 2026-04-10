@@ -1,36 +1,36 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <gresources>
   <gresource prefix="/com/openworship/app">
-    <file compressed="true">icons/drag-symbolic.svg</file>
-    <file compressed="true">icons/drag-square-symbolic.svg</file>
-    <file compressed="true">icons/screen-symbolic.svg</file>
-    <file compressed="true">icons/plus-symbolic.svg</file>
-    <file compressed="true">icons/minus-symbolic.svg</file>
-    <file compressed="true">icons/text-superscript-regular-symbolic.svg</file>
-    <file compressed="true">icons/text-subscript-regular-symbolic.svg</file>
-    <file compressed="true">icons/text-bold-filled-symbolic.svg</file>
-    <file compressed="true">icons/text-italic-regular-symbolic.svg</file>
-    <file compressed="true">icons/text-italic-filled-symbolic.svg</file>
-    <file compressed="true">icons/text-underline-filled-symbolic.svg</file>
-    <file compressed="true">icons/text-outline-filled-symbolic.svg</file>
-    <file compressed="true">icons/text-shadow-filled-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/drag-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/drag-square-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/screen-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/plus-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/minus-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-superscript-regular-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-subscript-regular-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-bold-filled-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-italic-regular-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-italic-filled-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-underline-filled-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-outline-filled-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-shadow-filled-symbolic.svg</file>
 
-    <file compressed="true">icons/text-justify-center-symbolic.svg</file>
-    <file compressed="true">icons/text-justify-fill-symbolic.svg</file>
-    <file compressed="true">icons/text-justify-left-symbolic.svg</file>
-    <file compressed="true">icons/text-justify-right-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-justify-center-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-justify-fill-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-justify-left-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/text-justify-right-symbolic.svg</file>
 
-    <file compressed="true">icons/align-bottom-symbolic.svg</file>
-    <file compressed="true">icons/align-middle-symbolic.svg</file>
-    <file compressed="true">icons/align-top-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/align-bottom-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/align-middle-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/align-top-symbolic.svg</file>
 
-    <file compressed="true">icons/picture-symbolic.svg</file>
-    <file compressed="true">icons/close-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/picture-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/close-symbolic.svg</file>
 
-    <file compressed="true">icons/screen-black-symbolic.svg</file>
-    <file compressed="true">icons/screen-clear-symbolic.svg</file>
-    <file compressed="true">icons/screen-logo-symbolic.svg</file>
-    <file compressed="true">icons/screen-golive-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/screen-black-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/screen-clear-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/screen-logo-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/screen-golive-symbolic.svg</file>
   </gresource>
 
   <gresource prefix="/com/openworship/app">

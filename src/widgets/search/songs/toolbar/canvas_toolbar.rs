@@ -21,6 +21,7 @@ mod imp {
 
     use crate::{
         app_config::AppConfigDir,
+        format_resource,
         services::{file_manager::FileManager, slide_manager::SlideManager},
         utils::{self, RGBExtra, WidgetExtrasExt},
     };
@@ -167,7 +168,11 @@ mod imp {
                 });
             }
 
-            let image_btn = gtk::Button::builder().icon_name("picture").build();
+            let img = gtk::Image::from_resource(format_resource!(
+                "icons/scalable/actions",
+                "picture-symbolic.svg"
+            ));
+            let image_btn = gtk::Button::builder().child(&img).build();
             image_btn.set_tooltip("Background image");
             {
                 toolbar.append(&image_btn);

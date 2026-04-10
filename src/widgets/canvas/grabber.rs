@@ -32,6 +32,8 @@ mod imp {
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
+    use crate::format_resource;
+
     use super::*;
 
     #[derive(Default)]
@@ -83,6 +85,17 @@ mod imp {
                         .build(),
                 ]
             })
+        }
+
+        fn constructed(&self) {
+            self.parent_constructed();
+
+            let img = gtk::Image::from_resource(format_resource!(
+                "icons/scalable/actions",
+                "drag-symbolic.svg"
+            ));
+
+            self.obj().set_child(Some(&img));
         }
     }
 
@@ -149,7 +162,6 @@ impl Grabber {
 
         g.remove_css_class("button");
         g.add_css_class("ow-grabber");
-        g.set_icon_name("drag-symbolic");
         g.set_cursor_from_id(id as u32);
 
         if let Some(image) = g.child().and_downcast_ref::<gtk::Image>() {
