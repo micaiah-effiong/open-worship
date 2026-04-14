@@ -50,7 +50,7 @@
     <file compressed="true">ui/search_scripture.ui</file>
     <file compressed="true">ui/search_background.ui</file>
     <file compressed="true">ui/background_list_item.ui</file>
-    <file compressed="true">ui/download_bible_window.ui</file>
+    <file compressed="true">ui/download_bible_page.ui</file>
     <file compressed="true">ui/app_window.ui</file>
     <file compressed="true">ui/settings_window.ui</file>
     <file compressed="true">ui/app_menubar.ui</file>

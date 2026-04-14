@@ -13,7 +13,10 @@ use crate::dto;
 use crate::parser::parser::{self, BibleReference};
 use crate::utils::WidgetChildrenExt;
 use crate::widgets::canvas::serialise::SlideManagerData;
-use crate::widgets::search::scriptures::download::download_modal::DownloadBibleWindow;
+use crate::widgets::search::scriptures::download::download_page::DownloadBiblePage;
+
+const SCRIPTURE_STACK_MAIN: &str = "main";
+const SCRIPTURE_STACK_DOWNLOAD: &str = "download";
 
 mod signals {
     pub(super) const SEND_SCRIPTURES: &str = "send-scriptures";
@@ -72,6 +75,12 @@ mod imp {
         import_btn: gtk::TemplateChild<gtk::Button>,
         #[template_child]
         dropdown: gtk::TemplateChild<gtk::DropDown>,
+        #[template_child]
+        scripture_stack: gtk::TemplateChild<gtk::Stack>,
+        #[template_child]
+        download_view: gtk::TemplateChild<DownloadBiblePage>,
+        #[template_child]
+        close_download_btn: gtk::TemplateChild<gtk::Button>,
 
         search_mode: RefCell<SearchMode>,
     }
@@ -83,6 +92,7 @@ mod imp {
         type ParentType = gtk::Box;
 
         fn class_init(klass: &mut Self::Class) {
+            DownloadBiblePage::ensure_type();
             klass.bind_template();
             klass.bind_template_callbacks();
         }
@@ -149,6 +159,24 @@ mod imp {
                 self.load_initial_verses(first.to_string());
             }
 
+            let win = self.download_view.clone();
+            win.connect_new_translation(glib::clone!(
+                #[weak(rename_to = imp)]
+                self,
+                move |_, t| {
+                    glib::g_message!("SearchScripture", "WIN = new translation: {t}");
+                    imp.new_translation(t);
+                }
+            ));
+            win.connect_reload_translation(glib::clone!(
+                #[weak(rename_to = imp)]
+                self,
+                move |_| {
+                    glib::g_message!("SearchScripture", "WIN = reload translation");
+                    imp.reload_translations();
+                }
+            ));
+
             self.register_activate_selected();
             self.register_context_menu();
             self.register_drag();
@@ -186,39 +214,26 @@ mod imp {
         #[template_callback]
         fn open_download_modal(&self, _: &gtk::Button) {
             glib::g_message!("SearchScripture", "open_download_modal");
+            self.scripture_stack
+                .set_visible_child_name(super::SCRIPTURE_STACK_DOWNLOAD);
 
             let tranlations = Self::get_bible_translations();
+            self.download_view.load_translations(tranlations);
+        }
 
-            let win = DownloadBibleWindow::new(tranlations);
-            win.set_modal(false);
-            win.connect_new_translation(glib::clone!(
-                #[weak(rename_to = imp)]
-                self,
-                move |_, t| {
-                    glib::g_message!("SearchScripture", "WIN = new translation: {t}");
-                    imp.new_translation(t);
-                }
-            ));
-            win.connect_reload_translation(glib::clone!(
-                #[weak(rename_to = imp)]
-                self,
-                move |_| {
-                    glib::g_message!("SearchScripture", "WIN = reload translation");
-                    imp.reload_translations();
-                }
-            ));
-
-            win.present();
+        #[template_callback]
+        fn close_download_handler(&self, _: &gtk::Button) {
+            self.scripture_stack
+                .set_visible_child_name(super::SCRIPTURE_STACK_MAIN);
+            glib::g_message!("SearchScripture", "close_download_handler");
         }
     }
 
     /// events
     impl SearchScripture {
         fn change_translation(&self, t: String) {
-            println!("SCRP UPDATE 2");
             self.translation.replace(t.clone());
 
-            println!("SCRP UPDATE \n {:?}, {:?}", t, self.translation.clone());
             self.search_bible(
                 self.search_text.text().to_string(),
                 &self.translation.borrow(),

@@ -146,3 +146,12 @@ editablelabel.schedule-list-item-editable {
 .small-btn {
   padding: 2px 3px;
 }
+
+.small-20-btn {
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.small-pad {
+  padding: 3px;
+}

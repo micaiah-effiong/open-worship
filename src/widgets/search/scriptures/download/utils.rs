@@ -1,4 +1,4 @@
-use futures_util::StreamExt;
+use futures_util::AsyncReadExt;
 use gtk::glib;
 use std::io::Write;
 
@@ -10,26 +10,21 @@ use crate::{
         connection::{BibleTranslation, BibleVerse},
         query::Query,
     },
+    widgets::search::scriptures::download::download_page::BibleDownload,
 };
-
-use super::download_modal::BibleDownload;
 
 pub async fn import_bible<F>(bible: &BibleDownload, callback: F) -> Option<String>
 where
     F: Fn(Result<String, ()>),
 {
     println!("SELCETIONS {:?}", bible);
+    println!("URL {:?}", bible.download_url());
 
-    let download_url = match &bible.download_url {
-        Some(d) => d,
-        None => {
-            eprintln!("ERROR: no download_url");
-            return None;
-        }
-    };
+    let download_url = bible.download_url();
 
-    println!("DOWNLOAD STARTED");
-    let response = match reqwest::get(download_url).await {
+    let client = surf::Client::new();
+    let req = surf::get(download_url).build();
+    let mut response = match client.send(req).await {
         Ok(r) => r,
         Err(e) => {
             glib::g_critical!("Import Bible", "{:?}", e);
@@ -37,16 +32,15 @@ where
             return None;
         }
     };
-    /*  .expect("Request error") */
 
     let content_size = response
-        .content_length()
-        .expect("Error getting content size");
-    let mut download_stream = response.bytes_stream();
+        .header("content-length")
+        .and_then(|v| v.as_str().parse::<u64>().ok())
+        .unwrap_or(0);
 
     let mut downloaded_size: u64 = 0;
     let path_str = AppConfigDir::dir_path(AppConfigDir::Downloads);
-    let file_path = path_str.join(bible.name.clone());
+    let file_path = path_str.join(bible.name());
     let file = std::fs::File::create_new(&file_path);
     let mut file = match file {
         Ok(f) => f,
@@ -56,9 +50,17 @@ where
         }
     };
 
-    while let Some(item) = download_stream.next().await {
-        let chunk = item.expect("Error while downloading file");
-        file.write_all(&chunk).expect("Error while writing to file");
+    let mut buffer = vec![0u8; 8192]; // 2**13
+    loop {
+        let len = response.read(&mut buffer).await.expect("read error");
+
+        if len == 0 {
+            break;
+        }
+
+        file.write_all(&buffer[..len]).expect("write error");
+
+        downloaded_size = u64::min(downloaded_size + len as u64, content_size);
         let percentage = ((downloaded_size as f64 / content_size as f64) * 100.0).round();
 
         println!(
@@ -66,22 +68,25 @@ where
             percentage
         );
 
-        callback(Ok(format!("Downloading {percentage}%")));
-
-        downloaded_size = u64::min(downloaded_size + chunk.len() as u64, content_size);
+        callback(Ok(format!("{percentage}%")));
     }
 
     callback(Ok("Installing...".to_string()));
 
-    let _db_conn = match Connection::open(&file_path) {
-        Ok(conn) => conn,
-        Err(e) => {
-            println!("Error opening file: {:?}", e);
-            return None;
-        }
+    let translation_name = write_to_db(file_path, bible);
+    callback(Ok("Done".to_string()));
+
+    translation_name
+}
+
+fn write_to_db(file_path: std::path::PathBuf, bible: &BibleDownload) -> Option<String> {
+    let Ok(db_conn) =
+        Connection::open(&file_path).map_err(|e| println!("Error opening file: {:?}", e))
+    else {
+        return None;
     };
 
-    let translation_query = _db_conn.query_row(
+    let translation_query = db_conn.query_row(
         "SELECT translation, title, license FROM translations",
         [],
         |r| {
@@ -94,36 +99,21 @@ where
             Ok(bt)
         },
     );
-    let translation: BibleTranslation = match translation_query {
-        Ok(r) => r,
-        Err(e) => {
-            eprintln!(
-                "SQL ERROR: error getting downloaded translation info \n{:?}",
-                e
-            );
-            return None;
-        }
+    let Ok(bible_translation) = translation_query.map_err(|e| eprintln!("SQL ERROR: \n{:?}", e))
+    else {
+        return None;
     };
 
-    let translation_name = match bible.name.split(".").collect::<Vec<&str>>().first() {
-        Some(name) => name.to_string(),
-        None => {
-            eprintln!("ERROR: failed to get file translation name");
-            return None;
-        }
-    };
-
-    let translation_verses_query = _db_conn.prepare(&format!(
+    let translation_name = bible.name();
+    let translation_verses_query = db_conn.prepare(&format!(
         "SELECT id, book_id, chapter, verse, text FROM {}_verses",
         translation_name
     ));
 
-    let mut verses_sql = match translation_verses_query {
-        Ok(s) => s,
-        Err(e) => {
-            eprintln!("SQL ERROR: error getting downloaded verses \n{:?}", e);
-            return None;
-        }
+    let Ok(mut verses_sql) = translation_verses_query
+        .map_err(|e| eprintln!("SQL ERROR: error getting downloaded verses \n{:?}", e))
+    else {
+        return None;
     };
 
     let verses_query = verses_sql.query_map([], |r| {
@@ -141,35 +131,24 @@ where
         Ok(bv)
     });
 
-    let bible_verse = match verses_query {
-        Ok(a) => a,
-        Err(e) => {
-            eprintln!("SQL ERROR: error getting downloaded verses \n{:?}", e);
-            return None;
-        }
+    let Ok(bible_verse) =
+        verses_query.map_err(|e| eprintln!("SQL ERROR: error getting downloaded verses \n{:?}", e))
+    else {
+        return None;
     };
 
     let mut verses_vec = Vec::new();
     for row in bible_verse {
-        match row {
-            Ok(r) => {
-                // check if book is not part of the 66 books
-                if r.1.book_id > 66 {
-                    eprintln!("SQL ERROR: Book too large \n{:?}", verses_vec.first());
-                    return None;
-                }
-
-                verses_vec.push(r);
-            }
-            Err(e) => {
-                eprintln!("SQL ERROR: error extracting downloaded verses \n{:?}", e);
-                return None;
-            }
+        let Ok(r) =
+            row.map_err(|e| eprintln!("SQL ERROR: error extracting downloaded verses \n{:?}", e))
+        else {
+            return None;
         };
+        verses_vec.push(r);
     }
 
-    let translation_name = translation.translation.clone();
-    let res = Query::insert_verse(translation, verses_vec);
+    let translation_name = bible_translation.translation.clone();
+    let res = Query::insert_verse(bible_translation, verses_vec);
     println!("INSERTING VERESES DONE: {:?}", res);
 
     if let Err(e) = std::fs::remove_file(&file_path) {
@@ -177,7 +156,5 @@ where
         return None;
     }
 
-    callback(Ok("Done".to_string()));
-
-    Some(translation_name)
+    return Some(translation_name);
 }

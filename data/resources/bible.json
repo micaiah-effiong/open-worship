@@ -556,10 +556,6 @@
     "active": true
   },
   {
-    "name": "extras",
-    "download_url": null
-  },
-  {
     "name": "sml_BL_2008.db",
     "download_url": "https://raw.githubusercontent.com/scrollmapper/bible_databases/master/formats/sqlite/sml_BL_2008.db"
   },

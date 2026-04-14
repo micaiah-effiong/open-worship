@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="DownloadBiblePage" parent="GtkBox"> 
+    <child>
+      <object class="GtkScrolledWindow"> 
+        <property name="vexpand">true</property>
+        <property name="hexpand">true</property>
+
+        <child>
+          <object class="GtkListView" id="listview">
+            <property name="show_separators">true</property>
+          </object>
+        </child>
+
+      </object> 
+    </child>
+
+    <child>
+      <object class="GtkBox">
+      </object>
+    </child>
+
+  </template>
+</interface>

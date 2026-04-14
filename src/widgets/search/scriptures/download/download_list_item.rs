@@ -5,7 +5,8 @@ use gtk::{
 };
 
 use crate::{
-    db::query::Query, widgets::search::scriptures::download::download_modal::BibleDownloadObj,
+    db::query::Query,
+    widgets::search::scriptures::download::download_page::{BibleDownload, DownloadBiblePage},
 };
 
 use super::utils;
@@ -20,17 +21,13 @@ mod imp {
                 object::{ObjectImpl, ObjectImplExt},
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
+            types::StaticType,
         },
         prelude::BoxExt,
         subclass::{box_::BoxImpl, widget::WidgetImpl},
     };
 
-    use crate::{
-        utils::WidgetExtrasExt,
-        widgets::search::scriptures::download::download_modal::{
-            BibleDownload, DownloadBibleWindow,
-        },
-    };
+    use crate::widgets::search::scriptures::download::download_page::BibleDownload;
 
     use super::*;
 
@@ -64,6 +61,7 @@ mod imp {
                 .margin_end(8)
                 .build();
             self.text.replace(label.clone());
+            self.btn.borrow().set_css_classes(&["small-btn"]);
 
             obj.append(&label);
             obj.append(&self.btn.borrow().clone());
@@ -73,12 +71,13 @@ mod imp {
     impl BoxImpl for TranslationListItem {}
 
     impl TranslationListItem {
-        pub(super) fn load_data(&self, main_data: &BibleDownloadObj) {
-            let data = main_data.details();
-            self.already_added.set(main_data.already_added());
+        pub(super) fn load_data(&self, data: &BibleDownload) {
+            // let data = main_data.details();
+            self.already_added.set(data.already_added());
             self.data.replace(data.clone());
-            if let Some(name) = data.name.split(".").collect::<Vec<_>>().first().cloned() {
-                println!("alread_added {}", self.already_added.get());
+            println!("name2 {}", data.name());
+            if let Some(name) = data.name().split(".").collect::<Vec<_>>().first().cloned() {
+                println!("alread_added2 {}", self.already_added.get());
                 if self.already_added.get() {
                     self.btn.borrow().set_label("Uninstall");
                     self.text.borrow().set_label(&format!("{name} (Installed)"));
@@ -89,9 +88,10 @@ mod imp {
             };
 
             let imp = self.downgrade();
+            let already_added = self.already_added.get();
+            let data = self.data.borrow().clone();
             self.btn.borrow().connect_clicked({
                 let Some(imp) = imp.upgrade() else {
-                    println!("No upgrade");
                     return;
                 };
                 move |btn| {
@@ -100,13 +100,14 @@ mod imp {
                         imp,
                         #[weak]
                         btn,
+                        #[strong]
+                        data,
+                        #[strong]
+                        already_added,
                         async move {
-                            let data = imp.data.borrow().clone();
-
-                            let Some(sender) = imp
-                                .obj()
-                                .toplevel_window()
-                                .and_downcast::<DownloadBibleWindow>()
+                            let Some(sender) = btn
+                                .ancestor(DownloadBiblePage::static_type())
+                                .and_downcast::<DownloadBiblePage>()
                             else {
                                 return;
                             };
@@ -114,26 +115,19 @@ mod imp {
                             //
                             btn.set_sensitive(false);
                             println!("alread_added {}", imp.already_added.get());
-                            if imp.already_added.get() {
-                                if let Some(name) =
-                                    data.name.split(".").collect::<Vec<_>>().first().cloned()
-                                {
-                                    let delete_result =
-                                        Query::delete_bible_translation(name.into());
-                                    match delete_result {
-                                        Ok(_) => {
-                                            sender.reload_translation();
-                                            btn.set_label("Install");
-                                        }
-                                        Err(e) => {
-                                            btn.set_label("Uninstall");
-                                            eprintln!(
-                                                "SQL ERROR: error removing translation\n{:?}",
-                                                e
-                                            );
-                                        }
+                            println!("name {}", data.name());
+                            if already_added {
+                                let delete_result = Query::delete_bible_translation(data.name());
+                                match delete_result {
+                                    Ok(_) => {
+                                        sender.reload_translation();
+                                        btn.set_label("Install");
                                     }
-                                };
+                                    Err(e) => {
+                                        btn.set_label("Uninstall");
+                                        eprintln!("SQL ERROR: error removing translation\n{:?}", e);
+                                    }
+                                }
                             } else {
                                 btn.set_label("Installing");
 
@@ -183,7 +177,7 @@ impl TranslationListItem {
         glib::Object::new()
     }
 
-    pub fn load_data(&self, data: &BibleDownloadObj) {
+    pub fn load_data(&self, data: &BibleDownload) {
         self.imp().load_data(data)
     }
 }

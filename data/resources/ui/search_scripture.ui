@@ -4,47 +4,104 @@
     <property name="orientation">vertical</property>
     <property name="vexpand">true</property>
 
-    <child>
-      <object class="GtkBox">
-        <property name="orientation">horizontal</property>
-        <property name="spacing">2</property>
-        <property name="height_request">48</property>
 
+
+
+<!---->
+    <child>
+      <!--  -->
+      <object class="GtkStack" id="scripture_stack">
+        <property name="hexpand">true</property>
         <child>
-          <object class="GtkSearchEntry" id="search_text">
-            <property name="hexpand">true</property>
-            <signal name="activate" handler="handle_search_activate" swapped="true"/>
+          <object class="GtkStackPage">
+            <property name="name">main</property>
+            <property name="child">
+
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkBox">
+                    <property name="spacing">2</property>
+                    <property name="height_request">48</property>
+
+                    <child>
+                      <object class="GtkSearchEntry" id="search_text">
+                        <property name="hexpand">true</property>
+                        <signal name="activate" handler="handle_search_activate" swapped="true"/>
+                      </object>
+                    </child>
+
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="vexpand">true</property>
+                    <child>
+                      <object class="GtkListView" id="listview">
+                      </object>
+                    </child>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkBox">
+                    <property name="orientation">horizontal</property>
+                    <child>
+                      <object class="GtkButton" id="import_btn">
+                        <property name="icon_name">plus</property>
+                        <signal name="clicked" handler="open_download_modal" swapped="true"/>
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkDropDown" id="dropdown"></object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+
+            </property>
           </object>
         </child>
-      
-      </object>
-    </child>
 
-    <child>
-      <object class="GtkScrolledWindow">
-        <property name="vexpand">true</property>
         <child>
-          <object class="GtkListView" id="listview">
+          <object class="GtkStackPage">
+
+            <property name="name">download</property>
+            <property name="child">
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <child>
+                  <object class="GtkButton" id="close_download_btn">
+                    <signal handler="close_download_handler" name="clicked" swapped="true"/>
+                    <style>
+                      <class name="flat"/>
+                      <class name="circular"/>
+                      <class name="small-20-btn"/>
+                    </style>
+                    <property name="halign">GTK_ALIGN_END</property>
+                    <child>
+                      <object class="GtkImage"  >
+                        <property name="icon-name">edit-delete</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+
+                <child> <object class="GtkSeparator"></object> </child>
+
+                <child>
+                  <object class="DownloadBiblePage" id="download_view">
+                  </object>
+                </child>
+              </object>
+            </property>
+
           </object>
         </child>
+
       </object>
     </child>
-
-    <child>
-      <object class="GtkBox">
-        <property name="orientation">horizontal</property>
-        <child>
-          <object class="GtkButton" id="import_btn">
-            <property name="icon_name">plus</property>
-            <signal name="clicked" handler="open_download_modal" swapped="true"/>
-          </object>
-        </child>
-
-        <child>
-          <object class="GtkDropDown" id="dropdown"></object>
-        </child>
-      </object>
-    </child>
-
   </template>
 </interface>

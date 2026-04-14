@@ -1,65 +1,76 @@
+use gobject_macro::gobject_props;
 use gtk::{
     self,
     glib::{self, subclass::types::ObjectSubclassIsExt},
     prelude::*,
 };
-use serde::{Deserialize, Serialize};
+use serde::{
+    Deserialize, Deserializer,
+    de::{self, MapAccess, Visitor},
+};
+use std::fmt;
 
 use crate::{db::query::Query, utils::ListViewExtra};
 
-#[derive(Default, Debug, Deserialize, Serialize, Clone, glib::Boxed)]
-#[boxed_type(name = "BibleDownload")]
+#[gobject_props]
 pub struct BibleDownload {
     pub name: String,
-    pub download_url: Option<String>,
-    pub active: Option<bool>,
+    pub download_url: String,
+    pub active: bool,
+    pub already_added: bool,
 }
 
-mod bible {
-    use std::cell::{Cell, RefCell};
-
-    use gtk::glib::{
-        self, Properties,
-        prelude::ObjectExt,
-        subclass::{object::ObjectImpl, types::ObjectSubclass},
-    };
-    use gtk::subclass::prelude::DerivedObjectProperties;
-
-    #[derive(Debug, Default, Properties)]
-    #[properties(wrapper_type = super::BibleDownloadObj)]
-    pub struct BibleDownloadObj {
-        #[property(get)]
-        pub details: RefCell<super::BibleDownload>,
-        #[property(get, set)]
-        pub already_added: Cell<bool>,
-    }
-
-    #[glib::object_subclass]
-    impl ObjectSubclass for BibleDownloadObj {
-        const NAME: &'static str = "BibleDownloadObj";
-        type Type = super::BibleDownloadObj;
-    }
-
-    #[glib::derived_properties]
-    impl ObjectImpl for BibleDownloadObj {}
-}
-
-glib::wrapper! {
-pub struct BibleDownloadObj(ObjectSubclass<bible::BibleDownloadObj>);
-}
-
-impl Default for BibleDownloadObj {
+impl Default for BibleDownload {
     fn default() -> Self {
         glib::Object::new()
     }
 }
 
-impl BibleDownloadObj {
-    fn from_data(data: BibleDownload) -> Self {
-        let obj: Self = glib::Object::new();
-        obj.imp().details.replace(data);
+struct BibleDownloadVisitor;
 
-        obj
+impl<'de> Visitor<'de> for BibleDownloadVisitor {
+    type Value = BibleDownload;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.write_str("BibleDownload struct")
+    }
+
+    fn visit_map<A>(self, mut map: A) -> Result<BibleDownload, A::Error>
+    where
+        A: MapAccess<'de>,
+    {
+        let mut name = None;
+        let mut active = None;
+        let mut download_url = None;
+
+        while let Some(key) = map.next_key::<String>()? {
+            match key.as_str() {
+                "name" => name = Some(map.next_value()?),
+                "download_url" => download_url = Some(map.next_value()?),
+                "active" => active = Some(map.next_value().unwrap_or_default()),
+                _ => {
+                    map.next_value::<serde::de::IgnoredAny>()?;
+                }
+            }
+        }
+
+        let mut name: String = name.ok_or_else(|| de::Error::missing_field("name"))?;
+        if let Some(i) = name.rfind('.') {
+            name.truncate(i);
+        }
+        let download_url = download_url.ok_or_else(|| de::Error::missing_field("download_url"))?;
+        let active = active.unwrap_or_default();
+
+        Ok(BibleDownload::new(name, download_url, active, false))
+    }
+}
+
+impl<'de> Deserialize<'de> for BibleDownload {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_map(BibleDownloadVisitor)
     }
 }
 
@@ -80,31 +91,29 @@ mod imp {
             types::StaticType,
         },
         prelude::ListItemExt,
-        subclass::{prelude::*, window::WindowImpl},
+        subclass::prelude::*,
     };
 
     use crate::{
-        format_resource,
-        utils::ListViewExtra,
-        widgets::search::scriptures::download::{
-            download_list_item::TranslationListItem,
-            download_modal::{BibleDownload, BibleDownloadObj, signals},
-        },
+        format_resource, utils::ListViewExtra,
+        widgets::search::scriptures::download::download_list_item::TranslationListItem,
     };
 
+    use super::*;
+
     #[derive(Default, Debug, gtk::CompositeTemplate)]
-    #[template(resource = "/com/openworship/app/ui/download_bible_window.ui")]
-    pub struct DownloadBibleWindow {
+    #[template(resource = "/com/openworship/app/ui/download_bible_page.ui")]
+    pub struct DownloadBiblePage {
         pub(super) installed_translations: RefCell<Vec<String>>,
         #[template_child]
         pub(super) listview: gtk::TemplateChild<gtk::ListView>,
     }
 
     #[glib::object_subclass]
-    impl ObjectSubclass for DownloadBibleWindow {
-        const NAME: &'static str = "DownloadBibleWindow";
-        type Type = super::DownloadBibleWindow;
-        type ParentType = gtk::Window;
+    impl ObjectSubclass for DownloadBiblePage {
+        const NAME: &'static str = "DownloadBiblePage";
+        type Type = super::DownloadBiblePage;
+        type ParentType = gtk::Box;
 
         fn class_init(klass: &mut Self::Class) {
             klass.bind_template();
@@ -114,12 +123,12 @@ mod imp {
         }
     }
 
-    impl ObjectImpl for DownloadBibleWindow {
+    impl ObjectImpl for DownloadBiblePage {
         fn constructed(&self) {
             self.parent_constructed();
 
             let listview = self.listview.clone();
-            let model = gtk::gio::ListStore::new::<BibleDownloadObj>();
+            let model = gtk::gio::ListStore::new::<BibleDownload>();
             let model = gtk::SingleSelection::new(Some(model));
             listview.set_model(Some(&model));
 
@@ -139,7 +148,7 @@ mod imp {
 
                 let item = li
                     .item()
-                    .and_downcast::<BibleDownloadObj>()
+                    .and_downcast::<BibleDownload>()
                     .expect("Expected SongObject");
 
                 let child = li
@@ -164,11 +173,12 @@ mod imp {
             })
         }
     }
-    impl WidgetImpl for DownloadBibleWindow {}
-    impl WindowImpl for DownloadBibleWindow {}
+    impl WidgetImpl for DownloadBiblePage {}
+    impl BoxImpl for DownloadBiblePage {}
 
-    impl DownloadBibleWindow {
+    impl DownloadBiblePage {
         pub(super) fn register_import_bible(&self, translations: Vec<String>) {
+            self.installed_translations.replace(translations.clone());
             let mut translation_map: std::collections::HashMap<String, bool> =
                 std::collections::HashMap::new();
 
@@ -192,6 +202,7 @@ mod imp {
                     return;
                 }
             };
+
             let download_list_result = match str::from_utf8(&bible_resource) {
                 Ok(r) => serde_json::from_str::<Vec<BibleDownload>>(r),
                 Err(e) => {
@@ -200,48 +211,46 @@ mod imp {
                 }
             };
 
-            if let Ok(download_list) = download_list_result {
-                for item in download_list {
-                    if !item.active.unwrap_or(false) || item.download_url.is_none() {
-                        continue;
-                    }
+            self.listview.remove_all();
+            match download_list_result {
+                Ok(download_list) => {
+                    for item in download_list {
+                        if !item.active() {
+                            continue;
+                        }
 
-                    let mut item = item.clone();
-                    if let Some((before, _)) = item.name.split_once('.') {
-                        item.name = before.to_string();
+                        let name = item.name();
+                        item.set_already_added(translation_map.contains_key(&name));
+                        self.listview.append_item(&item);
                     }
-
-                    let name = item.name.clone();
-                    let list_data = BibleDownloadObj::from_data(item);
-                    list_data.set_already_added(translation_map.contains_key(&name));
-                    self.listview.append_item(&list_data);
                 }
+                Err(e) => println!("HIT2 err {:?}", e),
             }
         }
     }
 }
 
 glib::wrapper! {
-pub struct DownloadBibleWindow(ObjectSubclass<imp::DownloadBibleWindow>)
-    @extends gtk::Window, gtk::Widget,
-    @implements gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget,gtk::Native,gtk::Root, gtk::ShortcutManager;
+pub struct DownloadBiblePage(ObjectSubclass<imp::DownloadBiblePage>)
+    @extends  gtk::Box, gtk::Widget,
+    @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-impl Default for DownloadBibleWindow {
+impl Default for DownloadBiblePage {
     fn default() -> Self {
         glib::Object::new()
     }
 }
 
-impl DownloadBibleWindow {
+impl DownloadBiblePage {
     pub fn new(installed_translations: Vec<String>) -> Self {
         let obj: Self = glib::Object::new();
-
-        obj.imp()
-            .installed_translations
-            .replace(installed_translations.clone());
         obj.imp().register_import_bible(installed_translations);
         obj
+    }
+
+    pub fn load_translations(&self, installed_translations: Vec<String>) {
+        self.imp().register_import_bible(installed_translations);
     }
 
     fn emit_new_translation(&self, data: String) {
@@ -273,9 +282,15 @@ impl DownloadBibleWindow {
     }
     pub fn reload_translation(&self) {
         if let Ok(list) = Query::get_translations() {
-            let mut installed_translations = self.imp().installed_translations.borrow_mut();
-            installed_translations.clear();
-            installed_translations.extend(list);
+            let installed_translations = {
+                // NOTE:
+                // this ensures the borrow_mut lifetime does not go out
+                // since other function calls may borrow same value
+                let mut installed_translations = self.imp().installed_translations.borrow_mut();
+                installed_translations.clear();
+                installed_translations.extend(list);
+                installed_translations.clone()
+            };
 
             self.imp().listview.remove_all();
             self.imp()

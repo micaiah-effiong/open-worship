@@ -1,3 +1,3 @@
 pub mod download_list_item;
-pub mod download_modal;
+pub mod download_page;
 mod utils;
