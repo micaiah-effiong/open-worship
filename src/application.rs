@@ -300,18 +300,25 @@ impl OwApplication {
             .build();
 
         let open = gio::ActionEntry::builder("open")
-            .activate(|_, _, _| {
+            .activate(|app: &OwApplication, _, _| {
                 let mut filters = glib::List::new();
                 let filter = gtk::FileFilter::new();
                 filters.push_back(filter);
-                let _file = FileManager::open_files("Open File", "Open", &mut filters);
+                let _file = FileManager::open_files(
+                    "Open File",
+                    "Open",
+                    &mut filters,
+                    Some(&app.main_window().into()),
+                );
             })
             .build();
 
         {
             let open_schedule = gio::ActionEntry::builder("open-schedule")
                 .activate(|main_window: &MainApplicationWindow, _, _| {
-                    let Some(data) = FileManager::open_schedule_file() else {
+                    let Some(data) = FileManager::open_schedule_file(Some(
+                        main_window.upcast_ref::<gtk::Window>(),
+                    )) else {
                         return;
                     };
 
@@ -321,7 +328,10 @@ impl OwApplication {
             let save_schedule = gio::ActionEntry::builder("save-schedule")
                 .activate(|main_window: &MainApplicationWindow, _, _| {
                     let payload = main_window.schedule_viewer().get_schedules();
-                    FileManager::save_schedule_file(payload);
+                    FileManager::save_schedule_file(
+                        payload,
+                        Some(main_window.upcast_ref::<gtk::Window>()),
+                    );
                 })
                 .build();
 

@@ -29,13 +29,14 @@ mod imp {
                 CompositeTemplateCallbacksClass, CompositeTemplateClass,
                 CompositeTemplateInitializingExt, WidgetClassExt, WidgetImpl,
             },
+            window,
         },
     };
 
     use crate::{
         app_config::AppConfigDir, dto::background_obj::BackgroundObj,
         services::file_manager::FileManager,
-        structs::background_grid_list_item::BackgroundListItem,
+        structs::background_grid_list_item::BackgroundListItem, utils::WidgetExtrasExt,
         widgets::search::background::signals,
     };
 
@@ -142,14 +143,19 @@ mod imp {
         }
 
         #[template_callback]
-        fn handle_add_background(&self, _: &gtk::Button) {
+        fn handle_add_background(&self, btn: &gtk::Button) {
             let file_filter = gtk::FileFilter::new();
             file_filter.add_mime_type("image/*");
             file_filter.set_name(Some("Images"));
 
             let mut list = glib::List::<gtk::FileFilter>::new();
             list.push_back(file_filter);
-            let files = FileManager::open_files("Import background", "Import", &mut list);
+            let files = FileManager::open_files(
+                "Import background",
+                "Import",
+                &mut list,
+                btn.toplevel_window().as_ref(),
+            );
 
             // ::<gtk::gio::File>
             let bg = files

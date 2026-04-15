@@ -157,7 +157,7 @@ impl FileManager {
         })
         .unwrap_or(gio::ListStore::new::<gio::File>().into())
     }
-    pub fn open_image() -> Option<gio::File> {
+    pub fn open_image(window: Option<&gtk::Window>) -> Option<gio::File> {
         let mut filters: glib::List<gtk::FileFilter> = glib::List::new();
         let filter = gtk::FileFilter::new();
         filter.set_name(Some("Images"));
@@ -169,30 +169,31 @@ impl FileManager {
             String::from("Open Image"),
             String::from("Open"),
             &mut filters,
-            None,
+            window,
         )
     }
     pub fn open_files(
         title: &str,
         accept_button_label: &str,
         filters: &mut glib::List<gtk::FileFilter>,
+        window: Option<&gtk::Window>,
     ) -> gio::ListModel {
         FileManager::get_multiple_files_from_user(
             title.to_string(),
             accept_button_label.to_string(),
             filters,
-            None,
+            window,
         )
     }
 
-    pub fn open_schedule_file() -> Option<Vec<SlideManagerData>> {
+    pub fn open_schedule_file(window: Option<&gtk::Window>) -> Option<Vec<SlideManagerData>> {
         let mut filters = glib::List::new();
         let filter = gtk::FileFilter::new();
         filter.set_name(Some("Openworship schedule file"));
         filter.add_pattern(app_config::APP_EXT);
         filters.push_back(filter);
 
-        let files = Self::open_files("Open Schedule", "Ok", &mut filters);
+        let files = Self::open_files("Open Schedule", "Ok", &mut filters, window);
         files
             .iter::<gio::File>()
             .flatten()
@@ -277,17 +278,18 @@ impl FileManager {
         accept_button_label: &str,
         filters: &mut glib::List<gtk::FileFilter>,
         data: &[u8],
+        window: Option<&gtk::Window>,
     ) -> Option<gio::File> {
         FileManager::save_user_file(
             title.to_string(),
             accept_button_label.to_string(),
             filters,
-            None,
+            window,
             data,
         )
     }
 
-    pub fn save_schedule_file(payload: Vec<SlideManagerData>) {
+    pub fn save_schedule_file(payload: Vec<SlideManagerData>, window: Option<&gtk::Window>) {
         if payload.is_empty() {
             return;
         };
@@ -327,14 +329,13 @@ impl FileManager {
 
         let dialog = gtk::FileDialog::builder()
             .modal(true)
-            // .accept_label("Save")
             .filters(&filter_model)
             .title("Save Schedule")
             .build();
 
         let ctx = glib::MainContext::default();
         ctx.block_on(async move {
-            let res = dialog.save_future(None::<&gtk::Window>).await;
+            let res = dialog.save_future(window).await;
 
             let res = res.inspect_err(|e| eprintln!("Error opening file in dialog: {:?}", e));
             let user_file = match res {

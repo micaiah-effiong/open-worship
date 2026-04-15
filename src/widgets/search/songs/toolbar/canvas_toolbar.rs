@@ -179,8 +179,9 @@ mod imp {
                 image_btn.add_css_class("flat");
                 image_btn.connect_clicked({
                     let sm = sm.clone();
-                    move |_| {
-                        let Some(image_file) = FileManager::open_image() else {
+                    move |btn| {
+                        let win = btn.toplevel_window();
+                        let Some(image_file) = FileManager::open_image(win.as_ref()) else {
                             return;
                         };
 
