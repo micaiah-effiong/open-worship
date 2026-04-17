@@ -33,9 +33,17 @@
     </child>
 
     <child>
+      <object class="GtkSeparator"> </object>
+    </child>
+
+    <child>
       <object class="GtkBox">
         <property name="orientation">horizontal</property>
         <property name="spacing">3</property>
+        <style>
+          <class name="small-pad"/>
+        </style>
+
         <child>
           <object class="GtkButton" id="add_bg_btn">
             <property name="icon_name">plus</property>

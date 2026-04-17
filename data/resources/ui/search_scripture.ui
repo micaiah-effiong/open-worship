@@ -4,12 +4,7 @@
     <property name="orientation">vertical</property>
     <property name="vexpand">true</property>
 
-
-
-
-<!---->
     <child>
-      <!--  -->
       <object class="GtkStack" id="scripture_stack">
         <property name="hexpand">true</property>
         <child>
@@ -45,17 +40,27 @@
                 </child>
 
                 <child>
+                  <object class="GtkSeparator"> </object>
+                </child>
+
+                <child>
                   <object class="GtkBox">
                     <property name="orientation">horizontal</property>
+                    <property name="spacing">3</property>
+                    <style>
+                      <class name="small-pad"/>
+                    </style>
                     <child>
                       <object class="GtkButton" id="import_btn">
                         <property name="icon_name">plus</property>
+                        <property name="valign">center</property>
                         <signal name="clicked" handler="open_download_modal" swapped="true"/>
                       </object>
                     </child>
 
                     <child>
-                      <object class="GtkDropDown" id="dropdown"></object>
+                      <object class="GtkDropDown" id="dropdown">
+                      </object>
                     </child>
                   </object>
                 </child>
@@ -83,7 +88,7 @@
                     <property name="halign">GTK_ALIGN_END</property>
                     <child>
                       <object class="GtkImage"  >
-                        <property name="icon-name">edit-delete</property>
+                        <property name="icon-name">circle-close</property>
                       </object>
                     </child>
                   </object>
