@@ -1,82 +1,138 @@
-use futures_util::AsyncReadExt;
-use gtk::glib;
+use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
+use std::sync::Arc;
 
+use futures_util::AsyncReadExt;
+use futures_util::future::abortable;
+use futures_util::stream::AbortHandle;
+use gtk::glib;
 use rusqlite::Connection;
 
-use crate::{
-    app_config::AppConfigDir,
-    db::{
-        connection::{BibleTranslation, BibleVerse},
-        query::Query,
-    },
-    widgets::search::scriptures::download::download_page::BibleDownload,
-};
+use crate::app_config::AppConfigDir;
+use crate::db::connection::{BibleTranslation, BibleVerse};
+use crate::db::query::Query;
+use crate::widgets::search::scriptures::download::download_page::BibleDownload;
 
-pub async fn import_bible<F>(bible: &BibleDownload, callback: F) -> Option<String>
-where
-    F: Fn(Result<String, ()>),
-{
-    println!("SELCETIONS {:?}", bible);
-    println!("URL {:?}", bible.download_url());
+pub enum ImportBibleStatus {
+    Init,
+    Progress(u64),
+    Instalation,
+    Done(String),
+}
 
-    let download_url = bible.download_url();
+struct FileCleanupGuard {
+    path: PathBuf,
+    success: bool,
+}
 
-    let client = surf::Client::new();
-    let req = surf::get(download_url).build();
-    let mut response = match client.send(req).await {
-        Ok(r) => r,
-        Err(e) => {
-            glib::g_critical!("Import Bible", "{:?}", e);
-            callback(Err(()));
-            return None;
+impl Drop for FileCleanupGuard {
+    fn drop(&mut self) {
+        if !self.success {
+            println!("Cleaning up partial file: {:?}", self.path);
+            let _ = fs::remove_file(&self.path);
         }
-    };
-
-    let content_size = response
-        .header("content-length")
-        .and_then(|v| v.as_str().parse::<u64>().ok())
-        .unwrap_or(0);
-
-    let mut downloaded_size: u64 = 0;
-    let path_str = AppConfigDir::dir_path(AppConfigDir::Downloads);
-    let file_path = path_str.join(bible.name());
-    let file = std::fs::File::create_new(&file_path);
-    let mut file = match file {
-        Ok(f) => f,
-        Err(e) => {
-            eprintln!("failed to create file {:?}", e);
-            return None;
-        }
-    };
-
-    let mut buffer = vec![0u8; 8192]; // 2**13
-    loop {
-        let len = response.read(&mut buffer).await.expect("read error");
-
-        if len == 0 {
-            break;
-        }
-
-        file.write_all(&buffer[..len]).expect("write error");
-
-        downloaded_size = u64::min(downloaded_size + len as u64, content_size);
-        let percentage = ((downloaded_size as f64 / content_size as f64) * 100.0).round();
-
-        println!(
-            "DOWNLOAD PROGRESS \ndownloaded_size = {downloaded_size} \ntotal = {content_size} \npercentage = {}",
-            percentage
-        );
-
-        callback(Ok(format!("{percentage}%")));
     }
+}
 
-    callback(Ok("Installing...".to_string()));
+pub fn import_bible2<F>(bible: BibleDownload, callback: F) -> AbortHandle
+where
+    F: Fn(Result<ImportBibleStatus, ()>) + 'static,
+{
+    let callback = Arc::new(callback);
+    let callback_clone = callback.clone();
 
-    let translation_name = write_to_db(file_path, bible);
-    callback(Ok("Done".to_string()));
+    let (fut, abort_handle) = abortable(async move {
+        callback(Ok(ImportBibleStatus::Init));
 
-    translation_name
+        let path = AppConfigDir::dir_path(AppConfigDir::Downloads).join(bible.name());
+
+        let mut guard = FileCleanupGuard {
+            path: path.clone(),
+            success: false,
+        };
+
+        match fs::exists(path.clone()) {
+            Ok(true) => {
+                callback(Ok(ImportBibleStatus::Progress(100)));
+                callback(Ok(ImportBibleStatus::Instalation));
+                write_to_db(guard.path.clone(), &bible);
+                guard.success = true;
+                callback(Ok(ImportBibleStatus::Done(bible.name())));
+                return;
+            }
+            Ok(false) => (),
+            Err(_) => {
+                callback(Err(()));
+                return;
+            }
+        }
+
+        let mut response = match surf::get(bible.download_url()).await {
+            Ok(r) => r,
+            Err(_) => {
+                callback(Err(()));
+                return;
+            }
+        };
+
+        let content_size = response
+            .header("content-length")
+            .and_then(|v| v.as_str().parse::<u64>().ok())
+            .unwrap_or(0);
+
+        let mut file = match fs::File::create(&guard.path) {
+            Ok(f) => f,
+            Err(_) => {
+                callback(Err(()));
+                return;
+            }
+        };
+
+        let mut downloaded: u64 = 0;
+        let mut buffer = vec![0u8; 8192];
+
+        loop {
+            let len = match response.read(&mut buffer).await {
+                Ok(0) => break,
+                Ok(n) => n,
+                Err(_) => {
+                    callback(Err(()));
+                    return;
+                }
+            };
+
+            if file.write_all(&buffer[..len]).is_err() {
+                callback(Err(()));
+                return;
+            }
+
+            downloaded += len as u64;
+            if content_size > 0 {
+                let percent = (downloaded * 100) / content_size;
+                println!("DOWNLOAD PROGRESS = {}%", percent);
+                callback(Ok(ImportBibleStatus::Progress(percent)));
+            }
+        }
+
+        callback(Ok(ImportBibleStatus::Instalation));
+        write_to_db(guard.path.clone(), &bible);
+
+        guard.success = true;
+        callback(Ok(ImportBibleStatus::Done(bible.name())));
+    });
+
+    glib::spawn_future_local(async move {
+        match fut.await {
+            Ok(_) => println!("Download finished or stopped via return"),
+            Err(_) => {
+                println!("Download was INSTANTLY aborted");
+                callback_clone(Err(()))
+            }
+        }
+    });
+
+    abort_handle
 }
 
 fn write_to_db(file_path: std::path::PathBuf, bible: &BibleDownload) -> Option<String> {
@@ -151,10 +207,10 @@ fn write_to_db(file_path: std::path::PathBuf, bible: &BibleDownload) -> Option<S
     let res = Query::insert_verse(bible_translation, verses_vec);
     println!("INSERTING VERESES DONE: {:?}", res);
 
-    if let Err(e) = std::fs::remove_file(&file_path) {
-        eprintln!("FILE ERROR: error removing downloaded verses \n{:?}", e);
-        return None;
-    }
+    // if let Err(e) = std::fs::remove_file(&file_path) {
+    //     eprintln!("FILE ERROR: error removing downloaded verses \n{:?}", e);
+    //     return None;
+    // }
 
     return Some(translation_name);
 }

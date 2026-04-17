@@ -12,11 +12,15 @@ use crate::{
 use super::utils;
 
 mod imp {
-    use std::cell::{Cell, RefCell};
+    use std::{
+        cell::{Cell, RefCell},
+        rc::Rc,
+    };
 
+    use futures_util::stream::AbortHandle;
     use gtk::{
         glib::{
-            object::CastNone,
+            object::{CastNone, ObjectExt},
             subclass::{
                 object::{ObjectImpl, ObjectImplExt},
                 types::{ObjectSubclass, ObjectSubclassExt},
@@ -27,17 +31,22 @@ mod imp {
         subclass::{box_::BoxImpl, widget::WidgetImpl},
     };
 
-    use crate::widgets::search::scriptures::download::download_page::BibleDownload;
+    use crate::widgets::search::scriptures::download::{
+        download_page::BibleDownload, utils::ImportBibleStatus,
+    };
 
     use super::*;
 
     #[derive(Default, Debug)]
     pub struct TranslationListItem {
         text: RefCell<gtk::Label>,
+        status_label: RefCell<gtk::Label>,
+        cancel_btn: RefCell<gtk::Button>,
         btn: RefCell<gtk::Button>,
 
         data: RefCell<BibleDownload>,
         already_added: Cell<bool>,
+        cancel_state: Rc<RefCell<Option<AbortHandle>>>,
     }
 
     #[glib::object_subclass]
@@ -61,10 +70,35 @@ mod imp {
                 .margin_end(8)
                 .build();
             self.text.replace(label.clone());
-            self.btn.borrow().set_css_classes(&["small-btn"]);
+
+            let btn = self.btn.borrow().clone();
+            btn.set_css_classes(&["flat", "circular", "small-20-btn"]);
+            btn.set_icon_name("download");
+
+            let cancel_btn = self.cancel_btn.borrow().clone();
+            cancel_btn.set_icon_name("circle-close");
+            cancel_btn.set_css_classes(&["flat", "circular", "small-20-btn"]);
+            cancel_btn.set_visible(false);
+            cancel_btn.set_widget_name("Abort");
+            let cancel = self.cancel_state.clone();
+            cancel_btn.connect_clicked(move |btn| {
+                btn.set_visible(false);
+                let Some(handler) = cancel.take() else {
+                    return;
+                };
+                handler.abort();
+            });
 
             obj.append(&label);
-            obj.append(&self.btn.borrow().clone());
+            obj.append(&self.status_label.borrow().clone());
+            obj.append(&btn.clone());
+            obj.append(&cancel_btn);
+
+            btn.bind_property("visible", &cancel_btn, "visible")
+                .invert_boolean()
+                .sync_create()
+                .build();
+            // btn.set_visible(false);
         }
     }
     impl WidgetImpl for TranslationListItem {}
@@ -75,35 +109,34 @@ mod imp {
             // let data = main_data.details();
             self.already_added.set(data.already_added());
             self.data.replace(data.clone());
-            println!("name2 {}", data.name());
-            if let Some(name) = data.name().split(".").collect::<Vec<_>>().first().cloned() {
-                println!("alread_added2 {}", self.already_added.get());
-                if self.already_added.get() {
-                    self.btn.borrow().set_label("Uninstall");
-                    self.text.borrow().set_label(&format!("{name} (Installed)"));
-                } else {
-                    self.btn.borrow().set_label("Install");
-                    self.text.borrow().set_label(name);
-                };
+
+            let name = data.name();
+            if self.already_added.get() {
+                self.btn.borrow().set_icon_name("uninstall");
+                self.text.borrow().set_label(&format!("{name} (Installed)"));
+            } else {
+                self.btn.borrow().set_icon_name("download");
+                self.text.borrow().set_label(&name);
             };
 
-            let imp = self.downgrade();
             let already_added = self.already_added.get();
             let data = self.data.borrow().clone();
+            let status_label = self.status_label.borrow().clone();
+            let cancel = self.cancel_state.clone();
+
             self.btn.borrow().connect_clicked({
-                let Some(imp) = imp.upgrade() else {
-                    return;
-                };
                 move |btn| {
                     gtk::glib::spawn_future_local(glib::clone!(
-                        #[weak]
-                        imp,
                         #[weak]
                         btn,
                         #[strong]
                         data,
                         #[strong]
                         already_added,
+                        #[strong]
+                        status_label,
+                        #[strong]
+                        cancel,
                         async move {
                             let Some(sender) = btn
                                 .ancestor(DownloadBiblePage::static_type())
@@ -112,46 +145,46 @@ mod imp {
                                 return;
                             };
 
-                            //
-                            btn.set_sensitive(false);
-                            println!("alread_added {}", imp.already_added.get());
-                            println!("name {}", data.name());
                             if already_added {
                                 let delete_result = Query::delete_bible_translation(data.name());
                                 match delete_result {
                                     Ok(_) => {
                                         sender.reload_translation();
-                                        btn.set_label("Install");
+                                        btn.set_icon_name("download");
                                     }
                                     Err(e) => {
-                                        btn.set_label("Uninstall");
+                                        btn.set_icon_name("uninstall");
                                         eprintln!("SQL ERROR: error removing translation\n{:?}", e);
                                     }
                                 }
                             } else {
-                                btn.set_label("Installing");
+                                btn.set_visible(false);
+                                status_label.set_label("0%");
 
-                                let installed_translation = utils::import_bible(&data, |msg| {
-                                    match msg {
-                                        Ok(msg) => btn.set_label(&msg),
-                                        Err(_) => {
-                                            btn.set_label("Install");
-                                            return;
-                                        }
-                                    };
-                                })
-                                .await;
+                                let cancel_clone = cancel.clone();
+                                let abort_handler =
+                                    utils::import_bible2(data.clone(), move |msg| {
+                                        match msg {
+                                            Ok(ImportBibleStatus::Progress(pct)) => {
+                                                status_label.set_label(&format!("{pct}%"))
+                                            }
+                                            Ok(ImportBibleStatus::Done(name)) => {
+                                                status_label.set_label("");
+                                                btn.set_visible(true);
+                                                sender.new_translation(name);
+                                            }
+                                            Ok(_) => (),
+                                            Err(_) => {
+                                                status_label.set_label("");
+                                                btn.set_visible(true);
+                                                cancel_clone.replace(None);
+                                                return;
+                                            }
+                                        };
+                                    });
 
-                                match installed_translation {
-                                    Some(t) => {
-                                        sender.new_translation(t);
-                                        btn.set_label("Installed");
-                                    }
-                                    None => btn.set_label("Install"),
-                                };
+                                cancel.replace(Some(abort_handler));
                             }
-
-                            btn.set_sensitive(true);
                         }
                     ));
                 }
