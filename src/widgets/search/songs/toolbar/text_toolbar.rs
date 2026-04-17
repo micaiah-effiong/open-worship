@@ -39,7 +39,6 @@ mod imp {
                 canvas_item::{CanvasItem, CanvasItemExt},
                 text_item::TextItem,
             },
-            entry_combo::EntryCombo,
             group_toggle_button::GroupToggleButton,
         },
     };
@@ -49,7 +48,7 @@ mod imp {
         pub slide_manager: glib::WeakRef<SlideManager>,
         //
         pub font: RefCell<gtk::FontDialogButton>,
-        pub font_size: RefCell<EntryCombo>,
+        pub font_size: RefCell<gtk::SpinButton>,
         pub color: RefCell<gtk::ColorDialogButton>,
         pub bold: RefCell<gtk::ToggleButton>,
         pub italic: RefCell<gtk::ToggleButton>,
@@ -130,9 +129,6 @@ mod imp {
                 color_btn.set_tooltip("Text color");
                 color_btn.set_rgba(&gtk::gdk::RGBA::new(255.0, 255.0, 255.0, 1.0));
                 obj.append(&color_btn);
-                if let Some(btn) = color_btn.first_child().and_downcast::<gtk::Button>() {
-                    btn.add_css_class("flat");
-                }
 
                 color_btn.connect_rgba_notify(glib::clone!(
                     #[weak(rename_to=imp)]
@@ -437,16 +433,14 @@ mod imp {
             };
         }
 
-        fn build_font_size_btn(&self) -> EntryCombo {
-            let m =
-                gtk::StringList::new(&["8", "10", "12", "14", "16", "18", "20", "24", "28", "32"]);
-            let font_btn = EntryCombo::new(Some(&m));
+        fn build_font_size_btn(&self) -> gtk::SpinButton {
+            let font_btn = gtk::SpinButton::with_range(0.0, 100.0, 1.0);
             self.font_size.replace(font_btn.clone());
             font_btn.set_tooltip("Font size");
 
-            font_btn.connect_changed({
+            font_btn.connect_value_changed({
                 let sm = self.slide_manager.clone();
-                move |_, text| {
+                move |btn| {
                     let Some(sm) = sm.upgrade() else {
                         return;
                     };
@@ -455,7 +449,7 @@ mod imp {
                         return;
                     };
 
-                    let size = text.parse::<u32>().unwrap_or_default();
+                    let size = btn.value();
 
                     ti.set_font_size(size as f32);
                     ti.style();
@@ -485,7 +479,7 @@ mod imp {
             self.font_size
                 .borrow()
                 .clone()
-                .set_text(ti.font_size().to_string());
+                .set_value(ti.font_size().into());
 
             self.shadow.borrow().set_active(ti.text_shadow());
             self.outline.borrow().set_active(ti.text_outline());

@@ -34,6 +34,7 @@
     <file compressed="true">icons/scalable/actions/circle-close-symbolic.svg</file>
     <file compressed="true">icons/scalable/actions/download-symbolic.svg</file>
     <file compressed="true">icons/scalable/actions/uninstall-symbolic.svg</file>
+    <file compressed="true">icons/scalable/actions/remove-picture-symbolic.svg</file>
   </gresource>
 
   <gresource prefix="/com/openworship/app">

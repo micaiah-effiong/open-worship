@@ -9,7 +9,6 @@
       <object class="GtkBox">
         <property name="orientation">horizontal</property>
         <property name="spacing">2</property>
-        <property name="height_request">48</property>
 
         <child>
           <object class="GtkEntry" id="search_field">

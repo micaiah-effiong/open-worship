@@ -17,7 +17,6 @@
                 <child>
                   <object class="GtkBox">
                     <property name="spacing">2</property>
-                    <property name="height_request">48</property>
 
                     <child>
                       <object class="GtkSearchEntry" id="search_text">

@@ -223,7 +223,7 @@ mod imp {
                     .build();
                 frame.append(&aspect_frame);
 
-                base.add_css_class("gray_bg_box");
+                base.add_css_class("black_bg_box");
                 base.append(&frame);
 
                 base

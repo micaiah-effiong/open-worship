@@ -105,16 +105,19 @@ impl CanvasGrid {
 
         let has_pattern = !pattern.is_empty() && Path::new(&pattern).exists();
 
+        let picture = self.imp().picture.borrow().clone();
         let res = match has_pattern {
             true => {
                 let path = std::path::PathBuf::from(pattern);
-                let picture = self.imp().picture.borrow().clone();
                 FileManager::get_background_image(&path.clone(), None, move |v| {
                     picture.set_paintable(v.clone().as_ref());
                 });
                 Self::pattern_css()
             }
-            false => Self::no_pattern_css(),
+            false => {
+                picture.set_paintable(None::<&gtk::gdk::Paintable>);
+                Self::no_pattern_css()
+            }
         };
 
         utils::set_style(&grid, &res);

@@ -152,9 +152,7 @@ mod imp {
                 self.color.replace(color_btn.clone());
                 color_btn.set_rgba(&gtk::gdk::RGBA::new(255.0, 255.0, 255.0, 1.0));
                 toolbar.append(&color_btn);
-                if let Some(btn) = color_btn.first_child().and_downcast::<gtk::Button>() {
-                    btn.add_css_class("flat");
-                }
+
                 color_btn.connect_rgba_notify({
                     let sm = sm.clone();
                     move |c| {
@@ -201,7 +199,7 @@ mod imp {
                 });
             }
 
-            let remove_image_btn = gtk::Button::builder().icon_name("close").build();
+            let remove_image_btn = gtk::Button::builder().icon_name("remove-picture").build();
             remove_image_btn.set_tooltip("Remove background image");
             {
                 toolbar.append(&remove_image_btn);

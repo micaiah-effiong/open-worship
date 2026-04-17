@@ -88,7 +88,11 @@ mod imp {
                 let obj = obj.downgrade();
                 move |_, list_item| {
                     let tv = gtk::TextView::new();
-                    tv.set_margin_all(8);
+                    tv.set_margin_start(8);
+                    tv.set_left_margin(6);
+                    tv.set_right_margin(6);
+                    tv.set_top_margin(6);
+                    tv.set_bottom_margin(6);
                     tv.set_height_request(40);
                     let li = list_item
                         .downcast_ref::<gtk::ListItem>()
@@ -117,7 +121,7 @@ mod imp {
                     .and_downcast::<gtk::TextView>()
                     .expect("The child has to be a `TextView`.");
 
-                textview.set_margin_all(0);
+                // textview.set_margin_all(0);
                 textview.set_wrap_mode(gtk::WrapMode::Word);
 
                 if let Some(buf) = slide.entry_buffer() {
