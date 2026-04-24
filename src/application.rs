@@ -1,3 +1,4 @@
+use adw::{self, prelude::AdwDialogExt};
 use gtk::{
     gio::{
         self,
@@ -17,6 +18,7 @@ use crate::{
 mod imp {
     use std::cell::RefCell;
 
+    use adw::subclass::prelude::AdwApplicationImpl;
     use gtk::{
         gdk::{self, prelude::DisplayExt},
         gio::{
@@ -45,14 +47,14 @@ mod imp {
         main_window: RefCell<MainApplicationWindow>,
 
         pub(super) settings_window: RefCell<SettingsWindow>,
-        pub(super) about_window: RefCell<Option<gtk::AboutDialog>>,
+        pub(super) about_window: RefCell<Option<adw::AboutDialog>>,
     }
 
     #[glib::object_subclass]
     impl ObjectSubclass for OwApplication {
         const NAME: &'static str = "OwApplication";
         type Type = super::OwApplication;
-        type ParentType = gtk::Application;
+        type ParentType = adw::Application;
     }
 
     #[glib::derived_properties]
@@ -120,6 +122,7 @@ mod imp {
     }
 
     impl GtkApplicationImpl for OwApplication {}
+    impl AdwApplicationImpl for OwApplication {}
 
     impl OwApplication {
         #[cfg(not(target_os = "macos"))]
@@ -180,7 +183,7 @@ mod imp {
 
 glib::wrapper! {
     pub struct OwApplication(ObjectSubclass<imp::OwApplication>)
-        @extends gio::Application, gtk::Application,
+        @extends adw::Application, gtk::Application, gio::Application,
         @implements gio::ActionMap, gio::ActionGroup;
 }
 
@@ -373,31 +376,31 @@ impl OwApplication {
         let about_app = match about_win {
             Some(about) => about,
             None => {
-                let dialog = gtk::AboutDialog::builder()
-                    .program_name("About Openworship")
+                let repo = env!("CARGO_PKG_REPOSITORY");
+                let dialog = adw::AboutDialog::builder()
+                    .name("About Openworship")
+                    .application_name("Openworship")
                     .version(env!("CARGO_PKG_VERSION"))
-                    .website("https://github.com/micaiah-effiong/open-worship")
+                    .website(repo)
                     .license_type(gtk::License::MitX11)
-                    .authors(["Micah Effiong"])
-                    .logo_icon_name("openworship-symbolic")
+                    .developer_name("Micah Effiong")
+                    .application_icon("openworship")
+                    .issue_url(format!("{repo}/issues/new"))
                     .build();
                 self.imp().about_window.replace(Some(dialog.clone()));
                 dialog
             }
         };
 
-        about_app.connect_close_request(glib::clone!(
+        about_app.connect_closed(glib::clone!(
             #[weak(rename_to=obj)]
             self,
-            #[upgrade_or]
-            glib::Propagation::Stop,
             move |_| {
                 obj.imp().about_window.replace(None);
-                glib::Propagation::Proceed
             }
         ));
 
-        about_app.present();
+        about_app.present(None::<&gtk::Widget>);
     }
 
     fn setup_accels(&self) {

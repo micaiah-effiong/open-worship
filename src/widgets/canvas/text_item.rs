@@ -544,7 +544,7 @@ impl TextItem {
             ci.imp().grid.borrow().attach(&stack.clone(), 0, 0, 1, 1);
         }
 
-        ti.connect_clicked(clone!(
+        ti.connect_double_clicked(clone!(
             #[weak]
             ti,
             move |_| {

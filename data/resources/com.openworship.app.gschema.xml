@@ -34,9 +34,9 @@
       <range min="0" max="22"/>
       <summary>Default transition</summary>
     </key>
-    <key name="transition-duration" type="u">
-      <default>400</default>
-      <range min="100" max="1000"/>
+    <key name="transition-duration" type="d">
+      <default>0.4</default>
+      <range min="0.0" max="5.0"/>
       <summary>Default transition duration</summary>
     </key>
     <key name="alert-count" type="u">

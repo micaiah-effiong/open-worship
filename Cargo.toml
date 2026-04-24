@@ -51,6 +51,7 @@ gobject_macro = { path = "gobject_macro" }
 sha2 = "0.11.0"
 hex = "0.4.3"
 surf = "2.3.2"
+adw = { version = "0.7.2", package = "libadwaita", features = ["v1_7" ] }
 
 [target.'cfg(windows)'.dependencies]
 native-dialog = "0.7.0"

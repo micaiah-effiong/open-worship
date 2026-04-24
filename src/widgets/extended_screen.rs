@@ -6,6 +6,7 @@ use gtk::{
 };
 
 use crate::{
+    app_config::AppConfig,
     services::message_alert_manager::MessageAlertManager,
     utils::WidgetChildrenExt,
     widgets::{
@@ -74,6 +75,8 @@ mod imp {
             let frame = gtk::AspectFrame::new(0.5, 0.5, AppConfig::aspect_ratio(), false);
             frame.set_child(Some(&sm.slideshow()));
 
+            obj.connect_default_width_notify(super::ExtendedScreen::on_resize);
+            obj.connect_default_height_notify(super::ExtendedScreen::on_resize);
             obj.set_child(Some(&frame));
         }
 
@@ -203,5 +206,13 @@ impl ExtendedScreen {
         a_frame.set_child(None::<&gtk::Widget>);
         let alert_wrapper = MessageAlertWapper::new(&sm, alert_manager);
         a_frame.set_child(Some(&alert_wrapper));
+    }
+
+    fn on_resize(obj: &Self) {
+        let width = obj.width();
+
+        if width > 0 {
+            obj.set_default_size(width, (width as f32 / AppConfig::aspect_ratio()) as i32);
+        }
     }
 }

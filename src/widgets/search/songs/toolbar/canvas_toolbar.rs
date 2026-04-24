@@ -5,6 +5,7 @@ use crate::services::slide_manager::SlideManager;
 mod imp {
     use std::cell::RefCell;
 
+    use adw::subclass::prelude::ObjectImplExt;
     use gtk::{
         gdk,
         glib::{
@@ -21,7 +22,6 @@ mod imp {
 
     use crate::{
         app_config::AppConfigDir,
-        format_resource,
         services::{file_manager::FileManager, slide_manager::SlideManager},
         utils::{self, RGBExtra, WidgetExtrasExt},
     };
@@ -41,7 +41,12 @@ mod imp {
         type ParentType = gtk::Box;
     }
 
-    impl ObjectImpl for CanvasToolbar {}
+    impl ObjectImpl for CanvasToolbar {
+        fn constructed(&self) {
+            self.parent_constructed();
+            self.obj().set_css_classes(&["toolbar"]);
+        }
+    }
     impl WidgetImpl for CanvasToolbar {}
     impl BoxImpl for CanvasToolbar {}
 
@@ -136,8 +141,7 @@ mod imp {
             let toolbar = self.obj();
             toolbar.set_height_request(35);
             toolbar.set_spacing(8);
-            toolbar.set_widget_name("text-toolbar-box");
-            toolbar.set_css_classes(&["edit-toolbar-box"]);
+            toolbar.set_widget_name("canvas-toolbar-box");
             toolbar.set_margin_all(6);
 
             let Some(sm) = self.slide_manager.upgrade() else {
@@ -166,11 +170,7 @@ mod imp {
                 });
             }
 
-            let img = gtk::Image::from_resource(format_resource!(
-                "icons/scalable/actions",
-                "picture-symbolic.svg"
-            ));
-            let image_btn = gtk::Button::builder().child(&img).build();
+            let image_btn = gtk::Button::builder().icon_name("picture").build();
             image_btn.set_tooltip("Background image");
             {
                 toolbar.append(&image_btn);

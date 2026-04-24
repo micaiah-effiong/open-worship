@@ -5,6 +5,7 @@ use gtk::prelude::GtkWindowExt;
 mod imp {
     use std::cell::RefCell;
 
+    use adw::subclass::prelude::AdwApplicationWindowImpl;
     use gtk::{
         gdk::prelude::{DisplayExt, MonitorExt},
         gio::prelude::{ApplicationExt, ListModelExt},
@@ -74,7 +75,7 @@ mod imp {
     impl ObjectSubclass for MainApplicationWindow {
         const NAME: &'static str = "MainApplicationWindow";
         type Type = super::MainApplicationWindow;
-        type ParentType = gtk::ApplicationWindow;
+        type ParentType = adw::ApplicationWindow;
 
         fn class_init(klass: &mut Self::Class) {
             SearchActivityViewer::ensure_type();
@@ -128,6 +129,7 @@ mod imp {
         }
     }
     impl ApplicationWindowImpl for MainApplicationWindow {}
+    impl AdwApplicationWindowImpl for MainApplicationWindow {}
 
     #[gtk::template_callbacks]
     impl MainApplicationWindow {
@@ -236,7 +238,7 @@ mod imp {
 
 glib::wrapper! {
     pub struct MainApplicationWindow(ObjectSubclass<imp::MainApplicationWindow>)
-        @extends gtk::ApplicationWindow, gtk::Window, gtk::Widget,
+        @extends adw::ApplicationWindow, gtk::ApplicationWindow, gtk::Window, gtk::Widget,
         @implements gio::ActionGroup, gio::ActionMap, gtk::Accessible, gtk::Buildable, gtk::ConstraintTarget, gtk::Native, gtk::Root, gtk::ShortcutManager;
 }
 

@@ -12,6 +12,9 @@
         <child>
           <object class="GtkSearchEntry" id="search_text">
             <property name="hexpand">true</property>
+            <style>
+              <class name="rounded-none"/>
+            </style>
             <signal name="activate" handler="handle_search_activate" swapped="true"/>
           </object>
         </child>

@@ -94,6 +94,7 @@ mod imp {
                 "icons/scalable/actions",
                 "drag-symbolic.svg"
             ));
+            img.set_pixel_size(10);
 
             self.obj().set_child(Some(&img));
         }
@@ -163,10 +164,6 @@ impl Grabber {
         g.remove_css_class("button");
         g.add_css_class("ow-grabber");
         g.set_cursor_from_id(id as u32);
-
-        if let Some(image) = g.child().and_downcast_ref::<gtk::Image>() {
-            image.set_pixel_size(13);
-        }
 
         g
     }

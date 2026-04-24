@@ -179,12 +179,16 @@ mod imp {
                 clicked.connect_pressed(glib::clone!(
                     #[weak(rename_to=ci)]
                     self,
-                    move |g, _, _, _| {
+                    move |g, n_click, _, _| {
                         if ci.is_presentation_mode() {
                             return;
                         }
 
-                        ci.button_press_event(g);
+                        if n_click == 2 {
+                            ci.button_double_click_event(g);
+                        } else {
+                            ci.button_press_event(g);
+                        }
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
                 ));
@@ -265,6 +269,7 @@ mod imp {
             SIGNALS.get_or_init(|| {
                 vec![
                     Signal::builder(signals::CLICKED).build(),
+                    Signal::builder(signals::DOUBLE_CLICKED).build(),
                     Signal::builder(signals::UN_SELECT).build(),
                     Signal::builder(signals::SET_AS_PRIMARY).build(),
                     Signal::builder(signals::MOVE_ITEM)
@@ -522,6 +527,10 @@ mod imp {
             false
         }
 
+        fn button_double_click_event(&self, _event: &gtk::GestureClick) {
+            self.obj().emit_double_clicked();
+        }
+
         fn make_grabber(
             &self,
             id: u32,
@@ -694,6 +703,7 @@ use crate::widgets::canvas::serialise::{CanvasItemData, CanvasItemType};
 
 pub(super) mod signals {
     pub const CLICKED: &str = "clicked";
+    pub const DOUBLE_CLICKED: &str = "double-clicked";
     pub const UN_SELECT: &str = "un-select";
     pub const SET_AS_PRIMARY: &str = "set-as-primary";
     pub const MOVE_ITEM: &str = "move-item";
@@ -736,6 +746,19 @@ pub trait CanvasItemExt: IsA<CanvasItem> {
     fn connect_clicked<F: Fn(&CanvasItem) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
             signals::CLICKED,
+            false,
+            glib::closure_local!(move |c: &CanvasItem| {
+                f(c);
+            }),
+        )
+    }
+
+    fn emit_double_clicked(&self) {
+        self.emit_by_name::<()>(signals::DOUBLE_CLICKED, &[]);
+    }
+    fn connect_double_clicked<F: Fn(&CanvasItem) + 'static>(&self, f: F) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::DOUBLE_CLICKED,
             false,
             glib::closure_local!(move |c: &CanvasItem| {
                 f(c);

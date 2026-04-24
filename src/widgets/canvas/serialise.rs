@@ -71,42 +71,26 @@ pub enum CanvasItemType {
     Unknown,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
 #[boxed_type(name = "SlideData")]
 #[serde(default)]
 pub struct SlideData {
     pub transition: u32,
-    pub transition_duration: u32,
     pub items: Vec<CanvasItemData>,
     pub preview: String,
     #[serde(flatten)]
     pub canvas_data: CanvasData,
 }
 
-impl Default for SlideData {
-    fn default() -> Self {
-        let settings = ApplicationSettings::get_instance();
-        Self {
-            transition: 0,
-            transition_duration: settings.transition_duration(),
-            items: Vec::default(),
-            preview: String::default(),
-            canvas_data: CanvasData::default(),
-        }
-    }
-}
-
 impl SlideData {
     pub fn new<I: IntoIterator<Item = CanvasItemData>>(
         transition: u32,
-        transition_duration: u32,
         items: I,
         preview: String,
         canvas_data: CanvasData,
     ) -> Self {
         Self {
             transition,
-            transition_duration,
             items: items.into_iter().collect(),
             preview,
             canvas_data,

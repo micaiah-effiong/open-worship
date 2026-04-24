@@ -22,13 +22,17 @@ label {
   padding: 3px;
 }
 
-.ow-listview:focus-within row:selected {
-  background-color: blue;
-}
-
-.ow-listview row:selected {
-  background-color: grey;
-}
+/* .ow-listview:focus-within row:selected { */
+/*   background-color: blue; */
+/* } */
+/**/
+/* .ow-listview:focus-within row:selected label { */
+/*   color: white; */
+/* } */
+/**/
+/* .ow-listview row:selected { */
+/*   background-color: grey; */
+/* } */
 
 row:focus {
   /* background-color: red; */
@@ -83,8 +87,8 @@ editablelabel.schedule-list-item-editable {
   border: none;
   box-shadow: none;
   padding: 0;
-  min-height: 16px;
-  min-width: 16px;
+  min-height: 10px;
+  min-width: 10px;
 }
 
 .ow-grabber:hover,
@@ -96,11 +100,11 @@ editablelabel.schedule-list-item-editable {
   outline: none;
 }
 .ow-canvas-item-grid {
-  border: 2px dotted transparent;
-  margin: 7px;
+  border: 1px solid transparent;
+  margin: 4px;
 }
 .ow-canvas-item-grid-select {
-  border-color: white;
+  border-color: #6060ee;
 }
 
 .drop-zone {
@@ -154,4 +158,14 @@ editablelabel.schedule-list-item-editable {
 
 .small-pad {
   padding: 3px;
+}
+
+.rounded-none {
+  border-radius: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .drop-over {
+    border-top-color: white;
+  }
 }

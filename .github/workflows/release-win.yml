@@ -45,7 +45,7 @@ jobs:
           py -m venv .venv
           .\.venv\Scripts\activate.ps1
           py -m pip install gvsbuild
-          gvsbuild build gtk4 librsvg
+          gvsbuild build gtk4 librsvg libadwaita
         if: steps.cache.outputs.cache-hit != 'true'
 
       - name: Configure GTK4 (Windows)

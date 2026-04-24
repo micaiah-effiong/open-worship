@@ -8,9 +8,10 @@ cargo deb --target $target --no-strip --profile release
 mv target/$target/debian/*.deb ./
 
 # And build AppImage as well
-if [ ! -f ./linuxdeploy-$(uname -m).AppImage ]; then
+LINUXDEPLOY_BINARY="linuxdeploy-$(uname -m).AppImage"
+if [ ! -f "./$LINUXDEPLOY_BINARY" ]; then
 	echo "linuxdeploy not found!"
-	wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$(uname -m).AppImage
+	wget https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/$LINUXDEPLOY_BINARY
 fi
 
 if [ ! -f linuxdeploy-plugin-gtk.sh ]; then
@@ -29,7 +30,7 @@ cp data/resources/$APP_ID.gschema.xml AppDir/usr/share/glib-2.0/schemas/
 glib-compile-schemas AppDir/usr/share/glib-2.0/schemas
 
 # chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
-# NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
+# NO_STRIP=1 ./$LINUXDEPLOY_BINARY \
 # 	--appdir AppDir \
 # 	--plugin gtk \
 # 	--executable target/$target/release/openworship \
@@ -40,12 +41,10 @@ glib-compile-schemas AppDir/usr/share/glib-2.0/schemas
 chmod +x linuxdeploy*.AppImage linuxdeploy-plugin-gtk.sh
     
 # Extract the AppImage
-# LINUXDEPLOY_BINARY="linuxdeploy-$(uname -m).AppImage"
-# ./$LINUXDEPLOY_BINARY --appimage-extract
+./$LINUXDEPLOY_BINARY --appimage-extract
 
 # Use the extracted binary
-# NO_STRIP=1 ./squashfs-root/AppRun \
-NO_STRIP=1 ./linuxdeploy-$(uname -m).AppImage \
+NO_STRIP=1 ./squashfs-root/AppRun \
 	--appdir AppDir \
 	--plugin gtk \
 	--executable target/$target/release/openworship \

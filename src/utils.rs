@@ -497,44 +497,6 @@ macro_rules! accels {
     };
 }
 
-pub fn setup_theme_listener() {
-    let Some(settings) = gtk::Settings::default() else {
-        return;
-    };
-    let css_provider = gtk::CssProvider::new();
-
-    let Some(display) = gtk::gdk::Display::default() else {
-        return;
-    };
-
-    gtk::style_context_add_provider_for_display(
-        &display,
-        &css_provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
-    );
-
-    // Apply initial theme
-    update_css(
-        &css_provider,
-        settings.is_gtk_application_prefer_dark_theme(),
-    );
-
-    // Listen for changes
-    display.connect_setting_changed(move |_, _| {
-        update_css(
-            &css_provider,
-            settings.is_gtk_application_prefer_dark_theme(),
-        );
-    });
-}
-fn update_css(provider: &gtk::CssProvider, is_dark: bool) {
-    let light = format_resource!("styles", "style.css");
-    let dark = format_resource!("styles", "style-dark.css");
-
-    let css = if is_dark { dark } else { light };
-    provider.load_from_resource(css);
-}
-
 pub fn space_camelcase(s: &str) -> String {
     let mut result = String::new();
     for (i, c) in s.char_indices() {
