@@ -37,6 +37,7 @@ jobs:
       - name: Check GTK
         run: |
           echo "[GTK_VERSION]: $(pkg-config --modversion gtk4)"
+          echo "[ADWAITA_VERSION]: $(pkg-config --modversion libadwaita-1)"
           echo "[PKG]: $(which pkg-config)"
           echo "[PKG_PATH]: $(pkg-config --variable pc_path pkg-config)"
           sudo apt search libgtk-4-dev
