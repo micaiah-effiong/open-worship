@@ -44,7 +44,7 @@ mod imp {
     use gtk::subclass::prelude::*;
 
     use super::*;
-    use crate::services::settings::ApplicationSettings;
+    use crate::services::settings::{self, ApplicationSettings};
     use crate::services::slide::Slide;
     use crate::utils::{WidgetChildrenExt, int_to_transition, transition_to_int};
     use crate::widgets::canvas::canvas_item::CanvasItem;
@@ -184,8 +184,9 @@ mod imp {
                 }
 
                 obj.slideshow().set_transition_type(int_to_transition(t));
+                let settings = ApplicationSettings::get_instance();
                 obj.slideshow()
-                    .set_transition_duration(val.transition_duration());
+                    .set_transition_duration((settings.transition_duration() * 1000.0) as u32);
             }
 
             if self.slides.borrow().contains(&val) {

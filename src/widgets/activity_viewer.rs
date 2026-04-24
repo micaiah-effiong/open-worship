@@ -337,8 +337,7 @@ impl ActivityViewer {
     }
 
     pub fn emit_activate_slide(&self) {
-        let mut slide_data = self.imp().slide_manager.borrow().serialise();
-        slide_data.title = self.imp().slide_manager.borrow().title();
+        let slide_data = self.imp().slide_manager.borrow().serialise();
         self.emit_by_name::<()>(signals::ACTIVATE_SLIDE, &[&slide_data]);
     }
 

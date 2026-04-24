@@ -1,13 +1,13 @@
 use crate::app_config;
 use crate::application::OwApplication;
-use crate::utils::setup_theme_listener;
 use gtk::glib;
 
 use gtk::prelude::*;
 
 pub fn run() -> glib::ExitCode {
     app_config::AppConfig::init();
-    gtk::init().expect("Could not initialize gtk");
+    // gtk::init().expect("Could not initialize gtk");
+    adw::init().expect("Could not initialize gtk");
 
     app_init();
     log_display_info();
@@ -48,7 +48,6 @@ fn app_init() {
     gtk::gio::resources_register_include!("resources.gresource")
         .expect("could not find app resources");
 
-    setup_theme_listener();
     match gtk::glib::setenv("GTK_CSD", "0", false) {
         Ok(_) => (),
         Err(e) => {

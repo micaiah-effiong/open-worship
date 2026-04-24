@@ -26,7 +26,7 @@ use crate::services::alert::Alert;
 use crate::services::message_alert_manager::MessageAlertManager;
 use crate::services::slide::Slide;
 use crate::services::slide_manager::SlideManager;
-use crate::utils::{WidgetChildrenExt, WidgetExtrasExt, setup_theme_listener};
+use crate::utils::{WidgetChildrenExt, WidgetExtrasExt};
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use crate::widgets::canvas::text_item::{self, TextItem};
@@ -53,8 +53,6 @@ pub fn init_app() {
         gtk::glib::set_application_name("Open worship");
         gtk::gio::resources_register_include!("resources.gresource")
             .expect("could not find app resources");
-
-        setup_theme_listener();
 
         // let provider = gtk::CssProvider::new();
         // provider.load_from_resource(format_resource!("styles", "style.css"));

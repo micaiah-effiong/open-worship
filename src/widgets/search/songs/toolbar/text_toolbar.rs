@@ -18,6 +18,7 @@ mod imp {
         i32,
     };
 
+    use adw::subclass::prelude::ObjectImplExt;
     use gtk::{
         glib::{
             self,
@@ -55,8 +56,8 @@ mod imp {
         pub underline: RefCell<gtk::ToggleButton>,
         pub shadow: RefCell<gtk::ToggleButton>,
         pub outline: RefCell<gtk::ToggleButton>,
-        pub justification: RefCell<GroupToggleButton>,
-        pub alignment: RefCell<GroupToggleButton>,
+        pub justification: RefCell<adw::ToggleGroup>,
+        pub alignment: RefCell<adw::ToggleGroup>,
 
         //
         pub(super) cursor_handler_id: RefCell<Option<(gtk::TextBuffer, glib::SignalHandlerId)>>,
@@ -71,7 +72,12 @@ mod imp {
         type ParentType = gtk::Box;
     }
 
-    impl ObjectImpl for TextToolbar {}
+    impl ObjectImpl for TextToolbar {
+        fn constructed(&self) {
+            self.parent_constructed();
+            self.obj().set_css_classes(&["toolbar"]);
+        }
+    }
     impl WidgetImpl for TextToolbar {}
     impl BoxImpl for TextToolbar {}
 
@@ -82,7 +88,6 @@ mod imp {
             obj.set_height_request(35);
             obj.set_spacing(8);
             obj.set_widget_name("text-toolbar-box");
-            obj.set_css_classes(&["edit-toolbar-box"]);
             obj.set_margin_all(6);
 
             let Some(sm) = self.slide_manager.upgrade() else {
@@ -97,9 +102,6 @@ mod imp {
                 obj.append(&font_btn);
                 obj.append(&self.build_font_size_btn());
                 font_btn.set_level(gtk::FontLevel::Family);
-                if let Some(btn) = font_btn.first_child().and_downcast::<gtk::Button>() {
-                    btn.add_css_class("flat");
-                }
 
                 let font_desc = gtk::pango::FontDescription::new();
                 font_btn.set_font_desc(&font_desc);
@@ -162,13 +164,15 @@ mod imp {
                 ));
             }
 
+            let linked_btn = gtk::Box::builder().css_classes(["linked"]).build();
+            obj.append(&linked_btn);
+
             let bold_btn = gtk::ToggleButton::new();
             {
                 self.bold.replace(bold_btn.clone());
                 bold_btn.set_tooltip("Bold");
-                obj.append(&bold_btn);
+                linked_btn.append(&bold_btn);
                 bold_btn.set_icon_name("text-bold-filled");
-                bold_btn.add_css_class("flat");
 
                 bold_btn.connect_toggled(glib::clone!(
                     #[weak(rename_to=imp)]
@@ -212,9 +216,9 @@ mod imp {
             {
                 self.italic.replace(italics_btn.clone());
                 italics_btn.set_tooltip("Italic");
-                obj.append(&italics_btn);
+                linked_btn.append(&italics_btn);
                 italics_btn.set_icon_name("text-italic-filled");
-                italics_btn.add_css_class("flat");
+
                 italics_btn.connect_toggled(glib::clone!(
                     #[weak(rename_to=imp)]
                     self,
@@ -253,9 +257,9 @@ mod imp {
             {
                 self.underline.replace(underline_btn.clone());
                 underline_btn.set_tooltip("Underline");
-                obj.append(&underline_btn);
+                linked_btn.append(&underline_btn);
                 underline_btn.set_icon_name("text-underline-filled");
-                underline_btn.add_css_class("flat");
+
                 underline_btn.connect_toggled(glib::clone!(
                     #[weak(rename_to=imp)]
                     self,
@@ -294,9 +298,9 @@ mod imp {
             {
                 self.shadow.replace(shadow_btn.clone());
                 shadow_btn.set_tooltip("Text shadow");
-                obj.append(&shadow_btn);
+                linked_btn.append(&shadow_btn);
                 shadow_btn.set_icon_name("text-shadow-filled");
-                shadow_btn.add_css_class("flat");
+
                 shadow_btn.connect_toggled({
                     let sm = sm.clone();
                     move |t| {
@@ -314,9 +318,9 @@ mod imp {
             {
                 self.outline.replace(outline_btn.clone());
                 outline_btn.set_tooltip("Text outline");
-                obj.append(&outline_btn);
+                linked_btn.append(&outline_btn);
                 outline_btn.set_icon_name("text-outline-filled");
-                outline_btn.add_css_class("flat");
+
                 outline_btn.connect_toggled({
                     let sm = sm.clone();
                     move |t| {
@@ -332,22 +336,22 @@ mod imp {
 
             obj.append(&gtk::Separator::new(gtk::Orientation::Vertical));
 
-            let justifcation_btn = GroupToggleButton::new();
+            let justifcation_btn = adw::ToggleGroup::new();
             {
                 self.justification.replace(justifcation_btn.clone());
                 obj.append(&justifcation_btn);
                 justifcation_btn.set_height_request(35);
-                justifcation_btn.set_spacing(8);
-                justifcation_btn.connect_mode_changed({
+                // justifcation_btn.set_spacing(8);
+                justifcation_btn.connect_active_notify({
                     let sm = sm.clone();
-                    move |t, _| {
+                    move |t| {
                         let Some(ti) = sm.current_item().and_downcast::<TextItem>() else {
                             return;
                         };
 
-                        match t.selected() {
+                        match t.active() {
                             0 | 1 | 2 => {
-                                ti.set_justification(t.selected() as u32);
+                                ti.set_justification(t.active());
                                 ti.style();
                             }
                             _ => (),
@@ -356,48 +360,45 @@ mod imp {
                 });
             };
 
-            let justify_left_btn = gtk::ToggleButton::new();
+            let justify_left_btn = adw::Toggle::new();
             {
-                justifcation_btn.append_toggle_button(&justify_left_btn);
                 justify_left_btn.set_tooltip("Justify left");
-                justify_left_btn.set_icon_name("text-justify-left");
-                justify_left_btn.add_css_class("flat");
+                justify_left_btn.set_icon_name(Some("text-justify-left"));
+                justifcation_btn.add(justify_left_btn);
             }
 
-            let justify_center_btn = gtk::ToggleButton::new();
+            let justify_center_btn = adw::Toggle::new();
             {
-                justifcation_btn.append_toggle_button(&justify_center_btn);
                 justify_center_btn.set_tooltip("Justify center");
-                justify_center_btn.set_icon_name("text-justify-center");
-                justify_center_btn.add_css_class("flat");
+                justify_center_btn.set_icon_name(Some("text-justify-center"));
+                justifcation_btn.add(justify_center_btn);
             };
 
-            let justify_right_btn = gtk::ToggleButton::new();
+            let justify_right_btn = adw::Toggle::new();
             {
-                justifcation_btn.append_toggle_button(&justify_right_btn);
                 justify_right_btn.set_tooltip("Justify right");
-                justify_right_btn.set_icon_name("text-justify-right");
-                justify_right_btn.add_css_class("flat");
+                justify_right_btn.set_icon_name(Some("text-justify-right"));
+                justifcation_btn.add(justify_right_btn);
             };
 
             obj.append(&gtk::Separator::new(gtk::Orientation::Vertical));
 
-            let alignment_btn = GroupToggleButton::new();
+            let alignment_btn = adw::ToggleGroup::new();
             {
                 self.alignment.replace(alignment_btn.clone());
                 obj.append(&alignment_btn);
                 alignment_btn.set_height_request(35);
-                alignment_btn.set_spacing(8);
-                alignment_btn.connect_mode_changed({
+                // alignment_btn.set_spacing(8);
+                alignment_btn.connect_active_notify({
                     let sm = sm.clone();
-                    move |t, _| {
+                    move |t| {
                         let Some(ti) = sm.current_item().and_downcast::<TextItem>() else {
                             return;
                         };
 
-                        match t.selected() {
+                        match t.active() {
                             0 | 1 | 2 => {
-                                ti.set_align(t.selected() as u32);
+                                ti.set_align(t.active());
                                 ti.style();
                             }
                             _ => (),
@@ -406,30 +407,25 @@ mod imp {
                 });
             }
 
-            let align_top_btn = gtk::ToggleButton::new();
+            let align_top_btn = adw::Toggle::new();
             {
-                alignment_btn.append_toggle_button(&align_top_btn);
                 align_top_btn.set_tooltip("Align top");
-                align_top_btn.add_css_class("flat");
-                align_top_btn.set_icon_name("align-top");
+                align_top_btn.set_icon_name(Some("align-top"));
+                alignment_btn.add(align_top_btn);
             };
 
-            let align_middle_btn = gtk::ToggleButton::new();
+            let align_middle_btn = adw::Toggle::new();
             {
                 align_middle_btn.set_tooltip("Align middle");
-                alignment_btn.append_toggle_button(&align_middle_btn);
-                align_middle_btn.set_icon_name("align-middle");
-                align_middle_btn.add_css_class("flat");
-                align_middle_btn.set_group(Some(&align_top_btn));
+                align_middle_btn.set_icon_name(Some("align-middle"));
+                alignment_btn.add(align_middle_btn);
             };
 
-            let align_bottom_btn = gtk::ToggleButton::new();
+            let align_bottom_btn = adw::Toggle::new();
             {
                 align_bottom_btn.set_tooltip("Align bottom");
-                alignment_btn.append_toggle_button(&align_bottom_btn);
-                align_bottom_btn.add_css_class("flat");
-                align_bottom_btn.set_icon_name("align-bottom");
-                align_bottom_btn.set_group(Some(&align_top_btn));
+                align_bottom_btn.set_icon_name(Some("align-bottom"));
+                alignment_btn.add(align_bottom_btn);
             };
         }
 

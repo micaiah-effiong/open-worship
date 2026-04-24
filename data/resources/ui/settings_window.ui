@@ -290,7 +290,18 @@
                                 <!-- <property name="hexpand">true</property> -->
 
                                 <property name="width-request">150</property>
-                                <property name="adjustment">transition_duration_adjustment</property>
+                                <property name="digits">1</property>
+                                <property name="adjustment">
+                                  <object class="GtkAdjustment" id="transition_duration_adjustment">
+                                    <property name="lower">0.0</property>
+                                    <property name="value">0.4</property>
+                                    <property name="upper">5.0</property>
+                                    <property name="step_increment">0.1</property>
+                                    <property name="page_increment">0.5</property>
+                                    <property name="page_size">0</property>
+                                    <!-- <signal name="value_changed" handler="changed_cb" object="CcFadeSlider" swapped="yes"/> -->
+                                  </object>
+                                </property>
                                 <!-- <marks> -->
                                 <!--   <mark value="1.0" position="bottom"/> -->
                                 <!--   <mark value="2.0" position="bottom"/> -->
@@ -327,8 +338,10 @@
                         <child>
                           <object class="GtkBox">
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="alert_position_label">
                                 <property name="label">Alert Position</property>
+                                <property name="halign">start</property>
+                                <property name="xalign">0</property>
                               </object>
                             </child>
                             <child>
@@ -341,8 +354,10 @@
                         <child>
                           <object class="GtkBox">
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="alert_count_label">
                                 <property name="label">Count</property>
+                                <property name="halign">start</property>
+                                <property name="xalign">0</property>
                               </object>
                             </child>
                             <child>
@@ -363,8 +378,10 @@
                         <child>
                           <object class="GtkBox">
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="alert_speed_label">
                                 <property name="label">Speed</property>
+                                <property name="halign">start</property>
+                                <property name="xalign">0</property>
                               </object>
                             </child>
                             <child>
@@ -385,8 +402,10 @@
                         <child>
                           <object class="GtkBox">
                             <child>
-                              <object class="GtkLabel">
+                              <object class="GtkLabel" id="alert_color_label">
                                 <property name="label">Color</property>
+                                <property name="halign">start</property>
+                                <property name="xalign">0</property>
                               </object>
                             </child>
                             <child>
@@ -417,14 +436,15 @@
       </object>
     </child>
 
-  </template>
+    <object class="GtkSizeGroup">
+      <property name="mode">horizontal</property>
+      <widgets>
+        <widget name="alert_position_label"/>
+        <widget name="alert_speed_label"/>
+        <widget name="alert_count_label"/>
+        <widget name="alert_color_label"/>
+      </widgets>
+    </object>
 
-  <object class="GtkAdjustment" id="transition_duration_adjustment">
-    <property name="lower">100</property>
-    <property name="upper">1000</property>
-    <property name="step_increment">50</property>
-    <property name="page_increment">100</property>
-    <property name="page_size">0</property>
-    <!-- <signal name="value_changed" handler="changed_cb" object="CcFadeSlider" swapped="yes"/> -->
-  </object>
+  </template>
 </interface>

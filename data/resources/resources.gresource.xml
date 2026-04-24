@@ -41,9 +41,8 @@
     <file compressed="true">icons/openworship-symbolic.png</file>
   </gresource>
 
-  <gresource prefix="/com/openworship/app/styles">
+  <gresource prefix="/com/openworship/app">
     <file compressed="true">style.css</file>
-    <file compressed="true">style-dark.css</file>
   </gresource>
 
   <gresource prefix="/com/openworship/app">

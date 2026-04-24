@@ -21,7 +21,7 @@ mod imp {
             variant::ToVariant,
         },
         pango::{self, prelude::FontFamilyExt},
-        prelude::{GtkWindowExt, ListItemExt, RangeExt, WidgetExt},
+        prelude::{GtkWindowExt, ListItemExt, RangeExt, ScaleExt, WidgetExt},
         subclass::{
             widget::{
                 CompositeTemplateClass, CompositeTemplateInitializingExt, WidgetClassExt,
@@ -189,6 +189,9 @@ mod imp {
                     ext_screen.fullscreen_on_monitor(monitor);
                 }
             );
+
+            self.transition_scale
+                .set_format_value_func(|_, v| format!("{:.1}s", v));
 
             fn_connect(&self.monitor_dropdowon.clone());
             self.monitor_dropdowon

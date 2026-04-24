@@ -6,6 +6,7 @@ use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::*;
 
 const WIDTH: i32 = 1000;
+const MIN_TEXT_WIDTH: i32 = 300;
 
 mod signals {
     pub const SAVE: &str = "save";
@@ -174,14 +175,14 @@ mod imp {
                 let editor_box = gtk::Box::builder().hexpand(true).vexpand(true).build();
 
                 let pane = gtk::Paned::builder()
-                    .position(WIDTH / 2)
+                    .position(MIN_TEXT_WIDTH)
                     .shrink_start_child(false)
                     .shrink_end_child(false)
                     .build();
                 editor_box.append(&pane);
 
                 let editor_frame = gtk::Box::builder().vexpand(true).build();
-                editor_frame.set_size_request(300, -1);
+                editor_frame.set_size_request(MIN_TEXT_WIDTH, -1);
                 pane.set_start_child(Some(&editor_frame));
 
                 let screen = self.slide_manager.borrow().slideshow();

@@ -19,7 +19,6 @@ mod imp {
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
-    use crate::services::settings::ApplicationSettings;
     use crate::widgets::canvas::canvas::Canvas;
     use crate::widgets::canvas::serialise::SlideData;
 
@@ -36,9 +35,6 @@ mod imp {
         pub notes: RefCell<String>,
         #[property(set, get, builder(gtk::StackTransitionType::None))]
         pub transition: RefCell<gtk::StackTransitionType>,
-
-        #[property(set, get, default_value=ApplicationSettings::get_instance().transition_duration())]
-        pub transition_duration: Cell<u32>,
 
         #[property(get, set/* =Self::set_visible_ */, default_value=true, construct)]
         pub visible: Cell<bool>,
@@ -69,7 +65,6 @@ mod imp {
 
     impl Default for SlideImp {
         fn default() -> Self {
-            let settings = ApplicationSettings::get_instance();
             Self {
                 save_data: RefCell::new(None),
                 canvas: RefCell::new(None),
@@ -79,7 +74,6 @@ mod imp {
                 transition: RefCell::new(gtk::StackTransitionType::None),
                 visible: Cell::new(true),
                 presentation_mode: Cell::new(false),
-                transition_duration: Cell::new(settings.transition_duration()),
             }
         }
     }
@@ -214,7 +208,6 @@ impl Slide {
         }
 
         self.set_transition(utils::int_to_transition(save_data.transition));
-        self.set_transition_duration(save_data.transition_duration);
 
         self.imp().save_data.replace(None);
     }
@@ -267,7 +260,6 @@ impl Slide {
         // );
         SlideData::new(
             utils::transition_to_int(self.transition()),
-            self.transition_duration(),
             c_item_data,
             self.preview_data(),
             canvas.serialise(),
@@ -355,7 +347,6 @@ impl Slide {
         }
 
         self.set_transition(utils::int_to_transition(save_data.transition));
-        self.set_transition_duration(save_data.transition_duration);
         // self.set_notes(save_data.notes);
     }
 
