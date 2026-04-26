@@ -161,11 +161,13 @@ mod imp {
                 #[weak(rename_to = imp)]
                 self,
                 move |dropdown: &gtk::DropDown| {
+                    println!("[change to]: -");
                     let Some(item) = dropdown.selected_item().and_downcast::<gtk::StringObject>()
                     else {
                         return;
                     };
                     let item: String = item.into();
+                    println!("[change to]: 1");
 
                     let monitor_map = imp.monitor_map.borrow();
                     let Some(monitor) = monitor_map.get(&item) else {
@@ -174,6 +176,7 @@ mod imp {
                         imp.screen_aspect_frame.set_ratio(1.0);
                         return;
                     };
+                    println!("[change to]: 2");
                     let geo = monitor.geometry();
                     imp.monitor_width.set_label(&geo.width().to_string());
                     imp.monitor_height.set_label(&geo.height().to_string());
@@ -181,11 +184,14 @@ mod imp {
                     let ratio = geo.width() as f32 / geo.height() as f32;
                     imp.screen_aspect_frame.set_ratio(ratio);
 
+                    println!("[bug] {:?}", imp.obj().application());
                     let Some(app) = imp.obj().application().and_downcast::<OwApplication>() else {
                         return;
                     };
 
                     let ext_screen = app.main_window().extended_screen();
+                    println!("[change to]: {:?}", monitor);
+                    ext_screen.unfullscreen();
                     ext_screen.fullscreen_on_monitor(monitor);
                 }
             );
