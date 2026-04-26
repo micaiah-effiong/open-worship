@@ -18,15 +18,19 @@ mod imp {
     use std::cell::RefCell;
 
     use gtk::{
-        gdk::{self, prelude::DisplayExt},
+        gdk::{
+            self,
+            prelude::{DisplayExt, MonitorExt},
+        },
         gio::{
             prelude::{FileExtManual, ListModelExt, ListModelExtManual},
             subclass::prelude::{ApplicationImpl, ApplicationImplExt},
         },
         glib::{
             Properties,
+            object::CastNone,
             subclass::{
-                object::ObjectImpl,
+                object::{ObjectImpl, ObjectImplExt},
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
@@ -116,6 +120,10 @@ mod imp {
 
             obj.setup_gactions();
             obj.setup_accels();
+
+            self.settings_window
+                .borrow()
+                .set_application(Some(&self.obj().clone()));
         }
     }
 
@@ -168,11 +176,17 @@ mod imp {
             main_window.show_all();
 
             let monitors = WidgetExt::display(&extended_screen).monitors();
-            if monitors.n_items() > 1
-                && let Some(last_monitor) =
-                    monitors.iter::<gdk::Monitor>().last().and_then(|v| v.ok())
-            {
-                extended_screen.fullscreen_on_monitor(&last_monitor);
+            for i in 0..monitors.n_items() {
+                let Some(mon) = monitors.item(i).and_downcast::<gdk::Monitor>() else {
+                    continue;
+                };
+
+                let geometry = mon.geometry();
+
+                if geometry.x() != 0 || geometry.y() != 0 {
+                    extended_screen.fullscreen_on_monitor(&mon);
+                    break;
+                }
             }
         }
     }
@@ -421,7 +435,9 @@ impl OwApplication {
             #[upgrade_or]
             glib::Propagation::Stop,
             move |_| {
-                obj.imp().settings_window.replace(SettingsWindow::new());
+                let settings_win = SettingsWindow::new();
+                settings_win.set_application(Some(&obj));
+                obj.imp().settings_window.replace(settings_win);
                 glib::Propagation::Proceed
             }
         ));
