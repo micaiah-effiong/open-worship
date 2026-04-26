@@ -32,7 +32,7 @@ mod imp {
             Properties,
             object::CastNone,
             subclass::{
-                object::ObjectImpl,
+                object::{ObjectImpl, ObjectImplExt},
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
