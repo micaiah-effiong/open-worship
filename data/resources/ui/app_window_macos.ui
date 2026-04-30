@@ -8,6 +8,70 @@
       <object class="AdwToolbarView">
         <child type="top">
           <object class="AdwHeaderBar">
+            <child type="end">
+              <object class="GtkBox">
+                <property name="spacing">5</property>
+
+                <child>
+                  <object class="GtkMenuButton" id="alert_btn">
+                    <!-- <signal name="clicked" handler="handle_open_alert" swapped="true"/> -->
+
+                    <property name="popover">
+                      <object class="GtkPopover" id="alert_popover">
+                        <property name="autohide">false</property>
+                      </object>
+                    </property>
+
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Alert</property>
+                      </object>
+                    </child>
+
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkButton">
+                    <signal name="clicked" handler="handle_go_live" swapped="true"/>
+                    <style>
+                      <class name="flat"/>
+                    </style>
+
+                    <child>
+                      <object class="GtkLabel">
+                        <property name="label">Go live</property>
+                      </object>
+                    </child>
+
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkToggleButton">
+                    <property name="label">Clear</property>
+                    <signal name="toggled" handler="handle_clear_live" swapped="true"/>
+
+                    <style>
+                      <class name="flat" />
+                    </style>
+                  </object>
+                </child>
+
+                <child>
+                  <object class="GtkToggleButton">
+                    <property name="label">Live</property>
+                    <property name="active">true</property>
+                    <signal name="toggled" handler="handle_toggle_live" swapped="true"/>
+
+                    <style>
+                      <class name="flat" />
+                    </style>
+                  </object>
+                </child>
+
+              </object>
+            </child>
 
           </object>
         </child>
@@ -28,71 +92,6 @@
                 <child>
                   <object class="GtkBox">
                     <property name="hexpand">true</property>
-                  </object>
-                </child>
-
-                <child>
-                  <object class="GtkBox">
-                    <property name="spacing">5</property>
-
-                    <child>
-                      <object class="GtkMenuButton" id="alert_btn">
-                        <!-- <signal name="clicked" handler="handle_open_alert" swapped="true"/> -->
-
-                        <property name="popover">
-                          <object class="GtkPopover" id="alert_popover">
-                            <property name="autohide">false</property>
-                          </object>
-                        </property>
-
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="label">Alert</property>
-                          </object>
-                        </child>
-
-                      </object>
-                    </child>
-
-                    <child>
-                      <object class="GtkButton">
-                        <signal name="clicked" handler="handle_go_live" swapped="true"/>
-                        <style>
-                          <class name="flat"/>
-                        </style>
-
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="label">Go live</property>
-                          </object>
-                        </child>
-
-                      </object>
-                    </child>
-
-                    <child>
-                      <object class="GtkToggleButton">
-                        <property name="label">Clear</property>
-                        <signal name="toggled" handler="handle_clear_live" swapped="true"/>
-
-                        <style>
-                          <class name="flat" />
-                        </style>
-                      </object>
-                    </child>
-
-                    <child>
-                      <object class="GtkToggleButton">
-                        <property name="label">Live</property>
-                        <property name="active">true</property>
-                        <signal name="toggled" handler="handle_toggle_live" swapped="true"/>
-
-                        <style>
-                          <class name="flat" />
-                        </style>
-                      </object>
-                    </child>
-
                   </object>
                 </child>
 
