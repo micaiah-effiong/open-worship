@@ -39,7 +39,14 @@ mod imp {
     };
 
     #[derive(Default, gtk::CompositeTemplate, Properties)]
-    #[template(resource = "/com/openworship/app/ui/app_window.ui")]
+    #[cfg_attr(
+        target_os = "macos",
+        template(resource = "/com/openworship/app/ui/app_window_macos.ui")
+    )]
+    #[cfg_attr(
+        not(target_os = "macos"),
+        template(resource = "/com/openworship/app/ui/app_window.ui")
+    )]
     #[properties(wrapper_type=super::MainApplicationWindow)]
     pub struct MainApplicationWindow {
         #[template_child]
