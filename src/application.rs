@@ -25,14 +25,14 @@ mod imp {
             prelude::{DisplayExt, MonitorExt},
         },
         gio::{
-            prelude::{FileExtManual, ListModelExt, ListModelExtManual},
+            prelude::{FileExtManual, ListModelExt},
             subclass::prelude::{ApplicationImpl, ApplicationImplExt},
         },
         glib::{
             Properties,
             object::CastNone,
             subclass::{
-                object::{ObjectImpl, ObjectImplExt},
+                object::ObjectImpl,
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
@@ -255,49 +255,6 @@ impl OwApplication {
     // }
 
     fn setup_gactions(&self) {
-        // let launch_uri_action = gio::ActionEntry::builder("launch-uri")
-        //     .parameter_type(Some(&String::static_variant_type()))
-        //     .activate(|obj: &Self, _, param| {
-        //         let uri = param.unwrap().get::<String>().unwrap();
-        //         glib::spawn_future_local(clone!(
-        //             #[strong]
-        //             obj,
-        //             async move {
-        //                 if let Err(err) = gtk::FileLauncher::new(Some(&gio::File::for_uri(&uri)))
-        //                     .launch_future(obj.active_window().as_ref())
-        //                     .await
-        //                 {
-        //                     // tracing::error!("Failed to launch uri `{}`: {:?}", uri, err);
-        //                 }
-        //             }
-        //         ));
-        //     })
-        //     .build();
-        // let show_in_files_action = gio::ActionEntry::builder("show-in-files")
-        //     .parameter_type(Some(&String::static_variant_type()))
-        //     .activate(|obj: &Self, _, param| {
-        //         let uri = param.unwrap().get::<String>().unwrap();
-        //         glib::spawn_future_local(clone!(
-        //             #[strong]
-        //             obj,
-        //             async move {
-        //                 if let Err(err) = gtk::FileLauncher::new(Some(&gio::File::for_uri(&uri)))
-        //                     .open_containing_folder_future(obj.active_window().as_ref())
-        //                     .await
-        //                 {
-        //                     // tracing::warn!("Failed to show `{}` in files: {:?}", uri, err);
-        //                 }
-        //             }
-        //         ));
-        //     })
-        //     .build();
-
-        // let show_about_action = gio::ActionEntry::builder("show-about")
-        //     .activate(|obj: &Self, _, _| {
-        //         about::present_dialog(&obj.window());
-        //     })
-        //     .build();
-
         let quit_action = gio::ActionEntry::builder("quit")
             .activate(|obj: &Self, _, _| obj.quit())
             .build();
@@ -371,9 +328,6 @@ impl OwApplication {
             .build();
 
         self.add_action_entries([
-            // launch_uri_action,
-            // show_in_files_action,
-            // show_about_action,
             quit_action,
             about_action,
             settings_action,
