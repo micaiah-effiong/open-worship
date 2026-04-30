@@ -174,6 +174,7 @@ mod imp {
                         imp.screen_aspect_frame.set_ratio(1.0);
                         return;
                     };
+
                     let geo = monitor.geometry();
                     imp.monitor_width.set_label(&geo.width().to_string());
                     imp.monitor_height.set_label(&geo.height().to_string());
@@ -186,6 +187,7 @@ mod imp {
                     };
 
                     let ext_screen = app.main_window().extended_screen();
+                    ext_screen.unfullscreen();
                     ext_screen.fullscreen_on_monitor(monitor);
                 }
             );

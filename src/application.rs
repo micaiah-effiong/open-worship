@@ -20,13 +20,17 @@ mod imp {
 
     use adw::subclass::prelude::AdwApplicationImpl;
     use gtk::{
-        gdk::{self, prelude::DisplayExt},
+        gdk::{
+            self,
+            prelude::{DisplayExt, MonitorExt},
+        },
         gio::{
-            prelude::{FileExtManual, ListModelExt, ListModelExtManual},
+            prelude::{FileExtManual, ListModelExt},
             subclass::prelude::{ApplicationImpl, ApplicationImplExt},
         },
         glib::{
             Properties,
+            object::CastNone,
             subclass::{
                 object::ObjectImpl,
                 types::{ObjectSubclass, ObjectSubclassExt},
@@ -118,6 +122,10 @@ mod imp {
 
             obj.setup_gactions();
             obj.setup_accels();
+
+            self.settings_window
+                .borrow()
+                .set_application(Some(&self.obj().clone()));
         }
     }
 
@@ -171,11 +179,17 @@ mod imp {
             main_window.show_all();
 
             let monitors = WidgetExt::display(&extended_screen).monitors();
-            if monitors.n_items() > 1
-                && let Some(last_monitor) =
-                    monitors.iter::<gdk::Monitor>().last().and_then(|v| v.ok())
-            {
-                extended_screen.fullscreen_on_monitor(&last_monitor);
+            for i in 0..monitors.n_items() {
+                let Some(mon) = monitors.item(i).and_downcast::<gdk::Monitor>() else {
+                    continue;
+                };
+
+                let geometry = mon.geometry();
+
+                if geometry.x() != 0 || geometry.y() != 0 {
+                    extended_screen.fullscreen_on_monitor(&mon);
+                    break;
+                }
             }
         }
     }
@@ -241,49 +255,6 @@ impl OwApplication {
     // }
 
     fn setup_gactions(&self) {
-        // let launch_uri_action = gio::ActionEntry::builder("launch-uri")
-        //     .parameter_type(Some(&String::static_variant_type()))
-        //     .activate(|obj: &Self, _, param| {
-        //         let uri = param.unwrap().get::<String>().unwrap();
-        //         glib::spawn_future_local(clone!(
-        //             #[strong]
-        //             obj,
-        //             async move {
-        //                 if let Err(err) = gtk::FileLauncher::new(Some(&gio::File::for_uri(&uri)))
-        //                     .launch_future(obj.active_window().as_ref())
-        //                     .await
-        //                 {
-        //                     // tracing::error!("Failed to launch uri `{}`: {:?}", uri, err);
-        //                 }
-        //             }
-        //         ));
-        //     })
-        //     .build();
-        // let show_in_files_action = gio::ActionEntry::builder("show-in-files")
-        //     .parameter_type(Some(&String::static_variant_type()))
-        //     .activate(|obj: &Self, _, param| {
-        //         let uri = param.unwrap().get::<String>().unwrap();
-        //         glib::spawn_future_local(clone!(
-        //             #[strong]
-        //             obj,
-        //             async move {
-        //                 if let Err(err) = gtk::FileLauncher::new(Some(&gio::File::for_uri(&uri)))
-        //                     .open_containing_folder_future(obj.active_window().as_ref())
-        //                     .await
-        //                 {
-        //                     // tracing::warn!("Failed to show `{}` in files: {:?}", uri, err);
-        //                 }
-        //             }
-        //         ));
-        //     })
-        //     .build();
-
-        // let show_about_action = gio::ActionEntry::builder("show-about")
-        //     .activate(|obj: &Self, _, _| {
-        //         about::present_dialog(&obj.window());
-        //     })
-        //     .build();
-
         let quit_action = gio::ActionEntry::builder("quit")
             .activate(|obj: &Self, _, _| obj.quit())
             .build();
@@ -357,9 +328,6 @@ impl OwApplication {
             .build();
 
         self.add_action_entries([
-            // launch_uri_action,
-            // show_in_files_action,
-            // show_about_action,
             quit_action,
             about_action,
             settings_action,
@@ -424,7 +392,9 @@ impl OwApplication {
             #[upgrade_or]
             glib::Propagation::Stop,
             move |_| {
-                obj.imp().settings_window.replace(SettingsWindow::new());
+                let settings_win = SettingsWindow::new();
+                settings_win.set_application(Some(&obj));
+                obj.imp().settings_window.replace(settings_win);
                 glib::Propagation::Proceed
             }
         ));
