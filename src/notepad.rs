@@ -1,6 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use gtk::cairo;
 use gtk::gdk::Device;
 use gtk::gdk::prelude::DisplayExt;
 use gtk::gdk_pixbuf;
@@ -42,7 +43,7 @@ use crate::widgets::settings_window::SettingsWindow;
 use crate::widgets::{self, canvas, search};
 
 pub fn init_app() {
-    let _ = gtk::init();
+    let _ = adw::init();
 
     {
         if let Some(g_settings) = gtk::Settings::default() {
@@ -72,7 +73,7 @@ pub fn init_app() {
         };
     }
 
-    let app = gtk::Application::new(
+    let app = adw::Application::new(
         Some(app_config::APP_ID),
         gtk::gio::ApplicationFlags::FLAGS_NONE,
     );
@@ -81,15 +82,10 @@ pub fn init_app() {
     // app.connect_activate(build_ui);
     app.connect_activate(|app| {
         {
-            let win = search::songs::edit_modal::SongEditWindow::new();
+            // let win = SettingsWindow::new();
+            let win = SongEditWindow::new();
             app.add_window(&win);
             win.show(None);
-            // win.show(None);
-            // println!("PRESENT");
-
-            // let win = SettingsWindow::new();
-            // app.add_window(&win);
-            // win.present();
         }
         {
             // let win = gtk::Window::new();
@@ -99,15 +95,16 @@ pub fn init_app() {
             // win.present();
         }
 
-        // build_ui(&app);
+        // let _ = build_ui(app);
         // build_dnd_ui(&app);
     });
 
     app.run();
 }
 
-fn build_ui(app: &gtk::Application) {
-    let app_window = gtk::ApplicationWindow::new(app);
+fn build_ui(app: &impl IsA<gtk::Application>) -> impl IsA<gtk::Window> {
+    let app_window = gtk::Window::new();
+    app.add_window(&app_window);
     app_window.set_size_request(500, 500);
     app_window.set_default_width(500);
     app_window.set_default_height(500);
@@ -116,45 +113,13 @@ fn build_ui(app: &gtk::Application) {
     let aspect_frame = gtk::AspectFrame::new(0.5, 0.5, AppConfig::aspect_ratio(), false);
     v_box.append(&aspect_frame);
 
-    let load_data = r##"{
-        "transition": 3,
-        "items": [
-            {
-                "x": -602,
-                "y": -16,
-                "w": 2710,
-                "h": 1529,
-                "type": "text",
-                "text-data": "UGFnZSAx",
-                "font": "Open Sans",
-                "font-size": 16,
-                "font-style": "normal",
-                "justification": 1,
-                "align": 1,
-                "color": "#ffffffff",
-                "text-underline": false,
-                "text-outline": false,
-                "text-shadow": true
-            }
-        ],
-        "preview": "",
-        "background-color": "#383e41ff",
-        "background-pattern": ""
-    }"##;
-    let _slide_data: SlideData =
-        serde_json::from_str(load_data).expect("Could not parse load_data");
-
     let sm = {
         // let slide = Slide::new(serde_json::from_str(load_data).ok());
         // slide.set_presentation_mode(false);
         // let mut slides = Vec::new();
         // slides.push(slide.clone());
         let sm = SlideManager::new();
-        sm.load_data(SlideManagerData::new(0, 0, [_slide_data]));
-        for s in sm.slides() {
-            // s.set_presentation_mode(true);
-            println!("presentation_mode {}", s.presentation_mode());
-        }
+        sm.load_data(SlideManagerData::new(0, 0, [SlideData::from_default()]));
         sm
     };
 
@@ -343,6 +308,8 @@ fn build_ui(app: &gtk::Application) {
 
     app_window.set_child(Some(&v_box));
     app_window.present();
+
+    app_window
 }
 
 fn add_app_window() -> gtk::Window {
@@ -509,7 +476,6 @@ fn build_dnd_ui(app: &gtk::Application) {
 }
 
 fn show_notification(window: &gtk::Window, message: &str) {
-    let dialog = gtk::AlertDialog::builder().message(message).build();
     let window = window.clone();
     // let message = message.clone();
     glib::timeout_add_local_once(std::time::Duration::from_secs(5), move || {

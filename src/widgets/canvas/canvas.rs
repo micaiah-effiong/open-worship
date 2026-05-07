@@ -62,6 +62,9 @@ mod imp {
 
         #[property(get, set, construct)]
         pub presentation_mode: Cell<bool>,
+
+        pub hr: RefCell<gtk::Box>,
+        pub vr: RefCell<gtk::Box>,
     }
 
     #[glib::object_subclass]
@@ -116,6 +119,21 @@ mod imp {
             overlay.set_child_visible(true);
             overlay.add_css_class("canvas");
 
+            {
+                let hr = self.hr.borrow().clone();
+                hr.set_widget_name("hr");
+                hr.set_orientation(gtk::Orientation::Horizontal);
+                hr.set_css_classes(&["alignment-guide"]);
+                hr.set_visible(false);
+                let vr = self.vr.borrow().clone();
+                vr.set_widget_name("vr");
+                vr.set_orientation(gtk::Orientation::Vertical);
+                vr.set_css_classes(&["alignment-guide"]);
+                vr.set_visible(false);
+                overlay.add_overlay(&hr);
+                overlay.add_overlay(&vr);
+            }
+
             overlay.connect_get_child_position({
                 let cc = obj.clone().downgrade();
                 move |ov, widget| {
@@ -149,6 +167,7 @@ mod imp {
                 move |_, k, _, _| {
                     if k == gdk::Key::Escape {
                         obj.unselect_all(None);
+                        return glib::Propagation::Stop;
                     }
 
                     glib::Propagation::Proceed
@@ -208,7 +227,6 @@ mod imp {
         pub(super) fn calculate_ratio(&self) {
             let max_width = 1500.0;
             let max_height = 1500.0;
-            // let max_height = 843.75;
 
             let widget = self.widget.borrow();
             // NOTE: may have to address this in the constructor
@@ -220,15 +238,16 @@ mod imp {
 
             let current_allocated_height = self.current_allocated_height.get();
             let current_allocated_width = self.current_allocated_width.get();
-            let ratio = current_allocated_height / max_height;
-            let current_ratio = ratio - ratio * 0.016;
+            let ratio =
+                (current_allocated_width / max_width).min(current_allocated_height / max_height);
+            let current_ratio = ratio /* - ratio * 0.016 */;
             self.obj().set_current_ratio(current_ratio); // 24/1500 = 0.016; Legacy offset;
 
-            self.default_x_margin
-                .set(((current_allocated_width - max_width * current_ratio) / 2.0) + 0.5);
+            // self.default_x_margin
+            //     .set(((current_allocated_width - max_width * current_ratio) / 2.0) + 0.5);
 
-            self.default_y_margin
-                .set(((current_allocated_height - max_height * current_ratio) / 2.0) + 0.5);
+            // self.default_y_margin
+            // .set(((current_allocated_height - max_height * current_ratio) / 2.0) + 0.5);
         }
 
         pub fn load_data(&self) {
@@ -323,6 +342,7 @@ impl Default for Canvas {
 
 static DRAWING_PREVIEW: AtomicBool = AtomicBool::new(false);
 impl Canvas {
+    pub const ALIGNMENT_GUIDE_THRESHOLD: i32 = 5;
     pub fn set_drawing_preview(value: bool) {
         DRAWING_PREVIEW.store(value, atomic::Ordering::SeqCst);
     }
@@ -480,11 +500,6 @@ impl Canvas {
             background_color: self.imp().background_color.borrow().clone(),
             background_pattern: (!bg_pattern.is_empty()).then(|| bg_pattern),
         }
-        // format!(
-        //     "\"background-color\":\"{}\", \"background-pattern\":\"{}\"",
-        //     self.imp().background_color.borrow(),
-        //     self.imp().background_pattern.borrow()
-        // )
     }
 
     pub fn unselect_all(&self, reset_item: Option<bool>) {
@@ -614,25 +629,66 @@ impl Canvas {
             c.imp().calculate_ratio();
         }
 
+        if widget.widget_name().eq("hr") {
+            let alloc = Some(gtk::gdk::Rectangle::new(0, ov.height() / 2, ov.width(), 1));
+            ov.remove_overlay(widget);
+            ov.add_overlay(widget);
+            return alloc;
+        }
+        if widget.widget_name().eq("vr") {
+            let alloc = Some(gtk::gdk::Rectangle::new(ov.width() / 2, 0, 1, ov.height()));
+            ov.remove_overlay(widget);
+            ov.add_overlay(widget);
+            return alloc;
+        }
+
         let Ok(ci_widget) = widget.clone().downcast::<CanvasItem>() else {
             return None;
         };
-
-        // println!("POSITION>> {:?} {:?}", ov.bounds(), r);
 
         let r: gdk::Rectangle = ci_widget.rectangle().into();
         let ratio = c.current_ratio();
         let margin_x = c.imp().default_x_margin.get();
         let margin_y = c.imp().default_y_margin.get();
 
-        let width = (r.width() as f64 * ratio + 0.5) as i32;
-        let height = (r.height() as f64 * ratio + 0.5) as i32;
-        let x = (margin_x + (r.x() as f64 * ratio + 0.5) + ci_widget.delta_x() as f64) as i32;
-        let y = (margin_y + (r.y() as f64 * ratio + 0.5) + ci_widget.delta_y() as f64) as i32;
+        let padding = 0.0; // 0.5;
+
+        let width = (r.width() as f64 * ratio + padding).round() as i32;
+        let height = (r.height() as f64 * ratio + padding).round() as i32;
+        let x = (margin_x + (r.x() as f64 * ratio + padding) + ci_widget.delta_x() as f64).round()
+            as i32;
+        let y = (margin_y + (r.y() as f64 * ratio + padding) + ci_widget.delta_y() as f64).round()
+            as i32;
+
+        if ci_widget.show_alignment_guides() {
+            let rect = gdk::Rectangle::new(x, y, width, height);
+            self.update_alignment_guides(rect);
+        }
 
         let allocation = gtk::gdk::Rectangle::new(x, y, width, height);
-        return Some(allocation);
-        // return None;
+        Some(allocation)
+    }
+
+    pub fn check_alignment_guides(&self, r: gdk::Rectangle) -> (i32, i32) {
+        let x = (self.widget().width() / 2) - (r.x() + (r.width() / 2));
+        let y = (self.widget().height() / 2) - (r.y() + (r.height() / 2));
+
+        (x, y)
+    }
+    pub fn update_alignment_guides(&self, r: gdk::Rectangle) -> (bool, bool) {
+        let (x, y) = self.check_alignment_guides(r);
+        let x = x.abs() <= Self::ALIGNMENT_GUIDE_THRESHOLD;
+        let y = y.abs() <= Self::ALIGNMENT_GUIDE_THRESHOLD;
+
+        let imp = self.imp();
+        imp.vr.borrow().set_visible(x);
+        imp.hr.borrow().set_visible(y);
+
+        (x, y)
+    }
+    pub fn hide_alignment_guides(&self) {
+        self.imp().vr.borrow().set_visible(false);
+        self.imp().hr.borrow().set_visible(false);
     }
 
     pub fn widget(&self) -> gtk::Overlay {

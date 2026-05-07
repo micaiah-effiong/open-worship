@@ -1,3 +1,6 @@
+const REAL_WIDTH: i32 = 720;
+const REAL_HEIGHT: i32 = 510;
+
 mod imp {
     use std::cell::{Cell, RefCell};
     use std::sync::OnceLock;
@@ -5,6 +8,7 @@ mod imp {
 
     use glib::subclass::object::ObjectImpl;
     use glib::subclass::types::ObjectSubclass;
+    use gtk::gdk;
     use gtk::glib::subclass::Signal;
     use gtk::glib::{self, Properties};
     use gtk::prelude::*;
@@ -61,6 +65,9 @@ mod imp {
 
         #[property(get, construct_only, nullable)]
         pub canvas: glib::WeakRef<Canvas>,
+
+        #[property(get)]
+        pub show_alignment_guides: Cell<bool>,
     }
 
     #[glib::object_subclass]
@@ -87,9 +94,13 @@ mod imp {
         fn constructed(&self) {
             self.parent_constructed();
             let obj = self.obj().clone();
+            obj.set_can_focus(true);
+            obj.set_can_target(true);
+            obj.set_focusable(true);
+            obj.set_focus_on_click(true);
 
-            self.real_width.set(720);
-            self.real_height.set(510);
+            self.real_width.set(REAL_WIDTH);
+            self.real_height.set(REAL_HEIGHT);
 
             obj.add_css_class("colored");
             obj.add_css_class("ow-canvas-item");
@@ -189,6 +200,7 @@ mod imp {
                         } else {
                             ci.button_press_event(g);
                         }
+                        ci.grab_focus();
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
                 ));
@@ -201,6 +213,28 @@ mod imp {
                         }
 
                         ci.button_release_event(g);
+
+                        if let Some((x, y, w, h)) = ci.obj().bounds() {
+                            ci.obj().canvas().map(|c| {
+                                let r = gdk::Rectangle::new(x, y, w, h);
+                                let (x, y) = c.check_alignment_guides(r);
+
+                                if x.abs() <= Canvas::ALIGNMENT_GUIDE_THRESHOLD {
+                                    let dx = ci.delta_x.get() as f64 /* * c.current_ratio() */ + x as f64;
+
+                                    ci.emit_move_item(dx as i32, ci.delta_y.get());
+                                }
+                                if y.abs() <= Canvas::ALIGNMENT_GUIDE_THRESHOLD {
+                                    let dy = ci.delta_x.get() as f64 /* * c.current_ratio() */ + y as f64;
+
+                                    ci.emit_move_item( ci.delta_y.get(), dy as i32);
+                                }
+                                ci.emit_checkposition();
+                            });
+                        }
+
+                        ci.show_alignment_guides.set(false);
+                        ci.obj().canvas().map(|c| c.hide_alignment_guides());
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
                 ));
@@ -214,26 +248,8 @@ mod imp {
                         }
 
                         ci.button_release_event(g);
-                        g.set_state(gtk::EventSequenceState::Claimed);
-                    }
-                ));
-
-                let right_click = gtk::GestureClick::new();
-                right_click.set_button(gtk::gdk::BUTTON_SECONDARY);
-                right_click.set_propagation_phase(gtk::PropagationPhase::Bubble);
-                right_click.connect_pressed(glib::clone!(
-                    #[weak(rename_to=ci)]
-                    self,
-                    #[strong]
-                    grabber_list,
-                    move |g, _, _, _| {
-                        if ci.is_presentation_mode() {
-                            return;
-                        }
-
-                        for g in &grabber_list {
-                            g.switch_mode();
-                        }
+                        ci.show_alignment_guides.set(false);
+                        ci.obj().canvas().map(|c| c.hide_alignment_guides());
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
                 ));
@@ -254,7 +270,6 @@ mod imp {
 
                 obj.add_controller(motion);
                 obj.add_controller(clicked);
-                obj.add_controller(right_click);
             }
 
             if !self.is_presentation_mode() {
@@ -352,6 +367,7 @@ mod imp {
             if !self.holding.get() {
                 return;
             }
+            self.show_alignment_guides.set(true);
 
             let Some((x, y)) = event.current_event().and_then(|v| v.position()) else {
                 return;
@@ -598,17 +614,6 @@ mod imp {
             self.set_cursor(id);
         }
 
-        fn get_grabber(w: &gtk::Widget) -> Option<Grabber> {
-            println!("get_grabber {:?}", w);
-            if let Some(g) = w.downcast_ref::<Grabber>() {
-                return Some(g.clone());
-            }
-
-            w.downcast_ref::<gtk::Image>()?
-                .parent()
-                .and_downcast::<Grabber>()
-        }
-
         #[doc(alias = "set_grabbing_cursor")]
         fn set_cursor(&self, holding_id: u32) {
             let cursor_name = match holding_id {
@@ -815,18 +820,11 @@ pub trait CanvasItemExt: IsA<CanvasItem> {
         let obj = self.upcast_ref::<CanvasItem>();
         (obj.class().as_ref().style)(obj);
     }
-    fn style_css(&self) -> String {
-        let obj = self.upcast_ref::<CanvasItem>();
-        (obj.class().as_ref().style_css)(obj)
-    }
 }
 
 impl<O: IsA<CanvasItem>> CanvasItemExt for O {}
 
 pub trait CanvasItemImpl: BoxImpl + ObjectSubclass<Type: IsA<CanvasItem>> {
-    fn style_css(&self) -> String {
-        self.parent_style_css()
-    }
     fn load_item_data(&self) {
         self.parent_load_item_data()
     }
@@ -862,13 +860,6 @@ pub trait CanvasItemImplExt: CanvasItemImpl {
             (parent_class.style)(self.obj().unsafe_cast_ref())
         }
     }
-    fn parent_style_css(&self) -> String {
-        unsafe {
-            let data = Self::type_data();
-            let parent_class = &*(data.as_ref().parent_class() as *mut Class);
-            (parent_class.style_css)(self.obj().unsafe_cast_ref())
-        }
-    }
 }
 
 impl<T: CanvasItemImpl> CanvasItemImplExt for T {}
@@ -889,10 +880,6 @@ unsafe impl<T: CanvasItemImpl> IsSubclassable<T> for CanvasItem {
         klass.style = |obj| unsafe {
             let imp = obj.unsafe_cast_ref::<T::Type>().imp();
             imp.style()
-        };
-        klass.style_css = |obj| unsafe {
-            let imp = obj.unsafe_cast_ref::<T::Type>().imp();
-            imp.style_css()
         };
     }
     // fn class_init(class: &mut glib::Class<Self>) {
@@ -915,7 +902,6 @@ pub struct Class {
     pub load_item_data: fn(&CanvasItem),
     pub serialise_item: fn(&CanvasItem) -> CanvasItemType,
     pub style: fn(&CanvasItem),
-    pub style_css: fn(&CanvasItem) -> String,
 }
 
 /// Make it possible to use this struct as class struct in an `ObjectSubclass`

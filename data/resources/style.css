@@ -18,6 +18,11 @@
   border: 6px solid purple;
 }
 
+.alignment-guide {
+  border-left: 1px solid orange;
+  border-top: 1px solid orange;
+}
+
 label {
   padding: 3px;
 }

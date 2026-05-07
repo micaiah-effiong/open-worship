@@ -1,6 +1,6 @@
 use gtk::glib::object::{CastNone, ObjectExt};
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
-use gtk::prelude::{ButtonExt, EventControllerExt, GestureExt, GestureSingleExt, WidgetExt};
+use gtk::prelude::{EventControllerExt, GestureExt, GestureSingleExt, WidgetExt};
 use gtk::{EventControllerMotion, GestureClick};
 use gtk::{gdk, glib};
 
@@ -14,18 +14,9 @@ mod g_ctl {
     pub(super) const MOTION: &str = "g-motion";
 }
 
-/// AspectRatio equivalent
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, glib::Enum)]
-#[enum_type(name = "GrabberMode")]
-pub enum GrabberMode {
-    #[default]
-    Drag,
-    Move,
-}
-
 mod imp {
 
-    use std::cell::{Cell, RefCell};
+    use std::cell::Cell;
     use std::sync::OnceLock;
 
     use gtk::glib::subclass::Signal;
@@ -37,11 +28,8 @@ mod imp {
     use super::*;
 
     #[derive(Default)]
-    // #[properties(wrapper_type = super::Grabber)]
     pub struct Grabber {
-        pub(super) core_id: Cell<u32>,
         pub id: Cell<u32>,
-        pub mode: RefCell<GrabberMode>,
     }
 
     #[glib::object_subclass]
@@ -113,7 +101,6 @@ impl Grabber {
     pub fn new(id: u32) -> Self {
         let g = glib::Object::new::<Grabber>();
         g.imp().id.set(id);
-        g.imp().core_id.set(id);
 
         let g_click = gtk::GestureClick::builder().name(g_ctl::CLICK).build();
         g_click.set_propagation_phase(gtk::PropagationPhase::Bubble);
@@ -207,30 +194,6 @@ impl Grabber {
                 f(&evt, id, x, y);
             }),
         );
-    }
-
-    pub fn switch_mode(&self) {
-        let mode = self.imp().mode.borrow().clone();
-        let id = match mode {
-            GrabberMode::Drag => {
-                self.imp().mode.replace(GrabberMode::Move);
-                self.set_icon_name("drag-square-symbolic");
-                0
-            }
-            GrabberMode::Move => {
-                self.imp().mode.replace(GrabberMode::Drag);
-                self.set_icon_name("drag-symbolic");
-                self.imp().core_id.get()
-            }
-        };
-
-        self.imp().id.set(id);
-        self.set_cursor_from_id(id);
-        println!(
-            "mode switched {:?} {}",
-            self.imp().mode.borrow(),
-            self.imp().id.get()
-        )
     }
 
     fn set_cursor_from_id(&self, holding_id: u32) {

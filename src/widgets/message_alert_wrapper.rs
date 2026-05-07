@@ -62,6 +62,7 @@ mod imp {
             {
                 // its simpler than it looks
                 let b = gtk::Box::new(gtk::Orientation::Vertical, 0);
+                b.set_can_target(false);
                 b.set_widget_name("b");
                 let b1 = gtk::Box::builder().name("b1").build();
 

@@ -105,14 +105,16 @@ impl SlideData {
             TextItemData {
                 text_data: String::new(),
                 font: settings.song_font(),
-                font_size: 16.0,
+                font_size: 20.0,
                 justification: 1,
                 align: 1,
                 text_outline: true,
                 text_shadow: true,
             }
         };
-        let canvas_item = CanvasItemData::new(-602, -16, 2710, 1529, CanvasItemType::Text(text));
+
+        // let canvas_item = CanvasItemData::new(0, 0, 2755, 1566, CanvasItemType::Text(text));
+        let canvas_item = CanvasItemData::new(10, 10, 2670, 1481, CanvasItemType::Text(text));
 
         let mut slide = Self::default();
         slide.canvas_data = CanvasData::default();
