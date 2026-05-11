@@ -128,6 +128,16 @@ mod imp {
                 if let Some(buf) = slide.entry_buffer() {
                     textview.set_buffer(Some(&buf));
                 }
+
+                slide.connect_visible_notify(glib::clone!(
+                    #[weak]
+                    textview,
+                    move |slide| {
+                        if let Some(w) = textview.parent() {
+                            w.set_visible(slide.visible());
+                        };
+                    }
+                ));
             });
 
             self.list_view.replace(listview.clone());
@@ -487,16 +497,15 @@ impl SongEditWindow {
     pub fn remove_verse(&self) {
         let listview = self.imp().list_view.borrow().clone();
 
-        listview.remove_selected_items();
-        if let Some(model) = listview.model() {
-            if model.n_items() > 0 {
-                model.select_item(model.n_items().saturating_sub(1), true);
-            }
-
-            if let Some(child) = listview.last_child() {
-                child.grab_focus();
-            }
-        }
+        let Some(item) = listview
+            .get_selected_items()
+            .first()
+            .cloned()
+            .and_downcast::<Slide>()
+        else {
+            return;
+        };
+        item.delete();
     }
 
     pub fn ok_reponse(&self) {
@@ -513,7 +522,11 @@ impl SongEditWindow {
 
         let slides = list_items
             .iter()
-            .filter_map(|v| v.downcast_ref::<Slide>().map(|v| v.serialise()))
+            .filter_map(|v| {
+                v.downcast_ref::<Slide>()
+                    .filter(|v| v.visible())
+                    .map(|v| v.serialise())
+            })
             .collect::<Vec<_>>();
         let title = imp.title_entry.borrow_mut().buffer();
 

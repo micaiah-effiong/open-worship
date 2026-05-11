@@ -7,13 +7,9 @@ use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::{CanvasData, SlideData};
 use crate::widgets::canvas::text_item::TextItem;
 
-const VISIBLE_CHANGED: &str = "visible-changed";
-
 mod imp {
     use std::cell::{Cell, RefCell};
-    use std::sync::OnceLock;
 
-    use gtk::glib::subclass::Signal;
     use gtk::glib::subclass::types::ObjectSubclass;
     use gtk::glib::{self, Properties};
     use gtk::prelude::*;
@@ -50,18 +46,7 @@ mod imp {
     }
 
     #[glib::derived_properties]
-    impl ObjectImpl for SlideImp {
-        fn signals() -> &'static [glib::subclass::Signal] {
-            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
-            SIGNALS.get_or_init(|| {
-                vec![
-                    Signal::builder(super::VISIBLE_CHANGED)
-                        .param_types([bool::static_type()])
-                        .build(),
-                ]
-            })
-        }
-    }
+    impl ObjectImpl for SlideImp {}
 
     impl Default for SlideImp {
         fn default() -> Self {
@@ -78,15 +63,7 @@ mod imp {
         }
     }
 
-    impl SlideImp {
-        pub fn set_visible_(&self, value: bool) {
-            self.visible.set(value);
-            if let Some(c) = self.canvas.borrow().clone() {
-                c.set_visible(value);
-            }
-            self.obj().emit_visible_changed(value);
-        }
-    }
+    impl SlideImp {}
 }
 
 glib::wrapper! {
@@ -100,20 +77,6 @@ impl Default for Slide {
 }
 
 impl Slide {
-    fn emit_visible_changed(&self, value: bool) {
-        self.emit_by_name::<()>(VISIBLE_CHANGED, &[&value]);
-    }
-
-    pub fn connect_visible_changed<F: Fn(bool) + 'static>(&self, f: F) {
-        self.connect_closure(
-            VISIBLE_CHANGED,
-            false,
-            glib::closure_local!(move |_: &Self, value: bool| {
-                f(value);
-            }),
-        );
-    }
-
     pub fn new(/* window: &SpiceWindow, */ save_data: Option<SlideData>) -> Self {
         let slide = glib::Object::new::<Slide>();
 
