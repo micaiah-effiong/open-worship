@@ -14,8 +14,8 @@ use gtk::glib::prelude::*;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{
     AccessibleExt, AdjustmentExt, BoxExt, ButtonExt, DialogExt, GtkApplicationExt, GtkWindowExt,
-    ScrollableExt, SnapshotExt, StyleContextExt, TextBufferExt, TextViewExt, WidgetExt,
-    WidgetExtManual,
+    OrientableExt, ScrollableExt, SnapshotExt, StyleContextExt, TextBufferExt, TextViewExt,
+    WidgetExt, WidgetExtManual,
 };
 use gtk::subclass::window;
 use gtk::{CssProvider, pango};
@@ -78,14 +78,15 @@ pub fn init_app() {
         gtk::gio::ApplicationFlags::FLAGS_NONE,
     );
     app.set_resource_base_path(Some(app_config::RESOURCE_PATH));
+    app.set_register_session(true);
 
     // app.connect_activate(build_ui);
     app.connect_activate(|app| {
         {
             // let win = SettingsWindow::new();
-            let win = SongEditWindow::new();
-            app.add_window(&win);
-            win.show(None);
+            // let win = SongEditWindow::new();
+            // app.add_window(&win);
+            // win.show(None);
         }
         {
             // let win = gtk::Window::new();
@@ -95,7 +96,7 @@ pub fn init_app() {
             // win.present();
         }
 
-        // let _ = build_ui(app);
+        let _ = build_ui(app);
         // build_dnd_ui(&app);
     });
 
@@ -283,9 +284,23 @@ fn build_ui(app: &impl IsA<gtk::Application>) -> impl IsA<gtk::Window> {
 
         let notify_btn = gtk::Button::with_label("Notify");
         t_box.append(&notify_btn);
-        let a = gtk::DropDown::from_strings(&["1", "2", "3"]);
+        let a = gtk::SpinButton::with_range(0.0, 360.0, 1.0);
+        a.connect_value_changed({
+            let sm = sm.clone();
+            move |btn| {
+                let Some(canvas) = sm.current_slide().and_then(|v| v.canvas()) else {
+                    return;
+                };
+
+                let Some(ti) = canvas.widget().get_children::<TextItem>().next() else {
+                    return;
+                };
+                let ci = ti.clone().upcast::<CanvasItem>();
+                ci.imp().rotation.set(btn.value());
+                ti.style();
+            }
+        });
         t_box.append(&a);
-        a.set_selected(2);
 
         notify_btn.connect_clicked({
             move |btn| {
