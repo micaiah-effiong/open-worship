@@ -83,9 +83,9 @@ pub fn init_app() {
     app.connect_activate(|app| {
         {
             // let win = SettingsWindow::new();
-            let win = SongEditWindow::new();
-            app.add_window(&win);
-            win.show(None);
+            // let win = SongEditWindow::new();
+            // app.add_window(&win);
+            // win.show(None);
         }
         {
             // let win = gtk::Window::new();
@@ -95,7 +95,7 @@ pub fn init_app() {
             // win.present();
         }
 
-        // let _ = build_ui(app);
+        let _ = build_ui(app);
         // build_dnd_ui(&app);
     });
 

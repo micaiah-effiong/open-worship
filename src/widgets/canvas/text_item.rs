@@ -41,7 +41,9 @@ mod imp {
 
     use super::*;
     use crate::utils::{self};
-    use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt, CanvasItemImpl};
+    use crate::widgets::canvas::canvas_item::{
+        CanvasItem, CanvasItemExt, CanvasItemImpl, CanvasItemImplExt,
+    };
     use crate::widgets::canvas::serialise::{CanvasItemType, TextItemData};
 
     #[derive(Properties, Debug, Default)]
@@ -133,6 +135,7 @@ mod imp {
         }
 
         fn style(&self) {
+            self.parent_style();
             let obj = self.obj().clone();
 
             // NOTE: allow label to capture tag update from buffer

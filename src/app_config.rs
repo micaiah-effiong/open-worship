@@ -62,10 +62,14 @@ impl AppConfig {
         db_path
     }
 
+    pub fn aspect_size() -> (i32, i32) {
+        (1920, 1080)
+        // (1440, 900)
+    }
     pub fn aspect_ratio() -> f32 {
+        let def = Self::aspect_size();
         *ASPECT_RATIO
-            .get_or_init(|| Mutex::new(16.0 / 9.0))
-            // .get_or_init(|| Mutex::new(1.0))
+            .get_or_init(|| Mutex::new(def.0 as f32 / def.1 as f32))
             .lock()
             .unwrap()
     }
