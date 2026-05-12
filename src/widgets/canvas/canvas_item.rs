@@ -59,6 +59,7 @@ mod imp {
         pub real_height: Cell<i32>,
         pub real_x: Cell<i32>,
         pub real_y: Cell<i32>,
+        pub rotation: Cell<f64>,
 
         pub grid: RefCell<gtk::Grid>,
         pub grabber_revealer: RefCell<gtk::Revealer>,
@@ -674,7 +675,6 @@ mod imp {
             let item_type = self.obj().serialise_item();
             let data = CanvasItemData::new(x, y, w, h, item_type);
             data
-            // format!("{{\"x\": {},\"y\": {},\"w\": {},\"h\": {},{}}}",)
         }
 
         /// virtuals
@@ -683,7 +683,13 @@ mod imp {
             panic!("Implement virtual method `serialise_item` for your widget")
         }
         fn style_default(&self) {
-            panic!("Implement virtual method `style` for your widget")
+            let css = format!(
+                ".ow-canvas-item {{
+                  transform: rotate({}deg);
+                }}",
+                self.rotation.get()
+            );
+            utils::set_style(&self.obj().clone(), &css);
         }
 
         pub fn is_presentation_mode(&self) -> bool {
