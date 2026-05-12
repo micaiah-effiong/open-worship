@@ -1,4 +1,3 @@
-use gtk::gdk::prelude::DisplayExt;
 use gtk::gdk_pixbuf::prelude::PixbufLoaderExt;
 use gtk::gio::prelude::ListModelExt;
 use gtk::glib::object::{Cast, CastNone, IsA};
