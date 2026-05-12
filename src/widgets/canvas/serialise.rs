@@ -1,7 +1,7 @@
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 
-use crate::services::settings::ApplicationSettings;
+use crate::{app_config::AppConfig, services::settings::ApplicationSettings};
 
 pub const MAGIC_HEADER: &[u8] = b"OPW\x01";
 
@@ -114,7 +114,7 @@ impl SlideData {
         };
 
         // let canvas_item = CanvasItemData::new(0, 0, 2755, 1566, CanvasItemType::Text(text));
-        let canvas_item = CanvasItemData::new(10, 10, 2670, 1481, CanvasItemType::Text(text));
+        let canvas_item = CanvasItemData::new(0, 0, -1, -1, CanvasItemType::Text(text));
 
         let mut slide = Self::default();
         slide.canvas_data = CanvasData::default();

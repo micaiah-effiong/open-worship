@@ -646,15 +646,15 @@ impl Canvas {
             return None;
         };
 
-        let r: gdk::Rectangle = ci_widget.rectangle().into();
         let ratio = c.current_ratio();
         let margin_x = c.imp().default_x_margin.get();
         let margin_y = c.imp().default_y_margin.get();
 
         let padding = 0.0; // 0.5;
 
-        let width = (r.width() as f64 * ratio + padding).round() as i32;
-        let height = (r.height() as f64 * ratio + padding).round() as i32;
+        let (width, height) = Self::fix_auto_size(ratio, ov, &ci_widget, padding);
+        let r: gdk::Rectangle = ci_widget.rectangle().into();
+
         let x = (margin_x + (r.x() as f64 * ratio + padding) + ci_widget.delta_x() as f64).round()
             as i32;
         let y = (margin_y + (r.y() as f64 * ratio + padding) + ci_widget.delta_y() as f64).round()
@@ -665,8 +665,27 @@ impl Canvas {
             self.update_alignment_guides(rect);
         }
 
-        let allocation = gtk::gdk::Rectangle::new(x, y, width, height);
-        Some(allocation)
+        let allocation = utils::rect::Rect::new(x, y, width, height);
+        Some(allocation.into())
+    }
+
+    fn fix_auto_size(ratio: f64, ov: &Overlay, widget: &CanvasItem, padding: f64) -> (i32, i32) {
+        let mut rect = widget.rectangle();
+        let scale_size = |size: &mut i32, ov_size: i32| {
+            let scaled = match size {
+                ..=-1 => ov_size as f64,
+                _ => (*size as f64 * ratio + padding).round(),
+            };
+
+            (*size == -1).then(|| *size = (scaled / ratio) as i32);
+            scaled
+        };
+
+        let width = scale_size(&mut rect.width, ov.width());
+        let height = scale_size(&mut rect.height, ov.height());
+        widget.set_rectangle(rect);
+
+        (width as i32, height as i32)
     }
 
     pub fn check_alignment_guides(&self, r: gdk::Rectangle) -> (i32, i32) {
