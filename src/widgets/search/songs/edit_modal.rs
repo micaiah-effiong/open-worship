@@ -51,6 +51,8 @@ mod imp {
 
         // EditSongModalListItem
         pub list_view: RefCell<gtk::ListView>,
+        pub preview_list: RefCell<gtk::ListView>,
+        pub(super) notebook: RefCell<gtk::Notebook>,
     }
 
     #[glib::object_subclass]
@@ -76,6 +78,8 @@ mod imp {
             let model = gtk::gio::ListStore::new::<Slide>();
             let selection_model = gtk::SingleSelection::new(Some(model));
             let factory = gtk::SignalListItemFactory::new();
+            let list_stack = gtk::Notebook::builder().vexpand(true).build();
+            self.notebook.replace(list_stack.clone());
 
             let listview = gtk::ListView::builder()
                 .vexpand(true)
@@ -83,6 +87,21 @@ mod imp {
                 .model(&selection_model)
                 .show_separators(true)
                 .build();
+            {
+                let slide_scrolled = gtk::ScrolledWindow::builder()
+                    .vexpand(true)
+                    .child(&listview)
+                    .build();
+                list_stack.append_page(&slide_scrolled, Some(&gtk::Label::new(Some("Text"))));
+            }
+            let preview_list = self.build_preview_list(&selection_model);
+            {
+                let slide_scrolled = gtk::ScrolledWindow::builder()
+                    .vexpand(true)
+                    .child(&preview_list)
+                    .build();
+                list_stack.append_page(&slide_scrolled, Some(&gtk::Label::new(Some("Preview"))));
+            }
 
             factory.connect_setup({
                 let listview = listview.clone();
@@ -131,6 +150,7 @@ mod imp {
             });
 
             self.list_view.replace(listview.clone());
+            self.preview_list.replace(preview_list.clone());
 
             let box_ui = gtk::Box::builder()
                 .orientation(gtk::Orientation::Vertical)
@@ -203,10 +223,7 @@ mod imp {
                     .build();
                 editor_frame.append(&frame_box);
 
-                let slide_scrolled = gtk::ScrolledWindow::builder().vexpand(true).build();
-                frame_box.append(&slide_scrolled);
-
-                slide_scrolled.set_child(Some(&listview));
+                frame_box.append(&list_stack);
 
                 let slide_footer_toolbox = gtk::Box::builder()
                     .orientation(gtk::Orientation::Horizontal)
@@ -318,6 +335,8 @@ mod imp {
             };
             box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
             box_ui.append(&footer_box);
+
+            obj.register_list_view_selection_changed();
         }
 
         fn signals() -> &'static [glib::subclass::Signal] {
@@ -336,6 +355,57 @@ mod imp {
     impl WindowImpl for SongEditWindow {}
 
     impl SongEditWindow {
+        fn build_preview_list(&self, model: &impl IsA<gtk::SelectionModel>) -> gtk::ListView {
+            let factory = gtk::SignalListItemFactory::new();
+
+            let listview = gtk::ListView::builder()
+                .vexpand(true)
+                .factory(&factory)
+                .model(model)
+                .show_separators(true)
+                .build();
+
+            factory.connect_setup({
+                move |_, list_item| {
+                    let li = list_item
+                        .downcast_ref::<gtk::ListItem>()
+                        .expect("Needs to be ListItem");
+
+                    let b = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+                    b.set_halign(gtk::Align::Center);
+                    b.set_valign(gtk::Align::Center);
+                    li.set_child(Some(&b));
+                }
+            });
+
+            factory.connect_bind(move |_, list_item| {
+                let slide = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem")
+                    .item()
+                    .and_downcast::<Slide>()
+                    .expect("The item has to be an `Slide`.");
+
+                let container = list_item
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem")
+                    .child()
+                    .and_downcast::<gtk::Box>()
+                    .expect("The child has to be a `Box`.");
+
+                let pic = slide.preview();
+                pic.set_can_shrink(true);
+                pic.set_content_fit(gtk::ContentFit::Contain);
+                pic.set_height_request(120);
+                pic.set_hexpand(true);
+                pic.set_halign(gtk::Align::Center);
+                pic.set_valign(gtk::Align::Center);
+                container.append(&pic);
+            });
+
+            listview
+        }
+
         fn setup_key_controller(&self, tv: &gtk::TextView, listview: &gtk::ListView) {
             let obj = self.obj();
 
@@ -443,10 +513,7 @@ impl Default for SongEditWindow {
 
 impl SongEditWindow {
     pub fn new() -> Self {
-        let obj: Self = glib::Object::new();
-        obj.register_list_view_selection_changed();
-
-        obj
+        glib::Object::new()
     }
 
     pub fn show(&self, song: Option<SlideManagerData>) {
@@ -468,34 +535,57 @@ impl SongEditWindow {
     }
 
     pub fn add_new_verse(&self) {
-        let listview = self.imp().list_view.borrow().clone();
+        let Some(page) = self.current_page() else {
+            return;
+        };
+
         let sm = self.imp().slide_manager.borrow();
         let slide = sm.new_slide(Some(SlideData::from_default()), true);
-        listview.append_item(&slide);
+        page.append_item(&slide);
 
-        if let Some(model) = listview.model() {
+        if let Some(model) = page.model() {
             if model.n_items() > 0 {
                 model.select_item(model.n_items().saturating_sub(1), true);
             }
 
-            if let Some(child) = listview.last_child() {
+            if let Some(child) = page.last_child() {
                 child.grab_focus();
             }
         }
     }
 
     pub fn remove_verse(&self) {
-        let listview = self.imp().list_view.borrow().clone();
+        let Some(page) = self.current_page() else {
+            return;
+        };
 
-        listview.remove_selected_items();
-        if let Some(model) = listview.model() {
-            if model.n_items() > 0 {
-                model.select_item(model.n_items().saturating_sub(1), true);
-            }
+        let Some(model) = page.model().and_downcast::<gtk::SingleSelection>() else {
+            return;
+        };
+        let selection = model.selected();
+        page.remove_selected_items();
 
-            if let Some(child) = listview.last_child() {
-                child.grab_focus();
-            }
+        let total = model.n_items();
+        if total == 0 {
+            self.add_new_verse();
+            return;
+        };
+
+        let next = selection.min(total - 1);
+
+        model.select_item(next, true);
+        page.scroll_to(next, gtk::ListScrollFlags::FOCUS, None);
+        self.handle_selection_change();
+    }
+
+    fn current_page(&self) -> Option<gtk::ListView> {
+        let notebook = self.imp().notebook.borrow().clone();
+        let imp = self.imp();
+        match notebook.current_page() {
+            Some(0) => Some(imp.list_view.borrow().clone()),
+            Some(1) => Some(imp.preview_list.borrow().clone()),
+            Some(_) => None,
+            None => None,
         }
     }
 
@@ -561,20 +651,20 @@ impl SongEditWindow {
         list_model.connect_selection_changed(glib::clone!(
             #[weak(rename_to=obj)]
             self,
-            #[strong]
-            list_view,
-            move |_, _, _| {
-                let list = list_view.clone();
-                let item = list.get_selected_items().first().cloned();
-
-                let slide = item.and_downcast::<Slide>();
-                obj.imp().slide_manager.borrow().set_current_slide(slide);
-            }
+            move |_, _, _| obj.handle_selection_change()
         ));
 
         if list_model.n_items() > 0 {
-            list_model.select_item(1, true);
+            list_model.select_item(0, true);
         }
+    }
+
+    fn handle_selection_change(&self) {
+        let list = self.imp().list_view.borrow().clone();
+        let item = list.get_selected_items().first().cloned();
+
+        let slide = item.and_downcast::<Slide>();
+        self.imp().slide_manager.borrow().set_current_slide(slide);
     }
 
     fn emit_save(&self, song: &SlideManagerData) {
