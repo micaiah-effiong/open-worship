@@ -44,7 +44,7 @@ mod imp {
     use gtk::subclass::prelude::*;
 
     use super::*;
-    use crate::services::settings::{self, ApplicationSettings};
+    use crate::services::settings::ApplicationSettings;
     use crate::services::slide::Slide;
     use crate::utils::{WidgetChildrenExt, int_to_transition, transition_to_int};
     use crate::widgets::canvas::canvas_item::CanvasItem;
@@ -144,13 +144,6 @@ mod imp {
             return None;
         }
 
-        // pub fn current_ratio(&self) -> AspectRatio {
-        //     self.current_ratio.borrow().clone()
-        // }
-        // pub fn set_current_ratio(&self, value: AspectRatio) {
-        //     self.current_ratio.replace(value);
-        // }
-
         pub fn propagating_ratio(&self) -> bool {
             self.propagating_ratio.get()
         }
@@ -168,13 +161,13 @@ mod imp {
         #[doc(alias = "set_current_slide")]
         pub fn set_current_slide_(&self, value: Option<Slide>) {
             let obj = self.obj();
-            // if let Some(slide) = self.current_slide.borrow().clone()
-            //     && let Some(canvas) = slide.canvas()
-            // {
-            //     canvas.unselect_all(None);
-            // }
-
             let Some(val) = value else { return };
+
+            if let Some(slide) = self.current_slide.borrow().clone()
+                && let Some(canvas) = slide.canvas()
+            {
+                canvas.unselect_all(None);
+            }
 
             if obj.animation() {
                 let mut t = transition_to_int(val.transition());
@@ -197,7 +190,9 @@ mod imp {
             } else if val == self.end_presentation_slide.borrow().clone() {
                 val.set_visible(true);
                 val.set_presentation_mode(true);
-            }
+            } else {
+                return;
+            };
 
             val.load_slide();
             self.current_slide.replace(Some(val.clone()));

@@ -23,6 +23,8 @@ mod imp {
     pub struct SlideImp {
         pub save_data: RefCell<Option<SlideData>>,
         pub canvas: RefCell<Option<Canvas>>,
+
+        #[property(get)]
         pub preview: RefCell<gtk::Picture>,
 
         #[property(set, get, default_value = "")]
@@ -92,7 +94,13 @@ impl Slide {
         canvas.connect_request_draw_preview(glib::clone!(
             #[weak]
             slide,
-            move || slide.reload_preview_data()
+            move |c| {
+                slide.reload_preview_data();
+
+                slide
+                    .preview()
+                    .set_paintable(c.imp().surface.borrow().clone().as_ref());
+            }
         ));
 
         slide
