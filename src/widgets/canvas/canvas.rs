@@ -16,7 +16,7 @@ mod imp {
     use gtk::glib::subclass::types::ObjectSubclass;
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
-    use gtk::{GestureClick, glib};
+    use gtk::{GestureClick, gdk, glib};
 
     use core::f64;
     use std::cell::{Cell, RefCell};
@@ -58,7 +58,7 @@ mod imp {
 
         pub widget: RefCell<gtk::Overlay>,
         // pub canvas_items: RefCell<Vec<CanvasItem>>,
-        pub surface: RefCell<Option<gtk::cairo::ImageSurface>>,
+        pub surface: RefCell<Option<gdk::Paintable>>,
 
         #[property(get, set, construct)]
         pub presentation_mode: Cell<bool>,
@@ -77,15 +77,9 @@ mod imp {
     impl WidgetImpl for ImpCanvas {
         fn snapshot(&self, snapshot: &gtk::Snapshot) {
             self.parent_snapshot(snapshot);
-
-            // Canvas::set_drawing_preview(true);
-
-            // self._snapshot_widget();
-
-            // Canvas::set_drawing_preview(false);
+            self._snapshot_widget();
         }
     }
-    impl BoxImpl for ImpCanvas {}
 
     pub const REQUEST_DRAW_PREVIEW: &str = "request-draw-preview";
     pub const ITEM_CLICKED: &str = "item-clicked";
@@ -101,7 +95,6 @@ mod imp {
             let obj = self.obj().clone();
 
             obj.connect_presentation_mode_notify(|c| {
-                // println!("-NOTIFY C_PRESENTATION_MODE {}", c.presentation_mode());
                 if c.presentation_mode() {
                     c.unselect_all(None);
                 }
@@ -211,6 +204,7 @@ mod imp {
             self.grid.replace(None);
         }
     }
+    impl BoxImpl for ImpCanvas {}
 
     impl ImpCanvas {
         fn set_current_ratio_(&self, value: f64) {
@@ -279,7 +273,8 @@ mod imp {
         }
 
         fn _snapshot_widget(&self) {
-            if !self.obj().is_realized() {
+            let obj = self.obj().clone();
+            if !obj.is_realized() {
                 return;
             }
 
@@ -288,7 +283,7 @@ mod imp {
             self.obj().snapshot_child(&self.widget.borrow().clone(), &s);
             super::Canvas::set_drawing_preview(false);
 
-            let Some((_, _, _w, _h)) = self.obj().bounds() else {
+            let Some((_, _, w, h)) = self.obj().bounds() else {
                 glib::g_log!(
                     "Canvas Snapshot",
                     glib::LogLevel::Warning,
@@ -297,33 +292,9 @@ mod imp {
                 return;
             };
 
-            let Some(_node) = s.clone().to_node() else {
-                glib::g_log!(
-                    "Canvas Snapshot",
-                    glib::LogLevel::Warning,
-                    "Could not get node",
-                );
-                return;
-            };
-
-            // let Ok(buffer_surface) = BufferSurface::new(w, h) else {
-            //     glib::g_log!(
-            //         "Canvas Snapshot",
-            //         glib::LogLevel::Warning,
-            //         "Could not create buffer-surface"
-            //     );
-            //     return;
-            // };
-            //
-            // if let Some(surface) = buffer_surface.surface() {
-            //     let Ok(ctx) = gtk::cairo::Context::new(&surface) else {
-            //         return;
-            //     };
-            //     node.draw(&ctx);
-            // }
-
-            // self.surface.replace(Some(buffer_surface));
-            self.surface.replace(None);
+            let size = gtk::graphene::Size::new(w as f32, h as f32);
+            let paint = s.to_paintable(Some(&size));
+            self.surface.replace(paint);
         }
     }
 }
@@ -568,12 +539,15 @@ impl Canvas {
             glib::closure_local!(move |_: &Self, g: &GestureClick| f(g)),
         )
     }
-    pub fn connect_request_draw_preview<F: Fn() + 'static>(&self, f: F) -> glib::SignalHandlerId {
+    pub fn connect_request_draw_preview<F: Fn(&Self) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
         self.connect_closure(
             imp::REQUEST_DRAW_PREVIEW,
             false,
-            glib::closure_local!(move |_: &Self| {
-                f();
+            glib::closure_local!(move |c: &Self| {
+                f(c);
             }),
         )
     }

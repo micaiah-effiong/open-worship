@@ -1,6 +1,12 @@
+use gtk::gdk::prelude::{PaintableExt, TextureExt};
+use gtk::gdk_pixbuf;
+use gtk::gio;
+use gtk::glib::object::Cast;
 use gtk::glib::{self, object::ObjectExt, subclass::types::ObjectSubclassIsExt};
-use gtk::prelude::WidgetExt;
+use gtk::gsk::prelude::GskRendererExt;
+use gtk::prelude::{SnapshotExt, WidgetExt};
 
+use crate::app_config::AppConfig;
 use crate::utils::{self, WidgetChildrenExt};
 use crate::widgets::canvas::canvas::Canvas;
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
@@ -8,6 +14,10 @@ use crate::widgets::canvas::serialise::{CanvasData, SlideData};
 use crate::widgets::canvas::text_item::TextItem;
 
 const VISIBLE_CHANGED: &str = "visible-changed";
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, glib::Boxed)]
+#[boxed_type(name = "ByteVec")]
+pub struct ByteVec(pub Vec<u8>);
 
 mod imp {
     use std::cell::{Cell, RefCell};
@@ -27,10 +37,12 @@ mod imp {
     pub struct SlideImp {
         pub save_data: RefCell<Option<SlideData>>,
         pub canvas: RefCell<Option<Canvas>>,
+
+        #[property(get)]
         pub preview: RefCell<gtk::Picture>,
 
-        #[property(set, get, default_value = "")]
-        pub preview_data: RefCell<String>,
+        #[property(set, get)]
+        pub preview_data: RefCell<glib::Bytes>,
         #[property(set, get, default_value = "")]
         pub notes: RefCell<String>,
         #[property(set, get, builder(gtk::StackTransitionType::None))]
@@ -69,7 +81,7 @@ mod imp {
                 save_data: RefCell::new(None),
                 canvas: RefCell::new(None),
                 preview: RefCell::new(gtk::Picture::default()),
-                preview_data: RefCell::new(String::default()),
+                preview_data: RefCell::new(glib::Bytes::from(&[])),
                 notes: RefCell::new(String::default()),
                 transition: RefCell::new(gtk::StackTransitionType::None),
                 visible: Cell::new(true),
@@ -100,6 +112,13 @@ impl Default for Slide {
 }
 
 impl Slide {
+    const PREVIEW_WIDTH: i32 = 200;
+    pub fn preview_height() -> i32 {
+        (Self::PREVIEW_WIDTH as f32 / AppConfig::aspect_ratio()) as i32
+    }
+    pub fn preview_width() -> i32 {
+        Self::PREVIEW_WIDTH
+    }
     fn emit_visible_changed(&self, value: bool) {
         self.emit_by_name::<()>(VISIBLE_CHANGED, &[&value]);
     }
@@ -129,7 +148,7 @@ impl Slide {
         canvas.connect_request_draw_preview(glib::clone!(
             #[weak]
             slide,
-            move || slide.reload_preview_data()
+            move |_| slide.reload_preview_data()
         ));
 
         slide
@@ -143,6 +162,8 @@ impl Slide {
             .bidirectional()
             .sync_create()
             .build();
+
+        slide.load_data();
 
         slide
     }
@@ -248,20 +269,11 @@ impl Slide {
             c_item_data.push(ci.serialise());
         }
 
-        //
         let raw_notes = glib::base64_encode(self.notes().as_bytes());
-        // format!(
-        //     "{{{}, \"transition\": {}, \"items\": [{}], \"notes\": \"{}\", \"preview\": \"{}\"}}\n",
-        //     canvas.serialise(),
-        //     i32::from(self.trasition()),
-        //     data,
-        //     raw_notes,
-        //     self.preview_data()
-        // );
         SlideData::new(
             utils::transition_to_int(self.transition()),
             c_item_data,
-            self.preview_data(),
+            self.preview_data().to_vec(),
             canvas.serialise(),
         )
     }
@@ -291,36 +303,39 @@ impl Slide {
     }
 
     pub fn reload_preview_data(&self) {
-        // let s = self.clone();
-        //
-        // glib::timeout_add_local(Duration::from_millis(110), move || {
-        //     let canvas = s.imp().canvas.borrow().clone();
-        //     let canvas_buffer_surface = match canvas {
-        //         Some(c) => c.imp().surface.borrow().clone(),
-        //         None => return glib::ControlFlow::Continue,
-        //     };
-        //     if let Some(surface) = &canvas_buffer_surface
-        //         && let Ok(pix) = surface.load_to_pixbuf()
-        //     {
-        //         let pixbuf = pix.scale_simple(
-        //             SlideList::width(),
-        //             SlideList::height(),
-        //             gdk_pixbuf::InterpType::Bilinear,
-        //         );
-        //
-        //         if let Some(pixbuf) = pixbuf {
-        //             let t = gdk::Texture::for_pixbuf(&pixbuf).upcast::<gdk::Paintable>();
-        //             s.imp().preview.borrow().set_paintable(Some(&t));
-        //             if let Some(p) = utils::pixbuf_to_base64(&pixbuf) {
-        //                 s.set_preview_data(p);
-        //             }
-        //         }
-        //
-        //         return glib::ControlFlow::Break;
-        //     }
-        //
-        //     glib::ControlFlow::Continue
-        // });
+        let s = self.clone();
+        glib::timeout_add_local(std::time::Duration::from_millis(110), move || {
+            let canvas = s.imp().canvas.borrow().clone();
+            let Some(paintable) = canvas.and_then(|c| c.imp().surface.borrow().clone()) else {
+                return glib::ControlFlow::Continue;
+            };
+            s.preview().set_paintable(Some(&paintable));
+
+            let snapshot = gtk::Snapshot::new();
+            let w = Self::preview_width() as f64;
+            let h = Self::preview_height() as f64;
+            paintable.snapshot(&snapshot, w, h);
+
+            let Some(node) = snapshot.to_node() else {
+                return glib::ControlFlow::Continue;
+            };
+
+            let renderer = gtk::gsk::CairoRenderer::new();
+            if renderer.realize(None::<&gtk::gdk::Surface>).is_err() {
+                return glib::ControlFlow::Continue;
+            };
+
+            let texture = renderer.render_texture(
+                &node,
+                Some(&gtk::graphene::Rect::new(0.0, 0.0, w as f32, h as f32)),
+            );
+            renderer.unrealize();
+
+            let data = texture.save_to_png_bytes();
+            s.set_preview_data(data);
+
+            glib::ControlFlow::Break
+        });
     }
 
     fn load_data(&self) {
@@ -328,22 +343,24 @@ impl Slide {
             return;
         };
 
-        self.set_preview_data(save_data.preview);
+        self.set_preview_data(glib::Bytes::from(&save_data.preview));
 
         if !self.preview_data().is_empty() {
-            let pix_buf = utils::base64_to_pixbuf(&self.preview_data().clone());
+            let pix_buf = gdk_pixbuf::Pixbuf::from_stream(
+                &gio::MemoryInputStream::from_bytes(&self.preview_data()),
+                gio::Cancellable::NONE,
+            );
 
-            // TODO:
-            // if let Some(pix_buf) = pix_buf
-            //     && let Some(pix) = pix_buf.scale_simple(
-            //         SlideList::width(),
-            //         SlideList::height(),
-            //         gdk_pixbuf::InterpType::Nearest,
-            //     )
-            // {
-            //     let t = gdk::Texture::for_pixbuf(&pix).upcast::<gdk::Paintable>();
-            //     self.imp().preview.borrow().set_paintable(Some(&t));
-            // }
+            if let Some(pix_buf) = pix_buf.ok()
+                && let Some(pix) = pix_buf.scale_simple(
+                    Self::preview_width(),
+                    Self::preview_height(),
+                    gdk_pixbuf::InterpType::Bilinear,
+                )
+            {
+                let t = gtk::gdk::Texture::for_pixbuf(&pix).upcast::<gtk::gdk::Paintable>();
+                self.imp().preview.borrow().set_paintable(Some(&t));
+            }
         }
 
         self.set_transition(utils::int_to_transition(save_data.transition));
