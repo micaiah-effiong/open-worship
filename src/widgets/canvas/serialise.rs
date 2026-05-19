@@ -77,7 +77,7 @@ pub enum CanvasItemType {
 pub struct SlideData {
     pub transition: u32,
     pub items: Vec<CanvasItemData>,
-    pub preview: String,
+    pub preview: Vec<u8>,
     #[serde(flatten)]
     pub canvas_data: CanvasData,
 }
@@ -86,7 +86,7 @@ impl SlideData {
     pub fn new<I: IntoIterator<Item = CanvasItemData>>(
         transition: u32,
         items: I,
-        preview: String,
+        preview: Vec<u8>,
         canvas_data: CanvasData,
     ) -> Self {
         Self {
