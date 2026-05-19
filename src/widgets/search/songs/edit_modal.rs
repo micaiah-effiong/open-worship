@@ -365,19 +365,6 @@ mod imp {
                 .show_separators(true)
                 .build();
 
-            factory.connect_setup({
-                move |_, list_item| {
-                    let li = list_item
-                        .downcast_ref::<gtk::ListItem>()
-                        .expect("Needs to be ListItem");
-
-                    let b = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-                    b.set_halign(gtk::Align::Center);
-                    b.set_valign(gtk::Align::Center);
-                    li.set_child(Some(&b));
-                }
-            });
-
             factory.connect_bind(move |_, list_item| {
                 let slide = list_item
                     .downcast_ref::<gtk::ListItem>()
@@ -388,19 +375,14 @@ mod imp {
 
                 let container = list_item
                     .downcast_ref::<gtk::ListItem>()
-                    .expect("Needs to be ListItem")
-                    .child()
-                    .and_downcast::<gtk::Box>()
-                    .expect("The child has to be a `Box`.");
+                    .expect("Needs to be ListItem");
 
                 let pic = slide.preview();
                 pic.set_can_shrink(true);
                 pic.set_content_fit(gtk::ContentFit::Contain);
-                pic.set_height_request(120);
-                pic.set_hexpand(true);
-                pic.set_halign(gtk::Align::Center);
-                pic.set_valign(gtk::Align::Center);
-                container.append(&pic);
+                pic.set_height_request(Slide::preview_height());
+                pic.set_width_request(Slide::preview_width());
+                container.set_child(Some(&pic));
             });
 
             listview
@@ -548,9 +530,13 @@ impl SongEditWindow {
                 model.select_item(model.n_items().saturating_sub(1), true);
             }
 
-            if let Some(child) = page.last_child() {
-                child.grab_focus();
-            }
+            glib::timeout_add_local_once(std::time::Duration::from_millis(100), move || {
+                page.scroll_to(
+                    model.n_items().saturating_sub(1),
+                    gtk::ListScrollFlags::FOCUS,
+                    None,
+                );
+            });
         }
     }
 
@@ -574,8 +560,16 @@ impl SongEditWindow {
         let next = selection.min(total - 1);
 
         model.select_item(next, true);
-        page.scroll_to(next, gtk::ListScrollFlags::FOCUS, None);
         self.handle_selection_change();
+        page.scroll_to(next, gtk::ListScrollFlags::FOCUS, None);
+
+        glib::timeout_add_local_once(std::time::Duration::from_millis(100), move || {
+            page.scroll_to(
+                model.n_items().saturating_sub(1),
+                gtk::ListScrollFlags::FOCUS,
+                None,
+            );
+        });
     }
 
     fn current_page(&self) -> Option<gtk::ListView> {

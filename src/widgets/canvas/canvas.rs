@@ -295,7 +295,6 @@ mod imp {
             let size = gtk::graphene::Size::new(w as f32, h as f32);
             let paint = s.to_paintable(Some(&size));
             self.surface.replace(paint);
-            obj.emit_request_draw_preview();
         }
     }
 }
