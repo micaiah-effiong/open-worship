@@ -416,13 +416,9 @@ mod imp {
         }
 
         fn parser_bible_reference(search_text: &str) -> Option<BibleReference> {
-            let p = parser::Parser::parser(search_text.to_string());
-            if let Some(p) = p {
-                let evaluated = p.eval();
-                return Some(evaluated);
-            }
-
-            None
+            parser::Parser::parse(search_text.to_string())
+                .first()
+                .cloned()
         }
 
         fn search_bible(

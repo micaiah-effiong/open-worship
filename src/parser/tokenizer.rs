@@ -7,6 +7,7 @@ pub enum TokenEnum {
     NUMBER,
     IDENTIFIER,
     COLON,
+    SEMICOLON,
     HYPHEN,
     COMMA,
     ILLEGAL,
@@ -35,7 +36,7 @@ pub struct Tokenizer {
 impl Tokenizer {
     pub fn new(inp: String) -> Self {
         // pad input before initializing lexer
-        
+
         let input: String = String::from("  ") + &inp;
 
         Tokenizer {
@@ -54,6 +55,10 @@ impl Tokenizer {
             ':' => Token {
                 t_type: TokenEnum::COLON,
                 value: String::from(":"),
+            },
+            ';' => Token {
+                t_type: TokenEnum::SEMICOLON,
+                value: String::from(";"),
             },
             '-' => Token {
                 t_type: TokenEnum::HYPHEN,
@@ -114,8 +119,7 @@ impl Tokenizer {
             self.read_char();
         }
 
-        self
-            .input
+        self.input
             .get(start as usize..self.position as usize)
             .unwrap() // TODO: handle error None arm
             .to_string()
@@ -127,8 +131,7 @@ impl Tokenizer {
             self.read_char();
         }
 
-        self
-            .input
+        self.input
             .get(start as usize..self.position as usize)
             .unwrap() // TODO: handle error None arm
             .to_string()
@@ -137,7 +140,9 @@ impl Tokenizer {
     pub fn read_char(&mut self) {
         if self.peek_position as usize >= self.input.len() {
             self.char = '\0'
-        } else if let Some(ch) = self.input.chars().nth(self.peek_position as usize) { self.char = ch }
+        } else if let Some(ch) = self.input.chars().nth(self.peek_position as usize) {
+            self.char = ch
+        }
 
         self.position = self.peek_position;
         self.peek_position += 1;
@@ -165,7 +170,7 @@ mod test {
             1 John 1:3
             1 John 1:3-1
             1 John 1:1,3
-            1 John 1:1-3,5
+            1 John 1:1-3,5;
             "#,
         );
 
@@ -303,6 +308,10 @@ mod test {
                 value: "5".to_string(),
                 t_type: TokenEnum::NUMBER,
             },
+            Token {
+                value: ";".to_string(),
+                t_type: TokenEnum::SEMICOLON,
+            },
         ];
 
         let mut lexer = Tokenizer::new(input);
@@ -311,7 +320,7 @@ mod test {
             // next token
             let token = lexer.next_token();
 
-            // check toke
+            // check tokem
             assert_eq!(
                 exp.t_type, token.t_type,
                 "token_type error: expected {:?}, but found {:?}",
