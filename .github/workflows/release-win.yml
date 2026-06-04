@@ -5,6 +5,8 @@ name: Release Window Build
 
 on:
   workflow_dispatch:
+  pull_request:
+    types: [opened, synchronize]
   # push:
   #   #   # tags:
   #   #   #   - "*"
@@ -19,175 +21,158 @@ env:
 
 jobs:
   release-win:
-    strategy:
-      matrix:
-        build:
-          - os: windows-2022
-            target: x86_64-pc-windows-msvc
-            suffix: windows-x86_64-${{ github.sha}}
-            modern-rustflags: "-C target-cpu=skylake"
-            rustflags: "-C target-cpu=x86-64-v2"
+    # strategy:
+    #   matrix:
+    #     build:
+    #       - os: windows-2022
+    #         target: x86_64-pc-windows-msvc
+    #         suffix: windows-x86_64-${{ github.sha}}
+    #         rustflags: "-C target-cpu=x86-64-v2"
     runs-on: windows-2022
+    permissions:
+      contents: write # needed for uploading release artifact
+    defaults:
+      run:
+        shell: bash
+
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v6
 
-      - name: Configure GTK4 cache (Windows)
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
-        id: cache
+      - name: Configure GTK4 cache
+        uses: actions/cache@v5
+        id: cache-gvsbuild-gtk
         with:
           path: C:\gtk-build\gtk\x64\release
           key: ${{ runner.os }}-gtk4
 
-      - name: Install GTK4 (Windows)
-        run: |
-          # TODO: Next 3 lines should have been `pipx install gvsbuild`, but https://github.com/wingtk/gvsbuild/issues/1436
-          py -m venv .venv
-          .\.venv\Scripts\activate.ps1
-          py -m pip install gvsbuild
-          gvsbuild build gtk4 librsvg libadwaita
-        if: steps.cache.outputs.cache-hit != 'true'
+      # - name: Install Inno 6
+      #   id: install_inno
+      #   shell: pwsh
+      #   run: |
+      #     if (Test-Path "C:\Program Files (x86)\Inno Setup 6\") {
+      #       echo "inno already installed"
+      #     } else {
+      #       winget install -e --id JRSoftware.InnoSetup -v 6.4.3 --accept-package-agreements `
+      #         --accept-source-agreements --disable-interactivity --scope machine
+      #       if (Test-Path "C:\Program Files (x86)\Inno Setup 6\") {
+      #         echo "inno installed successfully"
+      #       } else {
+      #         throw "could not find inno's installation folder"
+      #       }
+      #     }
 
-      - name: Configure GTK4 (Windows)
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      # - name: Configure PATH
+      #   run: echo "export PATH=$PATH:/c/Users/$USER/.cargo/bin:/c/Program\ Files\ \(x86\)/Inno\ Setup\ 6" > ~/.bashrc
+
+      - name: Configure GTK4
+        shell: pwsh
         run: |
           Add-Content $env:GITHUB_ENV "PKG_CONFIG_PATH=C:\gtk-build\gtk\x64\release\lib\pkgconfig"
-          Add-Content $env:GITHUB_ENV ("LIB=" + $env:LIB + ";" + "C:\gtk-build\gtk\x64\release\lib")
-          Add-Content $env:GITHUB_PATH "C:\gtk-build\gtk\x64\release\bin"
+          Add-Content $env:GITHUB_ENV "PATH=C:\gtk-build\gtk\x64\release\bin;$env:PATH"
+          Add-Content $env:GITHUB_ENV "LIB=C:\gtk-build\gtk\x64\release\lib;$env:LIB"
+          Add-Content $env:GITHUB_ENV "INCLUDE=C:\gtk-build\gtk\x64\release\include;C:\gtk-build\gtk\x64\release\include\cairo;C:\gtk-build\gtk\x64\release\include\glib-2.0;C:\gtk-build\gtk\x64\release\include\gobject-introspection-1.0;C:\gtk-build\gtk\x64\release\lib\glib-2.0\include;$env:INCLUDE"
 
-          # We have hardcoded list of libraries in openworship.wxs, make sure it didn't change unexpectedly
-          Get-ChildItem C:\gtk-build\gtk\x64\release\lib\gdk-pixbuf-2.0\2.10.0\loaders\*.dll | ForEach-Object { $_.Name } > actual-pixbuf-loaders.log
-          if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-pixbuf-loaders.log) -DifferenceObject (Get-Content -Path actual-pixbuf-loaders.log)) {
-            Write-Output "Expected pixbuf -loaders:"
-            Get-Content res\windows\wix\expected-pixbuf-loaders.log
-            Write-Output "`r`nActual pixbuf loaders:"
-            Get-Content actual-pixbuf-loaders.log
-            Throw "Actual pixbuf loaders do not match expected"
-          }
+      - name: Install gvsbuild
+        run: uv tool install gvsbuild
 
-          # We have hardcoded list of libraries in openworship.wxs, make sure it didn't change unexpectedly
-          Get-ChildItem C:\gtk-build\gtk\x64\release\bin\*.dll | ForEach-Object { $_.Name } > actual-dlls.log
-          if (Compare-Object -ReferenceObject (Get-Content -Path res\windows\wix\expected-dlls.log) -DifferenceObject (Get-Content -Path actual-dlls.log)) {
-            Write-Output "Expected DLLs:"
-            Get-Content res\windows\wix\expected-dlls.log
-            Write-Output "`r`nActual DLLs:"
-            Get-Content actual-dlls.log
-            Throw "Actual DLLs do not match expected"
-          }
+      - name: Install GTK4
+        if: steps.cache-gvsbuild-gtk.outputs.cache-hit != 'true'
+        run: uv run gvsbuild build gtk4 librsvg libadwaita adwaita-icon-theme
 
-      - name: CUDA toolchain (Windows)
-        uses: Jimver/cuda-toolkit@4bd727d5619dc6fa323b1e76c3aa5dca94f5ec6d # v0.2.19
-        with:
-          cuda: "12.4.1"
-          method: network
-          sub-packages: '["nvcc", "cudart"]'
-
-      - name: Install Protoc
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify Environment
+        run: |
+          echo "PKG_CONFIG_PATH=$PKG_CONFIG_PATH"
+          echo "LIB=$LIB"
+          echo "INCLUDE=$INCLUDE"
+          echo "PATH=$PATH"
+          pkg-config --modversion gtk4
+          pkg-config --modversion libadwaita-1
 
       - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build app (Windows, modern)
-        env:
-          RUSTFLAGS: ${{ matrix.build.modern-rustflags }}
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build app
+        run: cargo build --locked --profile production
+
+      - name: Copy DLL
         run: |
-          cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production 
-          Move-Item -Path target\${{ matrix.build.target }}\production\openworship.exe -Destination target\${{ matrix.build.target }}\production\openworship-modern.exe
+          mkdir -p bundle/bin
+          mkdir -p bundle/share/glib-2.0/schemas
+          mkdir -p bundle/share/icons
+          mkdir -p bundle/lib/gdk-pixbuf-2.0
 
-      - name: Build app (Windows, normal)
-        env:
-          RUSTFLAGS: ${{ matrix.build.rustflags }}
-        run: cargo -Zgitoxide -Zgit build --locked -Z build-std --target ${{ matrix.build.target }} --profile production
+          GTK_DIR="C:/gtk-build/gtk/x64/release"
 
-      - name: Install cargo-wix (Windows)
-        uses: taiki-e/cache-cargo-install-action@1b76958d032c4d048c599f9fdfa48abe804d6319 # v1.2.2
+          cp target/production/openworship.exe      bundle/bin/
+          cp res/windows/openworship.ico            bundle/bin/
+          cp -r "$GTK_DIR/share/glib-2.0/schemas/". bundle/share/glib-2.0/schemas/
+          cp data/resources/com.openworship.app.gschema.xml bundle/share/glib-2.0/schemas/
+          glib-compile-schemas bundle/share/glib-2.0/schemas/
+          cp -r "$GTK_DIR/share/icons/."            bundle/share/icons/
+          cp -r "$GTK_DIR/lib/gdk-pixbuf-2.0/."     bundle/lib/gdk-pixbuf-2.0/
+
+          GTK_BIN="C:/gtk-build/gtk/x64/release/bin"
+          OUTPUT_DIR="bundle/bin"
+
+          mkdir -p "$OUTPUT_DIR"
+
+          # Only copy DLLs from the gtk-build path
+          ldd target/production/openworship.exe \
+            | grep -iv "windows" \
+            | awk '{print $3}' \
+            | while read -r dll; do
+                filename=$(basename "$dll")
+                echo "Copying: $filename"
+                cp "$dll" "$OUTPUT_DIR/"
+              done
+
+          echo "Creating installer output dir"
+          mkdir build
+
+          echo "Done."
+
+      - name: Set App version
+        run: echo "APP_VERSION=$(cargo pkgid | cut -d "@" -f2)" >> $GITHUB_ENV
+
+      - name: Download VC++ Redist
+        run: |
+          mkdir -p redist
+          curl -L https://aka.ms/vs/17/release/vc_redist.x64.exe \
+            -o redist/vc_redist.x64.exe
+
+      - name: Get VC Redist version
+        shell: pwsh
+        run: |
+          $ver = (Get-Item redist\vc_redist.x64.exe).VersionInfo.ProductVersion
+          echo "VC_VERSION=v$ver" >> $env:GITHUB_ENV
+
+      - name: Compile .ISS to .EXE Installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
-          tool: cargo-wix
+          path: inno.iss
+          options: /O+ /DMyAppVersion=${{ env.APP_VERSION }} /DRedistVersion=${{ env.VC_VERSION }}
 
-      - name: Package (Windows)
-        run: |
-          Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
-
-          New-Item target\wix\gtk4\bin -ItemType Directory
-          New-Item target\wix\gtk4\lib\gdk-pixbuf-2.0\2.10.0\loaders -ItemType Directory
-          New-Item target\wix\gtk4\share\glib-2.0\schemas -ItemType Directory
-
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\*.dll -Destination target\wix\gtk4\bin
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\gdbus.exe -Destination target\wix\gtk4\bin
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\gspawn-win64-helper.exe -Destination target\wix\gtk4\bin
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\bin\gspawn-win64-helper-console.exe -Destination target\wix\gtk4\bin
-
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\lib\gdk-pixbuf-2.0\2.10.0\loaders\*.dll -Destination target\wix\gtk4\lib\gdk-pixbuf-2.0\2.10.0\loaders
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\lib\gdk-pixbuf-2.0\2.10.0\loaders.cache -Destination target\wix\gtk4\lib\gdk-pixbuf-2.0\2.10.0
-
-          Copy-Item -Path C:\gtk-build\gtk\x64\release\share\glib-2.0\schemas\gschemas.compiled -Destination target\wix\gtk4\share\glib-2.0\schemas\gschemas.compiled
-
-          # TODO: Ideally something like this would have worked and we wouldn't need to hardcode stuff in `openworship.wxs`: https://github.com/volks73/cargo-wix/issues/271
-          # & "C:\Program Files (x86)\WiX Toolset v3.11\bin\heat.exe" dir target\wix\gtk4 -gg -sfrag -template:fragment -out target\wix\gtk4.wxs -cg GTK -dr GTK
-
-          cargo wix --target ${{ matrix.build.target }} --profile production --no-build --nocapture
-
-          Remove-Item target\wix\gtk4 -Recurse -Confirm:$false -ErrorAction SilentlyContinue
-
-      # - name: Sign installer (Windows)
-      #   run: |
-      #     $ErrorActionPreference = "Stop"
-      #
-      #     dotnet tool install --global AzureSignTool
-      #
-      #     # `-Recurse` is needed or PowerShell will not find the file
-      #     (Get-ChildItem -Path target\wix -Include openworship-*.msi -Recurse) | ForEach-Object {
-      #       Write("Signing $($_)");
-      #
-      #       AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
-      #     }
-      #   # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
-      #   continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
-
-      - name: Create bundle (Windows)
-        run: |
-          # Create a bundle with Microsoft Visual C++ Redistributable in it
-          Remove-Item target\wix\openworship.wixobj -Confirm:$false
-          cargo wix --profile release --no-build --nocapture --include res\windows\wix\bundle.wxs -C -ext -C WixBalExtension
-
-      # - name: Sign bundle (Windows)
-      #   run: |
-      #     $ErrorActionPreference = "Stop"
-      #
-      #     dotnet tool install --global AzureSignTool
-      #
-      #     # `-Recurse` is needed or PowerShell will not find the file
-      #     (Get-ChildItem -Path target\wix -Include openworship-*.exe -Recurse) | ForEach-Object {
-      #       Write("Signing $($_)");
-      #
-      #       # Detach burn engine, which also needs to be signed
-      #       insignia -ib $($_) -o engine.exe;
-      #       AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v engine.exe;
-      #       # Attach signed burn engine
-      #       insignia -ab engine.exe $($_) -o $($_);
-      #       AzureSignTool sign --azure-key-vault-url "${{ secrets.AZURE_KEY_VAULT_URI }}" --azure-key-vault-client-id "${{ secrets.AZURE_CLIENT_ID }}" --azure-key-vault-client-secret "${{ secrets.AZURE_CLIENT_SECRET }}" --azure-key-vault-tenant-id "${{ secrets.AZURE_TENANT_ID }}" --azure-key-vault-certificate "${{ secrets.AZURE_CERT_NAME }}" --file-digest sha512 --timestamp-rfc3161 http://timestamp.digicert.com -v $($_);
-      #     }
-      #   # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
-      #   continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
-
-      - name: Upload installer to artifacts (Windows)
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.1.3
+      - name: Upload installer to artifacts
+        uses: actions/upload-artifact@v7
         with:
-          name: openworship-${{ matrix.build.suffix }}
-          path: |
-            target/wix/*.exe
+          name: openworship-setup
+          path: build/openworship-setup.exe
           if-no-files-found: error
 
-      # - name: Upload installer to assets (Windows)
+      # - name: Upload installer to assets
       #   uses: alexellis/upload-assets@13926a61cdb2cb35f5fdef1c06b8b591523236d3 # 0.4.1
       #   env:
       #     GITHUB_TOKEN: ${{ github.token }}
