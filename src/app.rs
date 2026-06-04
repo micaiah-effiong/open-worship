@@ -1,5 +1,6 @@
 use crate::app_config;
 use crate::application::OwApplication;
+use crate::config;
 use gtk::glib;
 
 use gtk::prelude::*;
@@ -45,6 +46,11 @@ fn log_display_info() {
 }
 
 fn app_init() {
+    println!("RESOURCE_FILE {}", config::resource_file());
+    println!("APP_ID {}", config::app_id());
+    // let res =
+    //     gtk::gio::Resource::load(config::resource_file()).expect("could not find app resources");
+    // gtk::gio::resources_register(&res);
     gtk::gio::resources_register_include!("resources.gresource")
         .expect("could not find app resources");
 

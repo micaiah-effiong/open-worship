@@ -25,7 +25,7 @@ mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 mkdir -p AppDir/usr/share/glib-2.0/schemas
 
 # cp data/resources/icons/$APP_NAME.png AppDir/usr/share/icons/hicolor/256x256/apps/$APP_NAME.png
-cp data/resources/$APP_ID.gschema.xml AppDir/usr/share/glib-2.0/schemas/
+cp data/$APP_ID.gschema.xml AppDir/usr/share/glib-2.0/schemas/
 
 glib-compile-schemas AppDir/usr/share/glib-2.0/schemas
 

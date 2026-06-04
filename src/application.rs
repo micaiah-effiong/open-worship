@@ -11,6 +11,7 @@ use gtk::{
 use crate::{
     accels, app_config,
     application_window::MainApplicationWindow,
+    config,
     services::file_manager::FileManager,
     widgets::{search::songs::edit_modal::SongEditWindow, settings_window::SettingsWindow},
 };
@@ -115,7 +116,7 @@ mod imp {
         fn startup(&self) {
             self.parent_startup();
 
-            gtk::Window::set_default_icon_name(app_config::APP_ID);
+            gtk::Window::set_default_icon_name(config::app_id());
             gtk::glib::set_application_name("Openworship");
 
             let obj = self.obj();
@@ -204,8 +205,8 @@ glib::wrapper! {
 impl Default for OwApplication {
     fn default() -> Self {
         let obj: Self = glib::Object::builder()
-            .property("application-id", app_config::APP_ID)
-            .property("resource-base-path", app_config::RESOURCE_PATH)
+            .property("application-id", config::app_id())
+            .property("resource-base-path", config::resource_path())
             .property("register-session", true)
             .property("flags", gio::ApplicationFlags::HANDLES_OPEN)
             .build();
@@ -221,8 +222,8 @@ impl OwApplication {
 
     pub fn new_with_args() -> Self {
         let obj: Self = glib::Object::builder()
-            .property("application-id", app_config::APP_ID)
-            .property("resource-base-path", app_config::RESOURCE_PATH)
+            .property("application-id", config::app_id())
+            .property("resource-base-path", config::resource_path())
             .build();
 
         obj.set_flags(gio::ApplicationFlags::HANDLES_OPEN);

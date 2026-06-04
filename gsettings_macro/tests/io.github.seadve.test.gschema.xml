@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schemalist>
+    <enum id="io.github.seadve.AlertSound">
+        <value nick="bark" value="0"/>
+        <value nick="glass" value="2"/>
+        <value nick="drip" value="1"/>
+    </enum>
+    <flags id="io.github.seadve.SpacesStyle">
+        <value nick="before-colon" value="1"/>
+        <value nick="before-semicolon" value="4"/>
+        <value nick="before-comma" value="2"/>
+    </flags>
+    <schema path="/io/github/seadve/" id="io.github.seadve.test">
+        <key name="is-maximized" type="b">
+            <default>false</default>
+            <summary>Window maximized behaviour</summary>
+            <description></description>
+        </key>
+        <key name="theme" type="s">
+            <default>"light"</default>
+            <summary>Current theme</summary>
+            <description></description>
+        </key>
+        <key name="invalid-words" type="as">
+            <default>[]</default>
+            <summary>Contains invalid words</summary>
+            <description></description>
+        </key>
+        <key name="window-width" type="i">
+            <default>600</default>
+            <summary>Window width</summary>
+            <description>Window width</description>
+        </key>
+        <key name="window-height" type="u">
+            <default>400</default>
+            <summary>Window height</summary>
+            <description>Window height</description>
+        </key>
+        <key name="window-width-64" type="x">
+            <default>600</default>
+            <summary>Window width</summary>
+            <description>Window width</description>
+        </key>
+        <key name="window-height-64" type="t">
+            <default>400</default>
+            <summary>Window height</summary>
+            <description>Window height</description>
+        </key>
+        <key name="volume" type="d">
+            <range min="1" max="10"/>
+            <default>6.3</default>
+            <summary>Volume</summary>
+            <description>Recommended maximum is 8</description>
+        </key>
+        <key name="preferred-audio-source" type="s">
+            <choices>
+                <choice value="microphone"/>
+                <choice value="desktop-audio"/>
+            </choices>
+            <default>"microphone"</default>
+            <summary>Preferred audio source to use in recording audio</summary>
+            <description></description>
+        </key>
+        <key name="dimensions" type="(ii)">
+            <default>(10, 10)</default>
+            <summary>(width, height)</summary>
+            <description></description>
+        </key>
+        <key name="string-tuple" type="(ss)">
+            <default>("string", "another one")</default>
+            <summary>(string #1, string #2)</summary>
+            <description></description>
+        </key>
+        <key name="two-strings" type="(ss)">
+            <default>("string", "another one")</default>
+            <summary>(string #1, string #2)</summary>
+            <description></description>
+        </key>
+        <key name="cache-dir" type="ay">
+            <default>b"/tmp/cache_dir/"</default>
+            <summary>default dir to store cache</summary>
+            <description></description>
+        </key>
+        <key name="alert-sound" enum="io.github.seadve.AlertSound">
+            <default>'bark'</default>
+            <summary>the sound to play on an alert</summary>
+            <description></description>
+        </key>
+        <key name="space-style" flags="io.github.seadve.SpacesStyle">
+            <default>[]</default>
+            <summary>style of space</summary>
+            <description></description>
+        </key>
+    </schema>
+</schemalist>

@@ -25,9 +25,12 @@ target/
 AppDir/*
 linuxdeploy-*
 build/*
+builddir/*
 
 
 # macos
 .DS_Store
 
 data/resources/gschemas.compiled
+.cargo/*
+!.cargo/config.toml.in

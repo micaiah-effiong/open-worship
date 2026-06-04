@@ -1,0 +1,15 @@
+option(
+  'profile',
+  type: 'combo',
+  choices: ['default', 'development'],
+  value: 'default',
+  description: 'Openworship build profiles',
+)
+
+option(
+  'bundle',
+  type: 'combo',
+  choices: ['default', 'deb', 'appimage'],
+  value: 'default',
+  description: 'App bundle type',
+)

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <schemalist>
-  <schema id="com.openworship.app" path="/com/openworship/app/" gettext-domain="">
+  <schema id="@APP_ID@" path="/com/openworship/app/" gettext-domain="">
     <key name="show-reference" type="b">
       <default>true</default>
       <summary>Show Reference</summary>

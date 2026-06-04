@@ -1,7 +1,13 @@
+#![cfg_attr(
+    all(not(debug_assertions), target_os = "windows"),
+    windows_subsystem = "windows"
+)]
+
 mod app;
 mod app_config;
 mod application;
 mod application_window;
+mod config;
 mod db;
 mod dto;
 mod notepad;

@@ -5,6 +5,8 @@ name: Release Mac Build
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
   # push:
   # tags:
   #   - "*"
@@ -19,18 +21,13 @@ env:
 
 jobs:
   release:
-    strategy:
-      matrix:
-        build:
-          - os: macos-14
-            target: aarch64-apple-darwin
-            suffix: macos-aarch64-${{ github.ref_name }}
-      fail-fast: false
-    runs-on: ${{ matrix.build.os }}
+    runs-on: macos-14
+    env:
+      BUILD_PREFIX: builddir/bundle
 
     steps:
       - name: Checkout
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        uses: actions/checkout@v6
 
       - name: Install GTK4 (macOS)
         run: |
@@ -51,17 +48,18 @@ jobs:
       - name: Install glibtoolize (macOS)
         run: brew install libtool
 
-      - name: Install Protoc
-        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-
       # Needed for hwloc
       - name: Install automake (macOS)
         run: brew install automake
 
+      - name: Install meson
+        run: brew install meson ninja
+
+      - name: Install Just
+        run: cargo install just
+        
       - name: Configure cache
-        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -70,133 +68,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-
 
-      - name: Build app (macOS, normal)
-        env:
-          RUSTFLAGS: ${{ matrix.build.rustflags }}
-        run: cargo build --locked --target ${{ matrix.build.target }} --profile production
-
-      - name: Create bundle (macOS)
-        run: |
-          target=${{ matrix.build.target }}
-          BUNDLE_VERSION=$(cargo pkgid | cut -d "#" -f2)
-          BUNDLE_BUILD=$(date +"%Y%m%d%H%M")
-          APP_PREFIX=target/bundle
-
-          function process_dependencies()
-          {
-            local target=$1
-            local destdir=$2
-            local file=$3
-            local rpath=$4
-
-            echo "Processing $file"
-
-            local inst_prefix="$(brew --prefix)/*"
-
-            local DEPS=$(dyld_info -dependents $file | tail -n +4)
-            local process_list=""
-            for dep in $DEPS; do
-              if [[ $dep == $inst_prefix ]]; then
-                dep_file=$(basename $dep)
-                new_dep_file=$destdir/$dep_file
-                if [ ! -f $new_dep_file ]; then
-                  # Not exist, do copy
-                  echo "  Copying $dep"
-                  cp -n $dep $destdir
-                fi
-
-                # Fix the dependency
-                echo "  Patching $dep"
-                install_name_tool -change $dep $rpath/$dep_file $file
-
-                # Collect list of dependencies
-                process_list="$new_dep_file $process_list"
-              fi
-            done
-
-            # Recursively process dependencies
-            for dep in $process_list; do
-              process_dependencies $target $destdir $dep $rpath
-            done
-          }
-
-          # 1. Create the bundle
-          mkdir -p $APP_PREFIX/$target/Openworship.app/Contents/{MacOS,Resources}
-          mkdir -p $APP_PREFIX/$target/Openworship.app/Contents/Resources/{lib,share}
-          cp target/$target/production/openworship $APP_PREFIX/$target/Openworship.app/Contents/MacOS
-
-          cp res/macos/openworship.icns $APP_PREFIX/$target/Openworship.app/Contents/Resources
-          cp res/macos/openworship.sh $APP_PREFIX/$target/Openworship.app/Contents/MacOS
-
-          cp res/macos/Info.plist $APP_PREFIX/$target/Openworship.app/Contents/
-          sed -i '' "s/%BUNDLE_VERSION%/$BUNDLE_VERSION/g" $APP_PREFIX/$target/Openworship.app/Contents/Info.plist
-          sed -i '' "s/%BUNDLE_BUILD%/$BUNDLE_BUILD/g" $APP_PREFIX/$target/Openworship.app/Contents/Info.plist
-
-          mkdir -p $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0
-          cp -r /opt/homebrew/share/glib-2.0/schemas $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0
-          cp data/resources/com.openworship.app.gschema.xml $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0/schemas
-          glib-compile-schemas $APP_PREFIX/$target/Openworship.app/Contents/Resources/share/glib-2.0/schemas
-
-          # 2. Copy and fix dependencies
-          destDir=$APP_PREFIX/$target/Openworship.app/Contents/Resources/lib
-          process_dependencies $target $destDir $APP_PREFIX/$target/Openworship.app/Contents/MacOS/openworship "@executable_path/../Resources/lib"
-
-          # 3. Copy loaders
-          ln /opt/homebrew/opt/librsvg/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader_svg.so /opt/homebrew/opt/gdk-pixbuf/lib/gdk-pixbuf-2.0/2.10.0/loaders/libpixbufloader_svg.so
-          mkdir -p $APP_PREFIX/$target/Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
-          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so $APP_PREFIX/$target/Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
-
-          # 4. Fix loaders
-          for loader in $APP_PREFIX/$target/Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so; do
-            process_dependencies $target $destDir $loader "@executable_path/../Resources/lib"
-          done
-
-          cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $APP_PREFIX/$target/Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0
-          sed -i '' "s|$(brew --prefix)|/Applications/Openworship.app/Contents/Resources|g" $APP_PREFIX/$target/Openworship.app/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache
-
-      - name: Sign Application (macOS)
-        run: |
-          # echo "Importing certificate"
-          # echo "${{ secrets.MACOS_CERTIFICATE }}" | base64 --decode > certificate.p12
-          # security create-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
-          # security default-keychain -s build.keychain
-          # security unlock-keychain -p "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
-          # security import certificate.p12 -k build.keychain -P "${{ secrets.MACOS_CERTIFICATE_PW }}" -T /usr/bin/codesign
-          # security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "${{ secrets.MACOS_CERTIFICATE_PW }}" build.keychain
-
-          echo "Signing app"
-          # Sign all libs under Resources/lib
-          find target/bundle/${{ matrix.build.target }}/Openworship.app/Contents/Resources/lib '(' -name '*.dylib' -o -name '*.so' ')' -type f -exec codesign --force --deep --preserve-metadata=entitlements,requirements,flags,runtime --entitlements res/macos/Entitlements.plist -s - {} \;
-
-          # Sign the app
-          codesign --force --deep --preserve-metadata=entitlements,requirements,flags,runtime --entitlements res/macos/Entitlements.plist -s - target/bundle/${{ matrix.build.target }}/Openworship.app
-        # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
-        continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
-
-      - name: Create dmg (macOS)
-        run: |
-          version=$(cargo pkgid | cut -d "#" -f2)
-          npx appdmg@0.6.6 res/macos/spec-${{ matrix.build.target }}.json target/bundle/openworship-$version.dmg
-
-      - name: Sign and notarize dmg (macOS)
-        run: |
-          echo "Signing"
-          version=$(cargo pkgid | cut -d "#" -f2)
-          codesign --force --deep --preserve-metadata=entitlements,requirements,flags,runtime -s - target/bundle/openworship-$version.dmg
-          echo "Notarizing"
-
-          # Notarize the Dmg using notarytool
-          # xcrun notarytool submit target/bundle/openworship-$version.dmg --apple-id "${{ secrets.MACOS_APPLE_ID }}" --password "${{ secrets.MACOS_APP_PW }}" --team-id "${{ secrets.MACOS_TEAM_ID }}" --wait
-          # xcrun stapler staple target/bundle/openworship-$version.dmg
-        # Allow code signing to fail on non-release builds and in non-autonomys repos (forks)
-        continue-on-error: ${{ github.repository_owner != 'autonomys' || github.event_name != 'push' || github.ref_type != 'tag' }}
+      - name: Build app
+        run: just install-dmg
 
       - name: Upload dmg to artifacts (macOS)
         uses: actions/upload-artifact@v6
         with:
-          # name: openworship-${{ matrix.build.suffix }}
           name: openworship-macos-aarch64
-          path: target/bundle/*.dmg
+          path: ${{ env.BUILD_PREFIX }}/*.dmg
           if-no-files-found: error
 
       # - name: Upload dmg to assets (macOS)

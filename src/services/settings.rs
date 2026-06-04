@@ -5,10 +5,7 @@ use gtk::glib;
 
 use gsettings_macro::gen_settings;
 
-#[gen_settings(
-    file = "./data/resources/com.openworship.app.gschema.xml",
-    id = "com.openworship.app"
-)]
+#[gen_settings]
 pub struct ApplicationSettings;
 
 impl ApplicationSettings {

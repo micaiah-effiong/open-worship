@@ -1,0 +1,7 @@
+Package: openworship
+Version: @VERSION@     
+Architecture: all   
+Essential: no        
+Priority: optional    
+Maintainer: Micah Effiong <micaiah.effiong@gmail.com> 
+Description: Openworship is a free and open-source worship presentation software designed to help churches plan and lead worship service

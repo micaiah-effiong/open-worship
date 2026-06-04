@@ -1,6 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Openworship
-Comment=Openworship is a free and open-source worship presentation software designed to help churches plan and lead worship service.
-Icon=openworship
-Exec=openworship --startup

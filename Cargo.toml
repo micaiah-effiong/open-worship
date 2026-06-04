@@ -19,8 +19,8 @@ assets = [
     ["res/linux/com.openworship.app.desktop", "/usr/share/applications/", "644"],
     ["res/linux/openworship.png", "/usr/share/icons/hicolor/256x256/apps/", "644"],
     ["res/linux/application-x-openworship.png", "/usr/share/icons/hicolor/48x48/mimetypes/", "644"],
-    ["data/resources/com.openworship.app.gschema.xml", "/usr/share/glib-2.0/schemas/", "644"],
-    ["data/resources/com.openworship.app.xml", "/usr/share/mime/packages/com.openworship.app.xml", "644"],
+    ["data/com.openworship.app.gschema.xml", "/usr/share/glib-2.0/schemas/", "644"],
+    ["data/com.openworship.app.xml", "/usr/share/mime/packages/com.openworship.app.xml", "644"],
 ]
 maintainer-scripts = "debian/"
 
@@ -29,9 +29,6 @@ name = "openworship"
 merge-assets.append = [
     ["target/release/openworship-modern", "/usr/bin/openworship-modern", "755"],
 ]
-
-[package.metadata.winres]
-ProductName = "Openworship"
 
 [package.metadata.wix]
 # Custom location to keep the root of the project cleaner
@@ -46,7 +43,8 @@ futures-util = "0.3.31"
 gtk = { version = "0.9.2", features = ["v4_14"], package = "gtk4" }
 strum = "0.27"
 strum_macros = "0.27"
-gsettings-macro = "0.2.2"
+# gsettings-macro = "0.2.2"
+gsettings-macro = { path = "gsettings_macro" }
 gobject_macro = { path = "gobject_macro" }
 sha2 = "0.11.0"
 hex = "0.4.3"
@@ -55,16 +53,8 @@ adw = { version = "0.7.2", package = "libadwaita", features = ["v1_7" ] }
 pangocairo = "0.20.0"
 regex = "1.12.3"
 
-[target.'cfg(windows)'.dependencies]
-native-dialog = "0.7.0"
-tracing-panic = "0.1.2"
-
-[target.'cfg(any(target_os = "macos", target_os = "windows"))'.dependencies]
-tray-icon = "0.19.2"
-
-
-[build-dependencies]
-glib-build-tools = "0.20.0"
+[package.metadata.winres]
+ProductName = "Openworship"
 
 [target.'cfg(windows)'.build-dependencies]
 winres = "0.1.12"
@@ -72,3 +62,11 @@ winres = "0.1.12"
 [profile.production]
 inherits = "release"
 lto = "fat"
+codegen-units = 1
+strip = true
+
+[build-dependencies]
+glib-build-tools = "0.22.0"
+
+# [build-dependencies]
+# glib-build-tools = "0.21.0"

@@ -22,6 +22,7 @@ use gtk::{CssProvider, pango};
 use serde::Serialize;
 
 use crate::app_config::{self, AppConfig};
+use crate::config;
 use crate::format_resource;
 use crate::services::alert::Alert;
 use crate::services::message_alert_manager::MessageAlertManager;
@@ -52,8 +53,7 @@ pub fn init_app() {
 
         //
         gtk::glib::set_application_name("Open worship");
-        gtk::gio::resources_register_include!("resources.gresource")
-            .expect("could not find app resources");
+        gtk::gio::Resource::load(config::resource_file()).expect("could not find app resources");
 
         // let provider = gtk::CssProvider::new();
         // provider.load_from_resource(format_resource!("styles", "style.css"));
@@ -74,10 +74,10 @@ pub fn init_app() {
     }
 
     let app = adw::Application::new(
-        Some(app_config::APP_ID),
+        Some(config::app_id()),
         gtk::gio::ApplicationFlags::FLAGS_NONE,
     );
-    app.set_resource_base_path(Some(app_config::RESOURCE_PATH));
+    app.set_resource_base_path(Some(config::resource_path()));
     app.set_register_session(true);
 
     // app.connect_activate(build_ui);
