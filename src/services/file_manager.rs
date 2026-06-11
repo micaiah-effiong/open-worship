@@ -331,6 +331,7 @@ impl FileManager {
             .modal(true)
             .filters(&filter_model)
             .title("Save Schedule")
+            .initial_name("*.opw")
             .build();
 
         let ctx = glib::MainContext::default();
