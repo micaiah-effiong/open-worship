@@ -35,18 +35,16 @@ A free and open-source church worship presentation applicatoin built with Rust, 
 
 Before building Openworship, make sure you have the following installed:
 
-- Rust (latest stable) - install via rustup
-- GTK4 - install the development libraries for your platform
+- Rust (latest stable) - Install via rustup
+- GTK4 and Libadwaita - Install the development libraries for your platform. Follow the offical setup guide for your platform: [See the gtk-rs book](https://gtk-rs.org/gtk4-rs/stable/latest/book/installation.html)
+- Meson and Ninja build
 
 #### Check your GTK4 version
 
 ```bash
 pkg-config --modversion gtk4
+pkg-config --modversion libadwaita-1
 ```
-
-#### Install GTK4
-
-Follow the offical setup guide for your platform: [See the gtk-rs book](https://gtk-rs.org/gtk4-rs/stable/latest/book/installation.html)
 
 ---
 
@@ -59,12 +57,9 @@ Follow the offical setup guide for your platform: [See the gtk-rs book](https://
 git clone https://github.com/micaiah-effiong/open-worship.git
 cd open-worship
 
-# Build in release mode
-cargo build --release
-
-# Run the application
-cargo run --release
-
+# Run the application (not tested for windows)
+meson setup builddir -Dprofile=development --reconfigure
+meson compile -C builddir cargo-run
 ```
 
 The bundle binary is also avaliable in the github actions (release version are
@@ -74,7 +69,7 @@ You can download the bundle binary and install base on you platform.
 If you are on MacOs you will have to remove the quarantine flag.
 
 ```bash
-sudo xattr -dr com.apple.quarantine ~/Downloads/openworship-macos-aarch64.zip
+sudo xattr -dr com.apple.quarantine ~/Downloads/openworship-version.zip
 ```
 
 ---
