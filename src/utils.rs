@@ -5,10 +5,11 @@ use gtk::glib::types::StaticType;
 use gtk::prelude::{
     AccessibleExt, SelectionModelExt, SnapshotExt, StyleContextExt, TextBufferExt, WidgetExt,
 };
-use gtk::{CssProvider, gio, glib};
+use gtk::{CssProvider, Image, gio, glib};
 
 use crate::widgets::canvas::canvas::Canvas;
 use crate::widgets::canvas::canvas_item::CanvasItem;
+use crate::widgets::canvas::image_item::ImageItem;
 use crate::widgets::canvas::serialise::{CanvasItemData, CanvasItemType};
 use crate::widgets::canvas::text_item::TextItem;
 
@@ -148,6 +149,10 @@ pub fn canvas_item_from_data(data: CanvasItemData, canvas: Option<&Canvas>) -> O
     match data.item_type {
         CanvasItemType::Text(_) => {
             let item = TextItem::new(canvas, Some(data)).upcast::<CanvasItem>();
+            Some(item)
+        }
+        CanvasItemType::Image(_) => {
+            let item = ImageItem::new(canvas, Some(data)).upcast::<CanvasItem>();
             Some(item)
         }
         // Some("color") => {

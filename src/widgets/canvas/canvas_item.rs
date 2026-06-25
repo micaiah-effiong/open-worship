@@ -14,7 +14,7 @@ mod imp {
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
-    use crate::utils;
+    use crate::utils::{self, WidgetChildrenExt, WidgetExtrasExt};
     // use crate::services::history_manager::history_action::{HistoryAction, TypedHistoryAction};
     // use crate::services::utils::{self, rect};
     use crate::widgets::canvas::canvas::Canvas;
@@ -63,6 +63,7 @@ mod imp {
 
         pub grid: RefCell<gtk::Grid>,
         pub grabber_revealer: RefCell<gtk::Revealer>,
+        pub overlay: RefCell<gtk::Overlay>,
 
         #[property(get, construct_only, nullable)]
         pub canvas: glib::WeakRef<Canvas>,
@@ -119,7 +120,7 @@ mod imp {
 
             self.grabber_revealer.replace(grabber_revealer);
 
-            let overlay = gtk::Overlay::new();
+            let overlay = self.overlay.borrow().clone();
             obj.append(&overlay);
             overlay.set_hexpand(true);
             overlay.set_vexpand(true);
@@ -644,6 +645,21 @@ mod imp {
             }
         }
 
+        /// add widget behind grabbers
+        pub fn add_overlay_child<W: IsA<gtk::Widget>>(&self, child: &W) {
+            let overlay = self.overlay.borrow();
+
+            let children = overlay.get_children::<Grabber>().collect::<Vec<_>>();
+            for c in &children {
+                overlay.remove_overlay(c);
+            }
+
+            overlay.add_overlay(child);
+            for c in children {
+                overlay.add_overlay(&c);
+            }
+        }
+
         pub fn delete(&self) {
             let Some(_) = self.canvas.upgrade() else {
                 return;
@@ -749,6 +765,12 @@ pub trait CanvasItemExt: IsA<CanvasItem> {
     }
     fn delete(&self) {
         self.upcast_ref::<CanvasItem>().imp().delete();
+    }
+
+    fn add_overlay_child<W: IsA<gtk::Widget>>(&self, child: &W) {
+        self.upcast_ref::<CanvasItem>()
+            .imp()
+            .add_overlay_child(child);
     }
 
     fn emit_clicked(&self) {

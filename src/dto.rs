@@ -152,7 +152,7 @@ impl Into<SlideManagerData> for SongObject {
                         CanvasItemType::Text(text_item_data) => {
                             text_item_data.font = settings.song_font();
                         }
-                        CanvasItemType::Unknown => (),
+                        _ => (),
                     };
                 }
                 s
@@ -191,7 +191,7 @@ impl From<SlideManagerData> for SongObject {
                             );
                             return Some(song_verse);
                         }
-                        CanvasItemType::Unknown => continue,
+                        _ => continue,
                     }
                 }
                 None
@@ -320,7 +320,7 @@ impl Into<SlideData> for ScriptureVerseRange {
                     text_item_data.font = settings.scripture_font();
                     text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
                 }
-                CanvasItemType::Unknown => (),
+                _ => (),
             };
         }
 
@@ -384,7 +384,7 @@ pub mod scripture {
                         text_item_data.font = settings.scripture_font();
                         text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
                     }
-                    CanvasItemType::Unknown => (),
+                    _ => (),
                 };
             }
 

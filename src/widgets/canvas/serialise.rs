@@ -22,6 +22,12 @@ pub struct TextItemData {
     pub text_shadow: bool,
 }
 
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
+#[boxed_type(name = "ImageItemData")]
+pub struct ImageItemData {
+    pub url: String,
+}
+
 #[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq /* Eq */)]
 pub struct CanvasItemData {
     pub x: i32,
@@ -67,6 +73,8 @@ impl Default for CanvasData {
 pub enum CanvasItemType {
     #[serde(rename = "text")]
     Text(TextItemData),
+    #[serde(rename = "image")]
+    Image(ImageItemData),
     #[default]
     Unknown,
 }
@@ -101,16 +109,14 @@ impl SlideData {
         // serde_json::from_str(DEFAULT_SLIDE).expect("Could not parse DEFAULT_SLIDE")
         let settings = ApplicationSettings::get_instance();
 
-        let text = {
-            TextItemData {
-                text_data: String::new(),
-                font: settings.song_font(),
-                font_size: 20.0,
-                justification: 1,
-                align: 1,
-                text_outline: true,
-                text_shadow: true,
-            }
+        let text = TextItemData {
+            text_data: String::new(),
+            font: settings.song_font(),
+            font_size: 20.0,
+            justification: 1,
+            align: 1,
+            text_outline: true,
+            text_shadow: true,
         };
 
         // let canvas_item = CanvasItemData::new(0, 0, 2755, 1566, CanvasItemType::Text(text));
