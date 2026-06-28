@@ -34,6 +34,7 @@ mod imp {
     use std::sync::OnceLock;
 
     use crate::{
+        db::query::DBError,
         dto::{ScriptureVerseRange, scripture::ScriptureObject},
         services::settings::ApplicationSettings,
         utils::ListViewExtra,
@@ -347,7 +348,7 @@ mod imp {
 
             items
         }
-        fn get_initial_scriptures(translation: String) -> Result<Vec<BibleVerse>, rusqlite::Error> {
+        fn get_initial_scriptures(translation: String) -> Result<Vec<BibleVerse>, DBError> {
             Query::search_by_chapter_query(translation, String::from("Genesis"), 1)
         }
 

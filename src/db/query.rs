@@ -10,14 +10,32 @@ use crate::{
 
 use super::connection::{BibleTranslation, DatabaseConnection};
 
+#[derive(Debug)]
+pub enum DBError {
+    SqlError(rusqlite::Error),
+    CustomError(String),
+}
+
+impl From<rusqlite::Error> for DBError {
+    fn from(value: rusqlite::Error) -> Self {
+        Self::SqlError(value)
+    }
+}
+
+impl From<String> for DBError {
+    fn from(value: String) -> Self {
+        Self::CustomError(value)
+    }
+}
+
 /// Query
-pub struct Query {}
+pub struct Query;
 
 impl Query {
     pub fn search_by_partial_text_query(
         translation: String,
         text: String,
-    ) -> RuResult<Vec<BibleVerse>> {
+    ) -> Result<Vec<BibleVerse>, DBError> {
         let sql = format!(
             r#"
             SELECT book_id, chapter, verse, text, books.name AS book 
@@ -46,15 +64,15 @@ impl Query {
             }
 
             Ok(verses_vec)
-        });
+        })?;
 
-        rows
+        Ok(rows)
     }
     pub fn search_by_chapter_query(
         translation: String,
         book: String,
         chapter: u32,
-    ) -> RuResult<Vec<BibleVerse>> {
+    ) -> Result<Vec<BibleVerse>, DBError> {
         let sql = format!(
             r#"
             SELECT book_id, chapter, verse, text, books.name AS book 
@@ -84,12 +102,12 @@ impl Query {
             }
 
             Ok(verses_vec)
-        });
+        })?;
 
-        rows
+        Ok(rows)
     }
 
-    pub fn insert_song(song: SongData) -> RuResult<()> {
+    pub fn insert_song(song: SongData) -> Result<(), DBError> {
         let song_sql = r#"
             INSERT INTO songs(title) VALUES(?1) RETURNING id
         "#;
@@ -117,12 +135,12 @@ impl Query {
             }
 
             tx.commit()
-        });
+        })?;
 
-        r
+        Ok(r)
     }
 
-    pub fn update_song(song: SongData) -> RuResult<()> {
+    pub fn update_song(song: SongData) -> Result<(), DBError> {
         let song_sql = "UPDATE songs SET title=?1 WHERE id = ?2";
         let clear_song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
 
@@ -149,12 +167,12 @@ impl Query {
             }
 
             tx.commit()
-        });
+        })?;
 
-        r
+        Ok(r)
     }
 
-    pub fn delete_song(song: SongData) -> RuResult<()> {
+    pub fn delete_song(song: SongData) -> Result<(), DBError> {
         let song_sql = "DELETE FROM songs WHERE id = ?1";
         let song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
 
@@ -164,12 +182,12 @@ impl Query {
             tx.execute(song_sql, [&song.song_id])?;
 
             tx.commit()
-        });
+        })?;
 
-        r
+        Ok(r)
     }
 
-    pub fn search_songs(search_text: String, title_mode: bool) -> RuResult<Vec<SongData>> {
+    pub fn search_songs(search_text: String, title_mode: bool) -> Result<Vec<SongData>, DBError> {
         let r = DatabaseConnection::with_mut_db(|conn| {
             let song_sql = match title_mode {
                 true => "SELECT id, title FROM songs WHERE title LIKE ?1 ORDER BY title ASC",
@@ -199,27 +217,8 @@ impl Query {
                     let tag = r.get::<_, Option<String>>(2)?;
                     let slide = r.get::<_, Option<String>>(3)?;
 
-                    let default_slide = serde_json::to_string(&SlideData::from_default()).ok();
-
-                    let slide = slide.as_ref().or(default_slide.as_ref()).and_then(|s| {
-                        serde_json::from_str::<SlideData>(s)
-                            .ok()
-                            .and_then(|mut ss| {
-                                ss.items
-                                    .iter_mut()
-                                    .find_map(|item| match &mut item.item_type {
-                                        CanvasItemType::Text(text_item) => {
-                                            text_item.text_data = glib::base64_encode(
-                                                text.clone().unwrap_or_default().as_bytes(),
-                                            )
-                                            .into();
-                                            Some(())
-                                        }
-                                        _ => None,
-                                    })?;
-                                serde_json::to_string(&ss).ok()
-                            })
-                    });
+                    let slide =
+                        slide_str_to_slide_data_str(text.clone().unwrap_or_default(), slide);
 
                     Ok(SongVerse::new(text.unwrap_or_default(), tag, slide))
                 })?;
@@ -229,19 +228,19 @@ impl Query {
             }
 
             Ok(songs)
-        });
+        })?;
 
-        r
+        Ok(r)
     }
 
-    pub fn get_all_songs() -> RuResult<Vec<SongData>> {
+    pub fn get_all_songs() -> Result<Vec<SongData>, DBError> {
         Self::search_songs(String::new(), true)
     }
 
     pub fn insert_verse(
         bible_translation: BibleTranslation,
         bible_verse: Vec<(u32, BibleVerse)>,
-    ) -> RuResult<()> {
+    ) -> Result<(), DBError> {
         let translations_sql = "INSERT OR IGNORE INTO `translations` (`translation`, `title`, `license`) VALUES (?1, ?2, ?3);";
 
         let table_sql = format!(
@@ -298,12 +297,12 @@ impl Query {
             }
 
             tx.commit()
-        });
+        })?;
 
-        r
+        Ok(r)
     }
 
-    pub fn get_translations() -> RuResult<Vec<String>> {
+    pub fn get_translations() -> Result<Vec<String>, DBError> {
         let r = DatabaseConnection::with_mut_db(|conn| {
             let sql = "SELECT translation FROM translations";
             let mut stmt = conn.prepare(sql)?;
@@ -319,12 +318,12 @@ impl Query {
             }
 
             Ok(translation_list)
-        });
+        })?;
 
-        r
+        Ok(r)
     }
 
-    pub fn delete_bible_translation(translation: String) -> RuResult<()> {
+    pub fn delete_bible_translation(translation: String) -> Result<(), DBError> {
         let delete_translations_sql = "DELETE FROM translations WHERE translation = ?1";
         let drop_translation_table_sql = format!("DROP TABLE IF EXISTS {translation}_verses"); // <name>_verses
 
@@ -334,15 +333,15 @@ impl Query {
             trx.execute(&drop_translation_table_sql, [])?;
 
             trx.commit()
-        });
+        })?;
 
-        r
+        Ok(r)
     }
 
-    pub fn get_alerts() -> RuResult<Vec<Alert>> {
+    pub fn get_alerts() -> Result<Vec<Alert>, DBError> {
         let get_alert_sql = "SELECT id, name, message FROM alerts";
 
-        DatabaseConnection::with_db(|conn| {
+        Ok(DatabaseConnection::with_db(|conn| {
             let count = ApplicationSettings::get_instance().alert_count();
 
             let mut stmt = conn.prepare(get_alert_sql)?;
@@ -359,10 +358,10 @@ impl Query {
                 .filter_map(|v| v.ok())
                 .collect::<Vec<_>>();
             Ok(values)
-        })
+        })?)
     }
 
-    pub fn insert_alerts(alerts: Vec<Alert>) -> RuResult<()> {
+    pub fn insert_alerts(alerts: Vec<Alert>) -> Result<(), DBError> {
         let insert_alert_sql = "INSERT INTO alerts(name, message) VALUES(?1,?2)";
 
         let r = DatabaseConnection::with_mut_db(|conn| {
@@ -374,10 +373,10 @@ impl Query {
             trx.commit()
         });
 
-        r
+        Ok(r?)
     }
 
-    pub fn update_alerts(alerts: Vec<Alert>) -> RuResult<()> {
+    pub fn update_alerts(alerts: Vec<Alert>) -> Result<(), DBError> {
         let update_alert_sql = "UPDATE alerts SET name=?2, message=?3 WHERE id=?1";
 
         let r = DatabaseConnection::with_mut_db(|conn| {
@@ -392,10 +391,10 @@ impl Query {
             trx.commit()
         });
 
-        r
+        Ok(r?)
     }
 
-    pub fn delete_alerts(alert_id: u32) -> RuResult<()> {
+    pub fn delete_alerts(alert_id: u32) -> Result<(), DBError> {
         let delete_alert_sql = "DELETE FROM alerts WHERE id = ?1";
 
         let r = DatabaseConnection::with_db(|conn| {
@@ -403,6 +402,25 @@ impl Query {
             Ok(())
         });
 
-        r
+        Ok(r?)
     }
+}
+
+fn slide_str_to_slide_data_str(text: String, slide: Option<String>) -> Option<String> {
+    let default_slide = serde_json::to_string(&SlideData::from_default()).ok();
+    let Some(slide) = slide.as_ref().or(default_slide.as_ref()) else {
+        return None;
+    };
+
+    let Some(mut ss) = serde_json::from_str::<SlideData>(slide).ok() else {
+        return None;
+    };
+
+    for item in &mut ss.items {
+        if let CanvasItemType::Text(text_item) = &mut item.item_type {
+            text_item.text_data = glib::base64_encode(text.as_bytes()).into();
+        };
+    }
+
+    serde_json::to_string(&ss).ok()
 }
