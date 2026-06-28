@@ -3,6 +3,7 @@
   <template class="MainApplicationWindow" parent="AdwApplicationWindow">
     <signal name="close-request" handler="handle_close_request" swapped="true"/>
 
+    <property name="maximized">true</property>
     <property name="title">Openworship</property>
     <property name="content">
       <object class="AdwToolbarView">
