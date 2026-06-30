@@ -186,7 +186,7 @@ impl FileManager {
         )
     }
 
-    pub fn open_schedule_file(window: Option<&gtk::Window>) -> Option<Vec<SlideManagerData>> {
+    pub fn open_schedule_file(window: Option<&gtk::Window>) -> Vec<SlideManagerData> {
         let mut filters = glib::List::new();
         let filter = gtk::FileFilter::new();
         filter.set_name(Some("Openworship schedule file"));
@@ -202,6 +202,7 @@ impl FileManager {
             .and_then(FileManager::get_data)
             .and_then(|v| String::from_utf8(v).ok())
             .and_then(|v| Self::parse_schedule_file(v))
+            .unwrap_or_default()
 
         // NOTE: we will have to append a head before saving
     }

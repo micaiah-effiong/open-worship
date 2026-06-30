@@ -216,7 +216,7 @@ pub struct Scripture {
 
 trait ScriptureDisplay {
     fn scripture_display(&self, text: String) -> String {
-        format!("<span line-height=\"1.2\" weight=\"bold\">{text}</span>")
+        format!(r#"<span line-height="1.2" weight="bold">{text}</span>"#)
     }
 }
 

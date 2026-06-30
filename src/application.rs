@@ -1,10 +1,17 @@
-use adw::{self, prelude::AdwDialogExt};
+use adw::{
+    self,
+    prelude::{AdwDialogExt, AlertDialogExt, AlertDialogExtManual},
+};
 use gtk::{
     gio::{
         self,
-        prelude::{ActionMapExtManual, ApplicationExt},
+        prelude::{ActionMapExtManual, ApplicationExt, FileExt, ListModelExtManual},
     },
-    glib::{self, object::Cast, subclass::types::ObjectSubclassIsExt},
+    glib::{
+        self,
+        object::{Cast, ObjectExt},
+        subclass::types::ObjectSubclassIsExt,
+    },
     prelude::{GtkApplicationExt, GtkWindowExt},
 };
 
@@ -12,12 +19,17 @@ use crate::{
     accels, app_config,
     application_window::MainApplicationWindow,
     config,
-    services::file_manager::FileManager,
+    db::query::Query,
+    services::{file_manager::FileManager, openlyrics},
     widgets::{search::songs::edit_modal::SongEditWindow, settings_window::SettingsWindow},
 };
 
+mod signal {
+    pub const SONG_IMPORTED: &str = "song-imported";
+}
+
 mod imp {
-    use std::cell::RefCell;
+    use std::{cell::RefCell, sync::OnceLock};
 
     use adw::subclass::prelude::AdwApplicationImpl;
     use gtk::{
@@ -33,6 +45,7 @@ mod imp {
             Properties,
             object::CastNone,
             subclass::{
+                Signal,
                 object::ObjectImpl,
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
@@ -63,7 +76,15 @@ mod imp {
     }
 
     #[glib::derived_properties]
-    impl ObjectImpl for OwApplication {}
+    impl ObjectImpl for OwApplication {
+        fn signals() -> &'static [glib::subclass::Signal] {
+            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
+
+            SIGNALS.get_or_init(|| {
+                return vec![Signal::builder(signal::SONG_IMPORTED).build()];
+            })
+        }
+    }
 
     impl ApplicationImpl for OwApplication {
         fn activate(&self) {
@@ -230,31 +251,6 @@ impl OwApplication {
         obj
     }
 
-    /// Returns the global instance of `Application`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the app is not running or if this is called on a non-main thread.
-    pub fn get() -> Self {
-        debug_assert!(
-            gtk::is_initialized_main_thread(),
-            "application must only be accessed in the main thread"
-        );
-
-        gio::Application::default().unwrap().downcast().unwrap()
-    }
-
-    // pub fn run(&self) -> glib::ExitCode {
-    //     // tracing::info!("Openworship ({})", APP_ID);
-    //     // tracing::info!("Version: {} ({})", VERSION, PROFILE);
-    //     // tracing::info!("Datadir: {}", PKGDATADIR);
-    //
-    //     let code = ApplicationExtManual::run(self);
-    //     println!("CODE {:?}", code);
-    //
-    //     code
-    // }
-
     fn setup_gactions(&self) {
         let quit_action = gio::ActionEntry::builder("quit")
             .activate(|obj: &Self, _, _| obj.quit())
@@ -277,25 +273,128 @@ impl OwApplication {
         let open = gio::ActionEntry::builder("open")
             .activate(|app: &OwApplication, _, _| {
                 let mut filters = glib::List::new();
-                let filter = gtk::FileFilter::new();
-                filters.push_back(filter);
-                let _file = FileManager::open_files(
+                let openlyrics_filter = gtk::FileFilter::new();
+                openlyrics_filter.set_name(Some("Openlyrics"));
+                openlyrics_filter.add_pattern("xml");
+                filters.push_back(openlyrics_filter);
+
+                let opw_filter = gtk::FileFilter::new();
+                opw_filter.set_name(Some("Openworship schedule file"));
+                opw_filter.add_pattern(app_config::APP_EXT);
+                filters.push_back(opw_filter);
+
+                let files = FileManager::open_files(
                     "Open File",
                     "Open",
                     &mut filters,
                     Some(&app.main_window().into()),
                 );
+
+                let u_files = files.iter::<gio::File>().flatten().collect::<Vec<_>>();
+
+                if u_files.is_empty() {
+                    return;
+                };
+
+                let mut song_files = vec![];
+                let mut schedule_files = vec![];
+                u_files.iter().for_each(|v| {
+                    let Some(p) = v.path() else {
+                        return;
+                    };
+
+                    let Some(file_path) = p.to_str() else {
+                        return;
+                    };
+
+                    if file_path.ends_with(".xml") {
+                        song_files.push(v.clone());
+                    } else if file_path.ends_with(app_config::APP_EXT) {
+                        schedule_files.push(v.clone());
+                    }
+                });
+
+                if song_files.is_empty() {
+                    let schedule_data = schedule_files
+                        .iter()
+                        .filter_map(|f| {
+                            FileManager::get_data(f).and_then(|v| {
+                                String::from_utf8(v)
+                                    .ok()
+                                    .and_then(FileManager::parse_schedule_file)
+                            })
+                        })
+                        .flatten()
+                        .collect::<Vec<_>>();
+
+                    app.main_window()
+                        .schedule_viewer()
+                        .load_schedules(&schedule_data);
+
+                    return;
+                }
+
+                let dialog = adw::AlertDialog::builder()
+                    .heading("Import song")
+                    .body("This will add song into your song database")
+                    .build();
+
+                dialog.add_responses(&[("import", "Import"), ("cancel", "Cancel")]);
+
+                dialog.set_close_response("cancel");
+                dialog.set_default_response(Some("import"));
+                dialog.set_response_appearance("import", adw::ResponseAppearance::Suggested);
+                dialog.set_response_appearance("cancel", adw::ResponseAppearance::Destructive);
+
+                let dapp = app.downgrade();
+                dialog.present(Some(&app.main_window()));
+                dialog.choose(&app.main_window(), None::<&gio::Cancellable>, move |res| {
+                    if "import" != res.as_str() {
+                        return;
+                    };
+
+                    let mut song_data = vec![];
+
+                    for file in song_files.iter() {
+                        let Some(file_bytes) = FileManager::get_data(file) else {
+                            return;
+                        };
+
+                        let file_content = match String::from_utf8(file_bytes) {
+                            Ok(data) => data,
+                            Err(e) => {
+                                println!("Error converting vec to utf8: {:?}", e);
+                                return;
+                            }
+                        };
+
+                        if !file_content.contains("http://openlyrics.info/namespace/2009/song") {
+                            continue;
+                        }
+
+                        let Some(data) = openlyrics::openlyrics_to_song_data(&file_content) else {
+                            continue;
+                        };
+
+                        song_data.push(data);
+                    }
+
+                    let _ = Query::insert_songs(&song_data);
+                    let Some(app) = dapp.upgrade() else {
+                        return;
+                    };
+
+                    app.emit_song_imported();
+                });
             })
             .build();
 
         {
             let open_schedule = gio::ActionEntry::builder("open-schedule")
                 .activate(|main_window: &MainApplicationWindow, _, _| {
-                    let Some(data) = FileManager::open_schedule_file(Some(
+                    let data = FileManager::open_schedule_file(Some(
                         main_window.upcast_ref::<gtk::Window>(),
-                    )) else {
-                        return;
-                    };
+                    ));
 
                     main_window.schedule_viewer().load_schedules(&data);
                 })
@@ -400,5 +499,19 @@ impl OwApplication {
             }
         ));
         sw.present();
+    }
+
+    fn emit_song_imported(&self) {
+        self.emit_by_name::<()>(signal::SONG_IMPORTED, &[])
+    }
+    pub fn connect_song_imported<F: Fn(&Self) + 'static>(&self, f: F) {
+        self.connect_closure(
+            signal::SONG_IMPORTED,
+            false,
+            glib::closure_local!(|obj: &Self| {
+                f(obj)
+                //
+            }),
+        );
     }
 }

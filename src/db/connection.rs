@@ -110,7 +110,7 @@ pub fn create_song_verses_table() {
             text TEXT NOT NULL,
             tag TEXT,
             slide BLOB,
-            FOREIGN KEY (song_id) REFERENCES songs(id)
+            FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
         )"
     .to_string();
 

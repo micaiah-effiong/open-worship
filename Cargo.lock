@@ -1117,7 +1117,7 @@ dependencies = [
  "heck 0.5.0",
  "proc-macro-error",
  "proc-macro2",
- "quick-xml",
+ "quick-xml 0.39.4",
  "quote",
  "serde",
  "syn 2.0.117",
@@ -1667,6 +1667,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
 
 [[package]]
+name = "openlyrics"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91b5ed8d8cfb6fef46ab16fba0b92e2fe781aad45833ae489d7e7cefb444ba6d"
+dependencies = [
+ "quick-xml 0.38.4",
+ "serde",
+]
+
+[[package]]
 name = "openssl-probe"
 version = "0.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1696,7 +1706,9 @@ dependencies = [
  "gtk4",
  "hex",
  "libadwaita",
+ "openlyrics",
  "pangocairo",
+ "quick-xml 0.40.1",
  "regex",
  "rusqlite",
  "serde",
@@ -1928,9 +1940,29 @@ dependencies = [
 
 [[package]]
 name = "quick-xml"
+version = "0.38.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b66c2058c55a409d601666cffe35f04333cf1013010882cec174a7467cd4e21c"
+dependencies = [
+ "memchr",
+ "serde",
+]
+
+[[package]]
+name = "quick-xml"
 version = "0.39.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdcc8dd4e2f670d309a5f0e83fe36dfdc05af317008fea29144da1a2ac858e5e"
+dependencies = [
+ "memchr",
+ "serde",
+]
+
+[[package]]
+name = "quick-xml"
+version = "0.40.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2474bd2e5029e7ccb6abb2ba48cf2383a333851dedf495901544281590c7da7f"
 dependencies = [
  "memchr",
  "serde",

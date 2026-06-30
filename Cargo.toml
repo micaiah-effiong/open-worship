@@ -48,6 +48,8 @@ surf = "2.3.2"
 adw = { version = "0.7.2", package = "libadwaita", features = ["v1_7" ] }
 pangocairo = "0.20.0"
 regex = "1.12.3"
+openlyrics = "0.1.1"
+quick-xml = { version = "0.40.1", features = ["serialize"] }
 
 [package.metadata.winres]
 ProductName = "Openworship"

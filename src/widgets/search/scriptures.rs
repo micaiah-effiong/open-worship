@@ -340,14 +340,30 @@ mod imp {
             }
         }
         fn get_selected_scripture(listview: &gtk::ListView) -> Vec<ScriptureObject> {
-            let items = listview
-                .get_selected_items()
+            let model = listview
+                .model()
+                .and_downcast::<gtk::MultiSelection>()
+                .expect("Expected gtk::SingleSelection");
+
+            let bitset = model.selection();
+            let Some((iter, first)) = gtk::BitsetIter::init_first(&bitset) else {
+                return Vec::default();
+            };
+            let mut iter_vec = iter.collect::<Vec<_>>();
+            iter_vec.insert(0, first);
+
+            let filtered = iter_vec
                 .iter()
-                .filter_map(|v| v.downcast_ref::<ScriptureObject>().cloned())
+                .filter_map(|v| {
+                    let item = model.item(*v)?;
+                    let item = item.downcast::<ScriptureObject>().ok();
+                    item
+                })
                 .collect::<Vec<_>>();
 
-            items
+            filtered
         }
+
         fn get_initial_scriptures(translation: String) -> Result<Vec<BibleVerse>, DBError> {
             Query::search_by_chapter_query(translation, String::from("Genesis"), 1)
         }
@@ -613,7 +629,8 @@ mod imp {
             let gesture = gtk::GestureClick::new();
             gesture.set_button(gtk::gdk::BUTTON_SECONDARY);
             gesture.connect_released(clone!(move |gc, _, x, y| {
-                add_to_schedule_action.set_enabled(!listview.get_selected_items().is_empty());
+                add_to_schedule_action
+                    .set_enabled(!Self::get_selected_scripture(&listview).is_empty());
 
                 let rect = gtk::gdk::Rectangle::new(x as i32, y as i32, 0, 0);
                 popover_menu.set_pointing_to(Some(&rect));

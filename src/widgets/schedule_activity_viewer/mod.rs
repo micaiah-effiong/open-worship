@@ -191,20 +191,26 @@ mod imp {
                 #[strong]
                 listview,
                 move |_sa, _v| {
-                    let Some(item) = listview
-                        .get_selected_items()
-                        .first()
-                        .cloned()
-                        .and_downcast::<ScheduleData>()
-                    else {
+                    let model = listview
+                        .model()
+                        .and_downcast::<gtk::SingleSelection>()
+                        .expect("Expected gtk::SingleSelection");
+
+                    let Some(item) = model.selected_item().and_downcast::<ScheduleData>() else {
                         return;
                     };
+
                     let edit_window = SongEditWindow::new();
 
                     edit_window.connect_save(glib::clone!(
                         #[strong]
                         item,
-                        move |_, smd| item.set_slide_data(smd)
+                        move |_, smd| {
+                            // setting title here forces the schedule item title
+                            // to update accordingly
+                            item.set_title(smd.title.clone());
+                            item.set_slide_data(smd);
+                        }
                     ));
 
                     edit_window.show(Some(item.slide_data()));
@@ -214,7 +220,20 @@ mod imp {
             remove_action.connect_activate(clone!(
                 #[strong]
                 listview,
-                move |_sa, _v| listview.remove_selected_items()
+                move |_sa, _v| {
+                    let model = listview
+                        .model()
+                        .and_downcast::<gtk::SingleSelection>()
+                        .expect("Expected gtk::SingleSelection");
+
+                    let Some(store) = listview.get_list_store() else {
+                        return;
+                    };
+
+                    if let Some(item) = model.selected_item() {
+                        store.find(&item).map(|v| store.remove(v));
+                    }
+                }
             ));
 
             let menu_action_group = SimpleActionGroup::new();
@@ -241,7 +260,12 @@ mod imp {
             let gesture_click = gtk::GestureClick::new();
             gesture_click.set_button(gtk::gdk::BUTTON_SECONDARY);
             gesture_click.connect_released(clone!(move |gc, _, x, y| {
-                let enable = !listview.get_selected_items().is_empty();
+                let model = listview
+                    .model()
+                    .and_downcast::<gtk::SingleSelection>()
+                    .expect("Expected gtk::SingleSelection");
+
+                let enable = model.selected_item().is_some();
                 edit_action.set_enabled(enable);
                 remove_action.set_enabled(enable);
                 //

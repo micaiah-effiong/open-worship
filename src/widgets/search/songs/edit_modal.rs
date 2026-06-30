@@ -557,15 +557,15 @@ impl SongEditWindow {
             return;
         };
 
-        page.get_selected_items()
-            .iter()
-            .next()
-            .and_then(|item| item.downcast_ref::<Slide>())
-            .map(|c| c.delete());
+        let model = page
+            .model()
+            .and_downcast::<gtk::SingleSelection>()
+            .expect("Expected gtk::SingleSelection");
 
-        let Some(model) = page.model().and_downcast::<gtk::SingleSelection>() else {
-            return;
-        };
+        model
+            .selected_item()
+            .and_then(|item| item.downcast::<Slide>().ok())
+            .map(|c| c.delete());
 
         let selection = model.selected();
         let total = page.children().filter(|c| c.is_visible()).count();
@@ -683,9 +683,16 @@ impl SongEditWindow {
 
     fn handle_selection_change(&self) {
         let list = self.imp().list_view.borrow().clone();
-        let item = list.get_selected_items().first().cloned();
 
-        let slide = item.and_downcast::<Slide>();
+        let model = list
+            .model()
+            .and_downcast::<gtk::SingleSelection>()
+            .expect("Expected gtk::SingleSelection");
+
+        let slide = model
+            .selected_item()
+            .and_then(|item| item.downcast::<Slide>().ok());
+
         self.imp().slide_manager.borrow().set_current_slide(slide);
     }
 

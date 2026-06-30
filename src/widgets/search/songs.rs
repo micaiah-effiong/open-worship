@@ -39,8 +39,8 @@ mod imp {
             value::ToValue,
         },
         prelude::{
-            EditableExt, EntryExt, FilterExt, GestureExt, GestureSingleExt, ListItemExt,
-            PopoverExt, SelectionModelExt, WidgetExt,
+            EditableExt, EntryExt, FilterExt, GestureExt, GestureSingleExt, GtkWindowExt,
+            ListItemExt, PopoverExt, SelectionModelExt, WidgetExt,
         },
         subclass::{
             box_::BoxImpl,
@@ -53,9 +53,10 @@ mod imp {
     };
 
     use crate::{
+        application::OwApplication,
         db::query::Query,
-        dto::{SongData, SongObject},
-        utils::ListViewExtra,
+        dto::SongObject,
+        utils::{ListViewExtra, WidgetExtrasExt},
         widgets::{
             canvas::serialise::SlideManagerData,
             search::songs::{
@@ -139,14 +140,17 @@ mod imp {
             let initial_songs = Query::get_all_songs();
             match initial_songs {
                 Ok(songs) => {
-                    for song in songs {
-                        let ss: SongObject = song.clone().into();
-                        listview.append_item(&ss);
-                    }
+                    let songs_slice: Vec<SongObject> =
+                        songs.into_iter().map(|v| v.into()).collect();
+                    let store = listview.get_list_store().expect("Expect gio::ListStore");
+                    store.extend_from_slice(&songs_slice);
                 }
                 Err(e) => eprintln!("SQL ERROR: {:?}", e),
             }
 
+            self.obj().connect_realize(|obj| {
+                obj.imp().register_song_imported();
+            });
             self.register_listview_activate();
             self.register_context_menu();
             self.register_search_field_events();
@@ -174,33 +178,12 @@ mod imp {
         fn register_listview_activate(&self) {
             let listview = self.listview.clone();
 
-            listview.connect_activate(glib::clone!(
-                #[strong]
-                listview,
-                #[weak(rename_to=imp)]
-                self,
-                move |_lv, _pos| {
-                    let Some(song_list_item) = listview
-                        .get_selected_items()
-                        .first()
-                        .cloned()
-                        .and_downcast::<SongObject>()
-                    else {
-                        return;
-                    };
-
-                    let list: SlideManagerData = song_list_item.into();
-
-                    imp.obj().emit_send_to_preview(&list);
-                }
-            ));
-
             let Some(model) = listview.model().and_downcast::<gtk::SingleSelection>() else {
                 return;
             };
 
             let change_fn =
-                |model: &gtk::SingleSelection, imp: glib::subclass::ObjectImplRef<SearchSong>| {
+                |model: &gtk::SingleSelection, imp: &glib::subclass::ObjectImplRef<SearchSong>| {
                     let Some(song_list_item) = model.selected_item().and_downcast::<SongObject>()
                     else {
                         return;
@@ -211,25 +194,33 @@ mod imp {
                     imp.obj().emit_send_to_preview(&list);
                 };
 
+            listview.connect_activate(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                #[strong]
+                model,
+                move |_lv, _pos| change_fn(&model, &imp)
+            ));
+
             model.connect_selection_changed(glib::clone!(
                 #[weak(rename_to=imp)]
                 self,
-                move |model, _pos, _| change_fn(model, imp)
+                move |model, _pos, _| change_fn(model, &imp)
             ));
 
             model.connect_items_changed(glib::clone!(
                 #[weak(rename_to=imp)]
                 self,
-                move |model, _pos, _, _| change_fn(model, imp)
+                move |model, _pos, _, _| change_fn(model, &imp)
             ));
         }
 
         fn register_context_menu(&self) {
             let listview = self.listview.clone();
-            let model = match listview.model() {
-                Some(m) => m,
-                None => return,
-            };
+            let model = listview
+                .model()
+                .and_downcast::<gtk::SingleSelection>()
+                .expect("Expected gtk::SingleSelection");
 
             let add_song_action = gio::SimpleAction::new("add-song", None);
             add_song_action.connect_activate(glib::clone!(
@@ -250,11 +241,7 @@ mod imp {
                     if model.n_items() == 0 {
                         return;
                     }
-                    let Some(song_list_item) = listview
-                        .get_selected_items()
-                        .first()
-                        .cloned()
-                        .and_downcast::<SongObject>()
+                    let Some(song_list_item) = model.selected_item().and_downcast::<SongObject>()
                     else {
                         return;
                     };
@@ -270,11 +257,12 @@ mod imp {
                 #[weak(rename_to=imp)]
                 self,
                 move |_sa, _v| {
-                    let Some(song_list_item) = listview
-                        .get_selected_items()
-                        .first()
-                        .cloned()
-                        .and_downcast::<SongObject>()
+                    let model = listview
+                        .model()
+                        .and_downcast::<gtk::SingleSelection>()
+                        .expect("Expected gtk::SingleSelection");
+
+                    let Some(song_list_item) = model.selected_item().and_downcast::<SongObject>()
                     else {
                         return;
                     };
@@ -324,7 +312,14 @@ mod imp {
                 #[weak]
                 listview,
                 move |gc, _, x, y| {
-                    let enable = !listview.get_selected_items().is_empty();
+                    let model = listview
+                        .model()
+                        .and_downcast::<gtk::SingleSelection>()
+                        .expect("Expected gtk::SingleSelection");
+
+                    let item = model.selected_item().and_downcast::<SongObject>();
+
+                    let enable = item.is_some();
                     edit_action.set_enabled(enable);
                     add_to_schedule_action.set_enabled(enable);
                     delete_action.set_enabled(enable);
@@ -445,6 +440,23 @@ mod imp {
             ));
         }
 
+        fn register_song_imported(&self) {
+            let Some(win) = self.obj().toplevel_window() else {
+                println!("NO WIN? = {:?}", self.obj().root());
+                return;
+            };
+            let Some(app) = win.application().and_downcast::<OwApplication>() else {
+                return;
+            };
+
+            let obj = self.obj().clone();
+            app.connect_song_imported(glib::clone!(
+                #[weak]
+                obj,
+                move |_| obj.imp().reload_song_list()
+            ));
+        }
+
         fn open_edit_modal(&self, song: Option<SongObject>) {
             let edit_window = SongEditWindow::new();
             let song_id = song.clone().map(|v| v.song_id()).unwrap_or_default();
@@ -457,10 +469,10 @@ mod imp {
 
                     let song_obj = SongObject::from(smd.clone());
                     song_obj.set_song_id(song_id);
-                    let song_data: SongData = song_obj.into();
+                    let song_data = song_obj.song_data();
                     let res = match w.imp().is_new_song.get() {
-                        true => Query::insert_song(song_data),
-                        false => Query::update_song(song_data),
+                        true => Query::insert_song(&song_data),
+                        false => Query::update_song(&song_data),
                     };
                     let _ = match res {
                         Ok(()) => w.imp().is_new_song.set(false),
@@ -475,26 +487,28 @@ mod imp {
         fn reload_song_list(&self) {
             let songs = Query::get_all_songs();
 
+            let Some(store) = self.listview.get_list_store() else {
+                return;
+            };
+
             match songs {
                 Ok(songs) => {
                     self.listview.remove_all();
-                    songs.iter().for_each(|s| {
-                        let ss: SongObject = s.clone().into();
-                        self.listview.append_item(&ss);
-                    });
+                    let song_slice: Vec<SongObject> = songs.into_iter().map(|s| s.into()).collect();
+                    store.extend_from_slice(&song_slice);
                 }
                 Err(e) => eprintln!("SQL ERROR: {:?}", e),
             }
         }
 
         fn remove_song(&self) {
-            let Some(song_item) = self
+            let model = self
                 .listview
-                .get_selected_items()
-                .first()
-                .cloned()
-                .and_downcast::<SongObject>()
-            else {
+                .model()
+                .and_downcast::<gtk::SingleSelection>()
+                .expect("Expected gtk::SingleSelection");
+
+            let Some(song_item) = model.selected_item().and_downcast::<SongObject>() else {
                 return;
             };
 

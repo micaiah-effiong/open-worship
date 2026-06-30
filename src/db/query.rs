@@ -1,5 +1,5 @@
 use gtk::glib::{self};
-use rusqlite::{Result as RuResult, params};
+use rusqlite::params;
 
 use crate::{
     db::connection::BibleVerse,
@@ -107,7 +107,7 @@ impl Query {
         Ok(rows)
     }
 
-    pub fn insert_song(song: SongData) -> Result<(), DBError> {
+    pub fn insert_song(song: &SongData) -> Result<(), DBError> {
         let song_sql = r#"
             INSERT INTO songs(title) VALUES(?1) RETURNING id
         "#;
@@ -140,7 +140,45 @@ impl Query {
         Ok(r)
     }
 
-    pub fn update_song(song: SongData) -> Result<(), DBError> {
+    pub fn insert_songs(songs: &Vec<SongData>) -> Result<(), DBError> {
+        let song_sql = r#"
+            INSERT INTO songs(title) VALUES(?1) RETURNING id
+        "#;
+
+        let song_verse_sql = r#"
+            INSERT INTO song_verses(song_id,verse,text,tag,slide) VALUES(?1,?2,?3,?4,jsonb(?5))
+        "#;
+
+        let r = DatabaseConnection::with_mut_db(|conn| {
+            let tx = conn.transaction()?;
+
+            {
+                let mut song_stmt = tx.prepare(song_sql)?;
+                let mut song_verse_stmt = tx.prepare(song_verse_sql)?;
+                for song in songs {
+                    let song_id = song_stmt.query_row([&song.title], |r| r.get::<_, u32>(0))?;
+
+                    for (i, verse) in song.verses.iter().enumerate() {
+                        song_verse_stmt.execute((
+                            &song_id,
+                            &i.saturating_add(1),
+                            &verse.text,
+                            &verse.tag,
+                            &verse.slide,
+                        ))?;
+                    }
+                }
+                // drop song_stmt and song_verse_stmt here
+                // freeing tx
+            }
+
+            tx.commit()
+        })?;
+
+        Ok(r)
+    }
+
+    pub fn update_song(song: &SongData) -> Result<(), DBError> {
         let song_sql = "UPDATE songs SET title=?1 WHERE id = ?2";
         let clear_song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
 
