@@ -5,7 +5,7 @@ use crate::{
     db::connection::BibleVerse,
     dto::{SongData, SongVerse},
     services::{alert::Alert, settings::ApplicationSettings},
-    widgets::canvas::serialise::{CanvasItemType, SlideData},
+    widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData},
 };
 
 use super::connection::{BibleTranslation, DatabaseConnection};
@@ -225,7 +225,7 @@ impl Query {
         Ok(r)
     }
 
-    pub fn search_songs(search_text: String, title_mode: bool) -> Result<Vec<SongData>, DBError> {
+    pub fn search_songs(search_text: &str, title_mode: bool) -> Result<Vec<SongData>, DBError> {
         let r = DatabaseConnection::with_mut_db(|conn| {
             let song_sql = match title_mode {
                 true => "SELECT id, title FROM songs WHERE title LIKE ?1 ORDER BY title ASC",
@@ -269,10 +269,6 @@ impl Query {
         })?;
 
         Ok(r)
-    }
-
-    pub fn get_all_songs() -> Result<Vec<SongData>, DBError> {
-        Self::search_songs(String::new(), true)
     }
 
     pub fn insert_verse(
@@ -441,6 +437,62 @@ impl Query {
         });
 
         Ok(r?)
+    }
+
+    pub fn insert_presentation(slide: &SlideManagerData) -> Result<(), DBError> {
+        let sql =
+            "INSERT OR IGNORE INTO `presentations` (`title`, `slide_data`) VALUES (?1, jsonb(?2));";
+
+        let title = slide.title.clone();
+        let slide_str =
+            serde_json::to_string(&slide).map_err(|e| DBError::CustomError(format!("{:?}", e)))?;
+
+        DatabaseConnection::with_mut_db(|conn| conn.execute(sql, [title, slide_str]))?;
+
+        Ok(())
+    }
+
+    pub fn search_presentations(search: &str) -> Result<Vec<(u32, SlideManagerData)>, DBError> {
+        let r = DatabaseConnection::with_mut_db(|conn| {
+            let mut sql = conn
+                .prepare("SELECT id, json(slide_data) FROM `presentations` WHERE title LIKE ?1;")?;
+
+            let data = sql
+                .query_map([format!("%{search}%")], |row| {
+                    let id = row.get::<_, u32>(0)?;
+                    let slide_data = row.get::<_, String>(1)?;
+
+                    let slide_data = serde_json::from_str::<SlideManagerData>(&slide_data)
+                        .ok()
+                        .unwrap_or_default();
+                    Ok((id, slide_data))
+                })?
+                .filter_map(|v| v.ok())
+                .collect::<Vec<_>>();
+
+            Ok(data)
+        })?;
+
+        Ok(r)
+    }
+
+    pub fn update_presentation(id: u32, slide: &SlideManagerData) -> Result<(), DBError> {
+        let sql = "UPDATE `presentations` SET title=?1, slide_data=jsonb(?2) WHERE id=?3;";
+
+        let title = slide.title.clone();
+        let slide_str =
+            serde_json::to_string(slide).map_err(|e| DBError::CustomError(format!("{:?}", e)))?;
+
+        DatabaseConnection::with_mut_db(|conn| conn.execute(sql, (title, slide_str, id)))?;
+
+        Ok(())
+    }
+
+    pub fn delete_presentation(id: u32) -> Result<(), DBError> {
+        let sql = "DELETE FROM `presentations` WHERE id=?1;";
+        DatabaseConnection::with_mut_db(|conn| conn.execute(sql, [id]))?;
+
+        Ok(())
     }
 }
 

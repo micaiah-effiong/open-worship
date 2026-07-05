@@ -21,7 +21,10 @@ use crate::{
     config,
     db::query::Query,
     services::{file_manager::FileManager, openlyrics},
-    widgets::{search::songs::edit_modal::SongEditWindow, settings_window::SettingsWindow},
+    widgets::{
+        search::songs::edit_modal::{EditorType, SongEditWindow},
+        settings_window::SettingsWindow,
+    },
 };
 
 mod signal {
@@ -265,7 +268,7 @@ impl OwApplication {
         // FILE
         let add_song_action = gtk::gio::ActionEntry::builder("add-song")
             .activate(|_, _, _| {
-                let win = SongEditWindow::new();
+                let win = SongEditWindow::new(Some(EditorType::Song));
                 win.show(None);
             })
             .build();

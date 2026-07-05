@@ -124,7 +124,7 @@
                     <child>
                       <object class="GtkPaned">
                         <property name="orientation">horizontal</property>
-                        <property name="shrink_start_child">false</property>
+                        <property name="shrink_start_child">true</property>
                         <property name="shrink_end_child">false</property>
 
                         <property name="start_child">

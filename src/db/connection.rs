@@ -51,72 +51,19 @@ static DB: OnceLock<Mutex<DatabaseConnection>> = OnceLock::new();
 /// run setup sql
 /// close db
 pub fn load_db() {
-    create_songs_table();
-    create_song_verses_table();
-    create_bible_books_table();
-    create_translations_table();
-    create_alerts_table();
+    create_initial_tables();
     insert_bible_books();
 
     let _ = DatabaseConnection::with_db(|c| c.pragma_update(None, "journal_mode", "WAL"));
 }
 
-pub fn create_bible_books_table() {
-    let sql = "CREATE TABLE IF NOT EXISTS bible_books (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-        )"
-    .to_string();
+fn create_initial_tables() {
+    let sql = include_str!("sql/initial_db.sql");
 
-    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
+    let ex = DatabaseConnection::with_db(|c| c.execute_batch(sql));
 
     if ex.is_err() {
-        panic!("Could not create bible_books table {:?}", ex);
-    }
-}
-
-pub fn create_translations_table() {
-    let sql = "CREATE TABLE IF NOT EXISTS translations (
-            translation TEXT PRIMARY KEY,
-            title TEXT NOT NULL,
-            license TEXT
-        )"
-    .to_string();
-
-    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
-    if ex.is_err() {
-        panic!("Could not create translations table {:?}", ex);
-    }
-}
-
-pub fn create_songs_table() {
-    let sql = "CREATE TABLE IF NOT EXISTS songs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL
-        )"
-    .to_string();
-
-    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
-    if ex.is_err() {
-        panic!("Could not create song verses table {:?}", ex);
-    }
-}
-
-pub fn create_song_verses_table() {
-    let sql = "CREATE TABLE IF NOT EXISTS song_verses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            song_id INTEGER NOT NULL,
-            verse INTEGER NOT NULL,
-            text TEXT NOT NULL,
-            tag TEXT,
-            slide BLOB,
-            FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
-        )"
-    .to_string();
-
-    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
-    if ex.is_err() {
-        panic!("Could not create song verses table {:?}", ex);
+        panic!("Could not create bible_books table \n{:?}", ex);
     }
 }
 
@@ -127,22 +74,6 @@ fn insert_bible_books() {
     let ex = DatabaseConnection::with_db(|c| c.execute_batch(&sql));
     if ex.is_err() {
         panic!("Could not create song verses table {:?}", ex);
-    }
-}
-
-pub fn create_alerts_table() {
-    let sql = "CREATE TABLE IF NOT EXISTS alerts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            message TEXT NOT NULL,
-            count INTEGER NOT NULL DEFAULT 0,
-            active BOOLEAN NOT NULL DEFAULT FALSE
-        )"
-    .to_string();
-
-    let ex = DatabaseConnection::with_db(|c| c.execute(&sql, ()));
-    if ex.is_err() {
-        panic!("Could not create alerts table {:?}", ex);
     }
 }
 

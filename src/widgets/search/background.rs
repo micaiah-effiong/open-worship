@@ -33,11 +33,11 @@ mod imp {
         },
     };
 
+    use super::*;
     use crate::{
         app_config::AppConfigDir, dto::background_obj::BackgroundObj,
         services::file_manager::FileManager,
         structs::background_grid_list_item::BackgroundListItem, utils::WidgetExtrasExt,
-        widgets::search::background::signals,
     };
 
     #[derive(Default, Debug, gtk::CompositeTemplate)]

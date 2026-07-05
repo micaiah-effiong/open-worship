@@ -60,7 +60,10 @@ mod imp {
         widgets::{
             canvas::serialise::SlideManagerData,
             search::songs::{
-                SearchMode, edit_modal::SongEditWindow, list_item::SongListItem, signals,
+                SearchMode,
+                edit_modal::{EditorType, SongEditWindow},
+                list_item::SongListItem,
+                signals,
             },
         },
     };
@@ -137,7 +140,7 @@ mod imp {
                 child.load_data(item);
             });
 
-            let initial_songs = Query::get_all_songs();
+            let initial_songs = Query::search_songs("", true);
             match initial_songs {
                 Ok(songs) => {
                     let songs_slice: Vec<SongObject> =
@@ -233,8 +236,6 @@ mod imp {
             edit_action.connect_activate(glib::clone!(
                 #[strong]
                 model,
-                #[strong]
-                listview,
                 #[weak(rename_to=imp)]
                 self,
                 move |_sa, _v| {
@@ -368,8 +369,7 @@ mod imp {
                                 } else {
                                     let title_search =
                                         *imp.search_mode.borrow() == SearchMode::Title;
-                                    let query =
-                                        Query::search_songs(se.text().to_string(), title_search);
+                                    let query = Query::search_songs(&se.text(), title_search);
 
                                     let songs_ids: HashSet<_> = match query {
                                         Ok(q) => q.iter().map(|v| v.song_id).collect(),
@@ -458,7 +458,7 @@ mod imp {
         }
 
         fn open_edit_modal(&self, song: Option<SongObject>) {
-            let edit_window = SongEditWindow::new();
+            let edit_window = SongEditWindow::new(Some(EditorType::Song));
             let song_id = song.clone().map(|v| v.song_id()).unwrap_or_default();
 
             edit_window.connect_save(glib::clone!(
@@ -470,12 +470,12 @@ mod imp {
                     let song_obj = SongObject::from(smd.clone());
                     song_obj.set_song_id(song_id);
                     let song_data = song_obj.song_data();
-                    let res = match w.imp().is_new_song.get() {
+                    let res = match w.is_new() {
                         true => Query::insert_song(&song_data),
                         false => Query::update_song(&song_data),
                     };
                     let _ = match res {
-                        Ok(()) => w.imp().is_new_song.set(false),
+                        Ok(()) => w.set_is_new(false),
                         Err(x) => println!("SQL ERROR: {:?}", x),
                     };
 
@@ -485,7 +485,7 @@ mod imp {
             edit_window.show(song.map(SongObject::into));
         }
         fn reload_song_list(&self) {
-            let songs = Query::get_all_songs();
+            let songs = Query::search_songs("", true);
 
             let Some(store) = self.listview.get_list_store() else {
                 return;
@@ -520,7 +520,7 @@ mod imp {
                 }
             };
 
-            match Query::get_all_songs() {
+            match Query::search_songs("", true) {
                 Ok(songs) => {
                     self.listview.remove_all();
                     songs.iter().for_each(|s| {

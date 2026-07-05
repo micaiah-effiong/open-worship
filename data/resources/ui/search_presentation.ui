@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="SearchPresentation" parent="GtkBox">
+    <property name="orientation">vertical</property>
+    <property name="vexpand">true</property>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">2</property>
+
+        <child>
+          <object class="GtkSearchEntry" id="search_text">
+            <property name="hexpand">true</property>
+            <style>
+              <class name="rounded-none"/>
+            </style>
+            <!-- <signal name="activate" handler="handle_search_activate" swapped="true"/> -->
+          </object>
+        </child>
+      
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkScrolledWindow">
+        <property name="vexpand">true</property>
+        <child>
+          <object class="GtkListView" id="listview">
+            <!-- <property name="min_columns">2</property> -->
+            <signal name="activate" handler="handle_preview_presentation" swapped="true"/>
+          </object>
+        </child>
+      </object>
+    </child>
+
+    <child>
+      <object class="GtkSeparator"> </object>
+    </child>
+
+    <child>
+      <object class="GtkBox">
+        <property name="orientation">horizontal</property>
+        <property name="spacing">3</property>
+        <style>
+          <class name="small-pad"/>
+        </style>
+
+        <child>
+          <object class="GtkButton" id="add_btn">
+            <property name="icon_name">plus</property>
+            <signal name="clicked" handler="handle_add_presentation" swapped="true"/>
+          </object>
+        </child>
+
+        <child>
+          <object class="GtkButton" id="remove_btn">
+            <property name="icon_name">minus</property>
+            <signal name="clicked" handler="handle_remove_presentation" swapped="true"/>
+          </object>
+        </child>
+      </object>
+    </child>
+
+  </template>
+</interface>

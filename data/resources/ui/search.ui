@@ -18,6 +18,9 @@
 
         <child>
           <object class="GtkNotebook">
+            <style>
+              <class name="custom-notebook" />
+            </style>
             <property name="hexpand">true</property>
 
             <child>
@@ -41,7 +44,7 @@
             </child>
             <child type="tab">
               <object class="GtkLabel" id="scripture_page_label">
-                <property name="label">Scriptures</property>
+                <property name="label">Bible</property>
               </object>
             </child>
 
@@ -55,6 +58,20 @@
                 <property name="label">Backgrounds</property>
               </object>
             </child>
+
+
+            <child>
+              <object class="SearchPresentation" id="presentation_page">
+                <signal name="send-to-schedule" handler="handle_schedule_presentation" swapped="true" />
+                <signal name="send-preview-presentation" handler="handle_preview_presentation" swapped="true" />
+              </object>
+            </child>
+            <child type="tab">
+              <object class="GtkLabel" id="presentation_page_label">
+                <property name="label">Presentation</property>
+              </object>
+            </child>
+
 
           </object>
         </child>

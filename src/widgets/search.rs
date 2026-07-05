@@ -1,4 +1,5 @@
 mod background;
+mod presentation;
 pub mod scriptures;
 pub mod songs;
 
@@ -37,7 +38,8 @@ mod imp {
     use crate::widgets::{
         canvas::serialise::SlideManagerData,
         search::{
-            background::SearchBackground, scriptures::SearchScripture, signals, songs::SearchSong,
+            background::SearchBackground, presentation::SearchPresentation,
+            scriptures::SearchScripture, signals, songs::SearchSong,
         },
     };
 
@@ -57,6 +59,7 @@ mod imp {
             SearchSong::ensure_type();
             SearchScripture::ensure_type();
             SearchBackground::ensure_type();
+            SearchPresentation::ensure_type();
 
             klass.bind_template();
             klass.bind_template_callbacks();
@@ -92,10 +95,6 @@ mod imp {
     #[gtk::template_callbacks]
     impl SearchActivityViewer {
         #[template_callback]
-        fn handle_preview_song(&self, data: &SlideManagerData, _: SearchSong) {
-            self.preview_slides(data);
-        }
-        #[template_callback]
         fn handle_schedule_song(&self, data: &SlideManagerData, _: SearchSong) {
             self.obj().emit_add_to_schedule(data);
         }
@@ -104,12 +103,24 @@ mod imp {
             self.obj().emit_add_to_schedule(data);
         }
         #[template_callback]
+        fn handle_schedule_presentation(&self, data: &SlideManagerData, _: SearchPresentation) {
+            self.obj().emit_add_to_schedule(data);
+        }
+        #[template_callback]
+        fn handle_preview_song(&self, data: &SlideManagerData, _: SearchSong) {
+            self.preview_slides(data);
+        }
+        #[template_callback]
         fn handle_preview_scripture(&self, data: &SlideManagerData, _: SearchScripture) {
             self.preview_slides(data);
         }
         #[template_callback]
         fn handle_preview_background(&self, data: String, _: SearchBackground) {
             self.obj().emit_preview_background(data);
+        }
+        #[template_callback]
+        fn handle_preview_presentation(&self, data: &SlideManagerData, _: SearchPresentation) {
+            self.preview_slides(data);
         }
     }
 

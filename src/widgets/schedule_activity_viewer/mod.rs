@@ -176,7 +176,7 @@ mod imp {
                 #[strong]
                 listview,
                 move |_sa, _v| {
-                    let edit_window = SongEditWindow::new();
+                    let edit_window = SongEditWindow::new(None);
                     let listview = listview.clone();
                     edit_window.connect_save(move |_, smd| {
                         let schedule_data: ScheduleData = smd.clone().into();
@@ -200,7 +200,7 @@ mod imp {
                         return;
                     };
 
-                    let edit_window = SongEditWindow::new();
+                    let edit_window = SongEditWindow::new(None);
 
                     edit_window.connect_save(glib::clone!(
                         #[strong]

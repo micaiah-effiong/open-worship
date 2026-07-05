@@ -12,12 +12,24 @@ mod signals {
     pub const SAVE: &str = "save";
 }
 
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
+pub enum EditorType {
+    #[default]
+    Slide,
+    Song,
+}
+
 mod imp {
     use std::{
         cell::{Cell, RefCell},
         sync::OnceLock,
     };
 
+    use super::*;
+    use crate::{
+        app_config::AppConfig, services::slide_manager::SlideManager, utils::WidgetExtrasExt,
+        widgets::search::songs::toolbar::song_editor_toolbar::SongEditorToolbar,
+    };
     use gtk::{
         gdk,
         glib::{
@@ -32,19 +44,14 @@ mod imp {
         prelude::{
             AccessibleExt, BoxExt, EntryExt, GtkWindowExt, ListItemExt, TextViewExt, WidgetExt,
         },
-        subclass::{widget::WidgetImpl, window::WindowImpl},
-    };
-
-    use super::*;
-    use crate::{
-        app_config::AppConfig, services::slide_manager::SlideManager, utils::WidgetExtrasExt,
-        widgets::search::songs::toolbar::song_editor_toolbar::SongEditorToolbar,
+        subclass::{prelude::DerivedObjectProperties, widget::WidgetImpl, window::WindowImpl},
     };
 
     #[derive(Default, Properties)]
     #[properties(wrapper_type = super::SongEditWindow)]
     pub struct SongEditWindow {
-        pub is_new_song: Cell<bool>,
+        #[property(get, set)]
+        pub is_new: Cell<bool>,
         pub screen: RefCell<gtk::Stack>,
         pub slide_manager: RefCell<SlideManager>,
         pub title_entry: RefCell<gtk::Entry>,
@@ -53,6 +60,9 @@ mod imp {
         pub list_view: RefCell<gtk::ListView>,
         pub preview_list: RefCell<gtk::ListView>,
         pub(super) notebook: RefCell<gtk::Notebook>,
+
+        pub(super) toolbar_box: RefCell<gtk::Box>,
+        pub(super) editor_type: RefCell<EditorType>,
     }
 
     #[glib::object_subclass]
@@ -62,6 +72,7 @@ mod imp {
         type ParentType = gtk::Window;
     }
 
+    #[glib::derived_properties]
     impl ObjectImpl for SongEditWindow {
         fn constructed(&self) {
             self.parent_constructed();
@@ -187,7 +198,7 @@ mod imp {
 
                 let title_entry = gtk::Entry::new();
                 self.title_entry.replace(title_entry.clone());
-                title_entry.set_placeholder_text(Some("Enter song title"));
+                title_entry.set_placeholder_text(Some("Enter title"));
                 entry_box.append(&title_label);
                 entry_box.append(&title_entry);
 
@@ -195,8 +206,12 @@ mod imp {
             };
             box_ui.append(&box_header);
             box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-            box_ui.append(&SongEditorToolbar::new(&self.slide_manager.borrow()));
-            box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+
+            let toolbar_box = self.toolbar_box.borrow().clone();
+            toolbar_box.set_orientation(gtk::Orientation::Vertical);
+            toolbar_box.append(&SongEditorToolbar::new(&self.slide_manager.borrow()));
+            toolbar_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+            box_ui.append(&toolbar_box);
 
             let editor_box = {
                 // EDITOR SECTION
@@ -506,19 +521,31 @@ impl Default for SongEditWindow {
 }
 
 impl SongEditWindow {
-    pub fn new() -> Self {
-        glib::Object::new()
+    pub fn new(editor_type: Option<EditorType>) -> Self {
+        let obj: Self = glib::Object::new();
+
+        let t = editor_type.unwrap_or_default();
+        if t == EditorType::Song {
+            obj.imp().toolbar_box.borrow().set_visible(false);
+        }
+        obj.imp().editor_type.replace(t);
+
+        obj
     }
 
     pub fn show(&self, song: Option<SlideManagerData>) {
+        let title = match *self.imp().editor_type.borrow() == EditorType::Song {
+            true => "Song",
+            false => "Slide",
+        };
         if let Some(data) = song {
             self.load_song(&data);
-            self.imp().is_new_song.set(false);
-            self.set_title(Some("Edit Song"));
+            self.imp().is_new.set(false);
+            self.set_title(Some(&format!("Edit {title}")));
         } else {
-            self.imp().is_new_song.set(true);
+            self.imp().is_new.set(true);
             self.add_new_verse();
-            self.set_title(Some("Add Song"));
+            self.set_title(Some(&format!("Add {title}")));
         }
 
         self.present();
@@ -535,6 +562,9 @@ impl SongEditWindow {
 
         let sm = self.imp().slide_manager.borrow();
         let slide = sm.new_slide(Some(SlideData::from_default()), true);
+        if *self.imp().editor_type.borrow() == EditorType::Song {
+            slide.set_presentation_mode(true);
+        }
         page.append_item(&slide);
 
         if let Some(model) = page.model() {
@@ -645,6 +675,9 @@ impl SongEditWindow {
 
         for slide_data in data.slides.iter() {
             let slide = sm.new_slide(Some(slide_data.clone()), true);
+            if *self.imp().editor_type.borrow() == EditorType::Song {
+                slide.set_presentation_mode(true);
+            }
             listview.append_item(&slide);
         }
 

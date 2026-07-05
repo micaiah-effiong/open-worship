@@ -58,6 +58,7 @@
     <file compressed="true">ui/schedule_activity_viewer.ui</file>
     <file compressed="true">ui/schedule_listitem.ui</file>
     <file compressed="true">ui/search_background.ui</file>
+    <file compressed="true">ui/search_presentation.ui</file>
     <file compressed="true">ui/search_scripture.ui</file>
     <file compressed="true">ui/search_song.ui</file>
     <file compressed="true">ui/search.ui</file>
