@@ -7,72 +7,57 @@
     <property name="homogeneous">true</property>
 
     <child>
-      <object class="GtkBox" id="tab_box">
-        <property name="orientation">horizontal</property>
-        <property name="spacing">3</property>
-        <property name="height_request">48</property>
-        
+      <object class="GtkNotebook">
         <style>
-          <class name="ow-listview" />
+          <class name="custom-notebook" />
         </style>
+        <property name="hexpand">true</property>
 
         <child>
-          <object class="GtkNotebook">
-            <style>
-              <class name="custom-notebook" />
-            </style>
-            <property name="hexpand">true</property>
-
-            <child>
-              <object class="SearchSong" id="song_page">
-                <signal name="send-to-preview" handler="handle_preview_song" swapped="true" />
-                <signal name="send-to-schedule" handler="handle_schedule_song" swapped="true" />
-              </object>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="song_page_label">
-                <property name="label">Songs</property>
-              </object>
-            </child>
+          <object class="SearchSong" id="song_page">
+            <signal name="send-to-preview" handler="handle_preview_song" swapped="true" />
+            <signal name="send-to-schedule" handler="handle_schedule_song" swapped="true" />
+          </object>
+        </child>
+        <child type="tab">
+          <object class="GtkLabel" id="song_page_label">
+            <property name="label">Songs</property>
+          </object>
+        </child>
 
 
-            <child>
-              <object class="SearchScripture" id="scripture_page">
-                <signal name="send-scriptures" handler="handle_preview_scripture" swapped="true" />
-                <signal name="send-to-schedule" handler="handle_schedule_scripture" swapped="true" />
-              </object>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="scripture_page_label">
-                <property name="label">Bible</property>
-              </object>
-            </child>
+        <child>
+          <object class="SearchScripture" id="scripture_page">
+            <signal name="send-scriptures" handler="handle_preview_scripture" swapped="true" />
+            <signal name="send-to-schedule" handler="handle_schedule_scripture" swapped="true" />
+          </object>
+        </child>
+        <child type="tab">
+          <object class="GtkLabel" id="scripture_page_label">
+            <property name="label">Bible</property>
+          </object>
+        </child>
 
-            <child>
-              <object class="SearchBackground" id="background_page">
-                <signal name="send-preview-background" handler="handle_preview_background" swapped="true" />
-              </object>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="background_page_label">
-                <property name="label">Backgrounds</property>
-              </object>
-            </child>
+        <child>
+          <object class="SearchBackground" id="background_page">
+            <signal name="send-preview-background" handler="handle_preview_background" swapped="true" />
+          </object>
+        </child>
+        <child type="tab">
+          <object class="GtkLabel" id="background_page_label">
+            <property name="label">Backgrounds</property>
+          </object>
+        </child>
 
-
-            <child>
-              <object class="SearchPresentation" id="presentation_page">
-                <signal name="send-to-schedule" handler="handle_schedule_presentation" swapped="true" />
-                <signal name="send-preview-presentation" handler="handle_preview_presentation" swapped="true" />
-              </object>
-            </child>
-            <child type="tab">
-              <object class="GtkLabel" id="presentation_page_label">
-                <property name="label">Presentation</property>
-              </object>
-            </child>
-
-
+        <child>
+          <object class="SearchPresentation" id="presentation_page">
+            <signal name="send-to-schedule" handler="handle_schedule_presentation" swapped="true" />
+            <signal name="send-preview-presentation" handler="handle_preview_presentation" swapped="true" />
+          </object>
+        </child>
+        <child type="tab">
+          <object class="GtkLabel" id="presentation_page_label">
+            <property name="label">Presentation</property>
           </object>
         </child>
 

@@ -189,7 +189,6 @@ mod imp {
                     .orientation(gtk::Orientation::Vertical)
                     .hexpand(true)
                     .height_request(super::MIN_GRID_HEIGHT)
-                    .css_classes(["pink_box", "ow-listview"])
                     .build();
 
                 let scrolled = gtk::ScrolledWindow::builder()

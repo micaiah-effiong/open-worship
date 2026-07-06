@@ -31,21 +31,6 @@ label {
     padding: 2px 3px;
     margin: 0px 3px;
 }
-/* .ow-listview:focus-within row:selected { */
-/*   background-color: blue; */
-/* } */
-/**/
-/* .ow-listview:focus-within row:selected label { */
-/*   color: white; */
-/* } */
-/**/
-/* .ow-listview row:selected { */
-/*   background-color: grey; */
-/* } */
-
-row:focus {
-  /* background-color: red; */
-}
 
 editablelabel.schedule-list-item-editable {
   font-style: italic;
