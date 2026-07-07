@@ -162,26 +162,25 @@ mod imp {
                                 status_label.set_label("0%");
 
                                 let cancel_clone = cancel.clone();
-                                let abort_handler =
-                                    utils::import_bible2(data.clone(), move |msg| {
-                                        match msg {
-                                            Ok(ImportBibleStatus::Progress(pct)) => {
-                                                status_label.set_label(&format!("{pct}%"))
-                                            }
-                                            Ok(ImportBibleStatus::Done(name)) => {
-                                                status_label.set_label("");
-                                                btn.set_visible(true);
-                                                sender.new_translation(name);
-                                            }
-                                            Ok(_) => (),
-                                            Err(_) => {
-                                                status_label.set_label("");
-                                                btn.set_visible(true);
-                                                cancel_clone.replace(None);
-                                                return;
-                                            }
-                                        };
-                                    });
+                                let abort_handler = utils::import_bible(data.clone(), move |msg| {
+                                    match msg {
+                                        Ok(ImportBibleStatus::Progress(pct)) => {
+                                            status_label.set_label(&format!("{pct}%"))
+                                        }
+                                        Ok(ImportBibleStatus::Done(name)) => {
+                                            status_label.set_label("");
+                                            btn.set_visible(true);
+                                            sender.new_translation(name);
+                                        }
+                                        Ok(_) => (),
+                                        Err(_) => {
+                                            status_label.set_label("");
+                                            btn.set_visible(true);
+                                            cancel_clone.replace(None);
+                                            return;
+                                        }
+                                    };
+                                });
 
                                 cancel.replace(Some(abort_handler));
                             }

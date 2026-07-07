@@ -24,10 +24,34 @@ pub enum ImportBibleStatus {
 struct FileCleanupGuard {
     path: PathBuf,
     success: bool,
+    temp: PathBuf,
+}
+
+impl FileCleanupGuard {
+    fn new(path: PathBuf) -> Self {
+        let temp_dir = std::env::temp_dir();
+
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let name = format!("openworship-{}-{}", std::process::id(), nanos);
+        let temp_path = temp_dir.join(name);
+
+        FileCleanupGuard {
+            path,
+            success: false,
+            temp: temp_path,
+        }
+    }
+    fn mark_success(&mut self) {
+        self.success = true;
+    }
 }
 
 impl Drop for FileCleanupGuard {
     fn drop(&mut self) {
+        let _ = fs::remove_file(&self.temp);
         if !self.success {
             println!("Cleaning up partial file: {:?}", self.path);
             let _ = fs::remove_file(&self.path);
@@ -35,7 +59,7 @@ impl Drop for FileCleanupGuard {
     }
 }
 
-pub fn import_bible2<F>(bible: BibleDownload, callback: F) -> AbortHandle
+pub fn import_bible<F>(bible: BibleDownload, callback: F) -> AbortHandle
 where
     F: Fn(Result<ImportBibleStatus, ()>) + 'static,
 {
@@ -46,18 +70,14 @@ where
         callback(Ok(ImportBibleStatus::Init));
 
         let path = AppConfigDir::dir_path(AppConfigDir::Downloads).join(bible.name());
+        let mut guard = FileCleanupGuard::new(path);
 
-        let mut guard = FileCleanupGuard {
-            path: path.clone(),
-            success: false,
-        };
-
-        match fs::exists(path.clone()) {
+        match fs::exists(guard.path.clone()) {
             Ok(true) => {
                 callback(Ok(ImportBibleStatus::Progress(100)));
                 callback(Ok(ImportBibleStatus::Instalation));
                 write_to_db(guard.path.clone(), &bible);
-                guard.success = true;
+                guard.mark_success();
                 callback(Ok(ImportBibleStatus::Done(bible.name())));
                 return;
             }
@@ -81,7 +101,7 @@ where
             .and_then(|v| v.as_str().parse::<u64>().ok())
             .unwrap_or(0);
 
-        let mut file = match fs::File::create(&guard.path) {
+        let mut file = match fs::File::create(&guard.temp) {
             Ok(f) => f,
             Err(_) => {
                 callback(Err(()));
@@ -116,9 +136,12 @@ where
         }
 
         callback(Ok(ImportBibleStatus::Instalation));
+        if let Err(_) = fs::rename(guard.temp.clone(), guard.path.clone()) {
+            return callback(Err(()));
+        };
         write_to_db(guard.path.clone(), &bible);
 
-        guard.success = true;
+        guard.mark_success();
         callback(Ok(ImportBibleStatus::Done(bible.name())));
     });
 
@@ -206,11 +229,6 @@ fn write_to_db(file_path: std::path::PathBuf, bible: &BibleDownload) -> Option<S
     let translation_name = bible_translation.translation.clone();
     let res = Query::insert_verse(bible_translation, verses_vec);
     println!("INSERTING VERESES DONE: {:?}", res);
-
-    // if let Err(e) = std::fs::remove_file(&file_path) {
-    //     eprintln!("FILE ERROR: error removing downloaded verses \n{:?}", e);
-    //     return None;
-    // }
 
     return Some(translation_name);
 }
