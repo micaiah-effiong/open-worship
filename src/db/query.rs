@@ -498,13 +498,8 @@ impl Query {
 
 fn slide_str_to_slide_data_str(text: String, slide: Option<String>) -> Option<String> {
     let default_slide = serde_json::to_string(&SlideData::from_default()).ok();
-    let Some(slide) = slide.as_ref().or(default_slide.as_ref()) else {
-        return None;
-    };
-
-    let Some(mut ss) = serde_json::from_str::<SlideData>(slide).ok() else {
-        return None;
-    };
+    let slide = slide.as_ref().or(default_slide.as_ref())?;
+    let mut ss = serde_json::from_str::<SlideData>(slide).ok()?;
 
     for item in &mut ss.items {
         if let CanvasItemType::Text(text_item) = &mut item.item_type {
