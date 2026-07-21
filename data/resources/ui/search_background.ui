@@ -28,6 +28,7 @@
         <child>
           <object class="GtkGridView" id="gridview">
             <property name="min_columns">2</property>
+            <property name="max_columns">16</property>
             <signal name="activate" handler="handle_preview_background" swapped="true"/>
           </object>
         </child>
