@@ -59,6 +59,10 @@ mod imp {
 
         #[property(get, set)]
         pub background_image: RefCell<String>,
+
+        pub slide_manager_data: RefCell<SlideManagerData>,
+
+        info_label: RefCell<gtk::Label>,
     }
 
     #[glib::object_subclass]
@@ -74,7 +78,7 @@ mod imp {
             self.parent_constructed();
             let obj = self.obj().clone();
             //
-            obj.set_homogeneous(true);
+            // obj.set_homogeneous(true);
             obj.set_orientation(gtk::Orientation::Vertical);
             obj.set_vexpand(true);
             obj.set_width_request(super::MIN_GRID_WIDTH);
@@ -184,11 +188,24 @@ mod imp {
                 ));
             }
 
+            self.slide_manager
+                .borrow()
+                .connect_current_slide_changed(glib::clone!(
+                    #[weak(rename_to=imp)]
+                    self,
+                    move |sm, s| {
+                        if let Some(index) = sm.slides().iter().position(|x| x == s) {
+                            let info = format!("Slide {} of {}", index + 1, sm.slides().len());
+                            imp.info_label.borrow().set_label(&info);
+                        };
+                    }
+                ));
+
             let list_viewer = {
                 let base = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
                     .hexpand(true)
-                    .height_request(super::MIN_GRID_HEIGHT)
+                    // .height_request(super::MIN_GRID_HEIGHT)
                     .build();
 
                 let scrolled = gtk::ScrolledWindow::builder()
@@ -205,34 +222,97 @@ mod imp {
             };
 
             let screen = {
-                let base = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-                let aspect_frame = gtk::AspectFrame::builder()
-                    .css_name("pink_box")
-                    .height_request(super::MIN_GRID_HEIGHT)
-                    .ratio(AppConfig::aspect_ratio())
-                    .obey_child(false)
-                    .build();
+                // let layout = gtk::ConstraintLayout::new();
+                // let guide = gtk::ConstraintGuide::new();
+                // guide.set_min_size(200, 200); // min width=50, min height=0 (unconstrained)
+                // guide.set_max_size(200, 200); // max width=200, height uncapped (-1)
+                // guide.set_nat_size(100, -1); // preferred/natural width=100
+                // guide.set_strength(gtk::ConstraintStrength::Strong);
+                // guide.set_name(Some("width_cap_guide")); // for debugging only
+                // layout.add_guide(guide.clone());
 
-                aspect_frame.set_child(Some(&self.slide_manager.borrow().slideshow()));
+                let base = gtk::Box::new(gtk::Orientation::Vertical, 0);
+                base.set_halign(gtk::Align::Center);
 
                 let frame = gtk::Box::builder()
-                    .height_request(super::MIN_GRID_HEIGHT)
+                    // .height_request(super::MIN_GRID_HEIGHT)
+                    // .layout_manager(&layout)
+                    .height_request(50)
+                    .overflow(gtk::Overflow::Hidden)
+                    .build();
+
+                let aspect_frame = gtk::AspectFrame::builder()
+                    // .height_request(super::MIN_GRID_HEIGHT)
+                    .ratio(AppConfig::aspect_ratio())
+                    .obey_child(false)
+                    .xalign(0.0)
+                    .build();
+                aspect_frame.set_child(Some(&self.slide_manager.borrow().slideshow()));
+                aspect_frame.set_parent(&frame);
+
+                // layout.add_constraint(gtk::Constraint::new(
+                //     Some(&aspect_frame),
+                //     gtk::ConstraintAttribute::Width,
+                //     gtk::ConstraintRelation::Eq,
+                //     Some(&guide),
+                //     gtk::ConstraintAttribute::Width,
+                //     1.0,
+                //     0.0,
+                //     gtk::ConstraintStrength::Strong.into_glib(),
+                // ));
+                // layout.add_constraint(gtk::Constraint::new(
+                //     Some(&aspect_frame),
+                //     gtk::ConstraintAttribute::Height,
+                //     gtk::ConstraintRelation::Eq,
+                //     Some(&guide),
+                //     gtk::ConstraintAttribute::Height,
+                //     1.0,
+                //     0.0,
+                //     gtk::ConstraintStrength::Strong.into_glib(),
+                // ));
+                //
+                // layout.add_constraint(gtk::Constraint::new(
+                //     Some(&aspect_frame),
+                //     gtk::ConstraintAttribute::CenterX,
+                //     gtk::ConstraintRelation::Le,
+                //     None::<&gtk::Widget>,
+                //     gtk::ConstraintAttribute::CenterX,
+                //     1.0,
+                //     0.0,
+                //     gtk::ConstraintStrength::Required.into_glib(),
+                // ));
+                // layout.add_constraint(gtk::Constraint::new(
+                //     Some(&aspect_frame),
+                //     gtk::ConstraintAttribute::CenterY,
+                //     gtk::ConstraintRelation::Le,
+                //     None::<&gtk::Widget>,
+                //     gtk::ConstraintAttribute::CenterY,
+                //     1.0,
+                //     0.0,
+                //     gtk::ConstraintStrength::Required.into_glib(),
+                // ));
+
+                let details_box = gtk::Box::builder()
+                    .halign(gtk::Align::Center)
                     .hexpand(true)
                     .vexpand(true)
                     .build();
-                frame.append(&aspect_frame);
+                let label = self.info_label.borrow().clone();
 
-                base.add_css_class("black_bg_box");
+                details_box.append(&label);
+
                 base.append(&frame);
+                base.append(&details_box);
 
                 base
             };
 
             let paned = gtk::Paned::builder()
                 .orientation(gtk::Orientation::Vertical)
-                .shrink_end_child(false)
-                .shrink_start_child(false)
+                .shrink_end_child(true)
+                .shrink_start_child(true)
                 .start_child(&list_viewer)
+                .wide_handle(true)
                 .end_child(&screen)
                 .build();
 
@@ -275,7 +355,6 @@ impl ActivityViewer {
             .show_end_presentation_slide();
 
         obj.imp().title_label.borrow().set_label(title);
-        obj.imp().title.replace(title.to_string());
 
         obj
     }
@@ -283,13 +362,14 @@ impl ActivityViewer {
     pub fn load_data(&self, data: &SlideManagerData) {
         let imp = self.imp();
         let sm = imp.slide_manager.borrow();
+        imp.slide_manager_data.replace(data.clone());
 
         let listview = imp.listview.borrow();
         let Some(model) = listview.model() else {
             return;
         };
 
-        sm.set_title(data.title.clone());
+        // sm.set_title(data.title.clone());
         imp.title_label
             .borrow()
             .set_label(&format!("{} - {}", imp.title.borrow(), data.title));
@@ -310,6 +390,12 @@ impl ActivityViewer {
 
             listview.append_item(slide);
         }
+
+        imp.slide_manager_data
+            .borrow_mut()
+            .slides
+            .iter_mut()
+            .for_each(|v| v.canvas_data.background_pattern = Some(self.background_image()));
         // sm.set_current_slide(sm.slides().get(data.current_slide as usize));
 
         if model.n_items() > 0 {
@@ -336,8 +422,13 @@ impl ActivityViewer {
     }
 
     pub fn emit_activate_slide(&self) {
-        let slide_data = self.imp().slide_manager.borrow().serialise();
-        self.emit_by_name::<()>(signals::ACTIVATE_SLIDE, &[&slide_data]);
+        // NOTE: Emit "slide_manager_data" instead serializing `slide_manager`
+        // The canvas may apply layout changes that do not relefect in the
+        // original slide data, so serializing could produce different results
+        let curr = self.imp().slide_manager.borrow().serialise().current_slide;
+        let mut slide_data = self.imp().slide_manager_data.borrow_mut();
+        slide_data.current_slide = curr;
+        self.emit_by_name::<()>(signals::ACTIVATE_SLIDE, &[&slide_data.clone()]);
     }
 
     pub fn connect_slide_change<F: Fn(&Self, u32) + 'static>(&self, f: F) -> glib::SignalHandlerId {
@@ -360,6 +451,10 @@ impl ActivityViewer {
 
         if sm.slides().is_empty() {
             let slide = sm.make_new_slide();
+            imp.slide_manager_data
+                .borrow_mut()
+                .slides
+                .push(slide.serialise());
             self.imp().listview.borrow().append_item(&slide);
         }
 
@@ -370,6 +465,12 @@ impl ActivityViewer {
             canvas.set_background_pattern(self.background_image());
             canvas.style();
         }
+
+        imp.slide_manager_data
+            .borrow_mut()
+            .slides
+            .iter_mut()
+            .for_each(|v| v.canvas_data.background_pattern = Some(self.background_image()));
     }
 
     pub fn clear_display(&self, clear: bool) {

@@ -18,11 +18,6 @@ mod utils;
 mod widgets;
 
 fn main() {
-    // let p = parser::parser::Parser::parse(
-    //     "Let it shine John 3:2,5; 1 Peter 2:3-10; John 1:1-3,5,7-10".into(),
-    // );
-    // println!("{:?}", p);
-
     app::run();
     // notepad::init_app();
 }

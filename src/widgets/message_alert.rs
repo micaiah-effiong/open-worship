@@ -85,10 +85,6 @@ mod imp {
 
     #[glib::derived_properties]
     impl ObjectImpl for MessageAlert {
-        fn constructed(&self) {
-            self.parent_constructed();
-        }
-
         fn signals() -> &'static [glib::subclass::Signal] {
             static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
             SIGNALS.get_or_init(|| {

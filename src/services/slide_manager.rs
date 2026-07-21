@@ -458,6 +458,8 @@ impl SlideManager {
             return;
         };
 
+        self.set_title(data.title);
+
         for slide_object in &data.slides {
             let s = self.new_slide(Some(slide_object.clone()), false);
             s.load_slide();

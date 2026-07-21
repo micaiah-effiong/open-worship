@@ -120,74 +120,79 @@
                     <property name="homogeneous">true</property>
                     <property name="orientation">horizontal</property>
 
-                    <!--pane1-->
                     <child>
                       <object class="GtkPaned">
-                        <property name="orientation">horizontal</property>
+                        <property name="orientation">vertical</property>
+                        <property name="wide_handle">true</property>
 
-                        <!--settings this to "true" will throw some gtk warnings-->
-                        <property name="shrink_start_child">false</property> 
-                        <property name="shrink_end_child">false</property>
-
+                        <!--pane1-->
                         <property name="start_child">
-                          <object class="GtkBox">
-                            <property name="homogeneous">true</property>
-                            <property name="orientation">vertical</property>
-                            <property name="vexpand">true</property>
-                            <!-- <property name="width_request">300</property> -->
+                          <object class="GtkPaned">
+                            <property name="orientation">horizontal</property>
 
-                            <child>
-                              <object class="GtkPaned">
+                            <!--settings this to "true" will throw some gtk warnings-->
+                            <property name="shrink_start_child">true</property> 
+                            <property name="shrink_end_child">false</property>
+                            <property name="position">300</property> 
+
+                            <property name="start_child">
+                              <object class="GtkBox">
+                                <property name="hexpand">true</property>
                                 <property name="orientation">vertical</property>
-                                <property name="shrink_start_child">false</property>
-                                <property name="shrink_end_child">false</property>
 
-                                <property name="start_child">
+                                <child>
                                   <object class="ScheduleActivityViewer" id="schedule_viewer">
                                     <signal name="activate" handler="handle_activate_schedule" swapped="true"/>
-
                                   </object>
-                                </property>
-
-                                <!-- search viewer -->
-                                <property name="end_child">
-                                  <object class="SearchActivityViewer" id="search_viewer">
-                                    <signal name="preview-slides" handler="handle_search_preview_slides" swapped="true"/>
-                                    <signal name="preview-background" handler="handle_search_preview_background" swapped="true"/>
-                                    <signal name="add-to-schedule" handler="handle_search_add_to_schedule" swapped="true"/>
-                                  </object>
-                                </property>
-
+                                </child>
                               </object>
-                            </child>
+                            </property>
+
+
+                            <property name="end_child">
+                              <object class="GtkBox">
+                                <property name="hexpand">true</property>
+                                <child>
+                                  <object class="GtkPaned">
+                                    <property name="orientation">horizontal</property>
+                                    <property name="shrink_start_child">true</property>
+                                    <property name="shrink_end_child">true</property>
+
+                                    <!-- preview -->
+                                    <property name="start_child">
+                                      <object class="ActivityViewer" id="preview_viewer">
+                                        <signal name="activate-slide" handler="handle_preview_activate_slide" swapped="true"/>
+                                        <property name="title">Preview</property>
+                                      </object>
+                                    </property>
+
+                                    <!-- live -->
+                                    <property name="end_child">
+                                      <object class="ActivityViewer" id="live_viewer">
+                                        <property name="title">Live</property>
+                                      </object>
+                                    </property>
+                                  </object>
+                                </child>
+                              </object>
+                            </property>
 
                           </object>
                         </property>
+
 
 
                         <property name="end_child">
-                          <object class="GtkPaned">
-                            <property name="orientation">horizontal</property>
-                            <property name="shrink_start_child">false</property>
-                            <property name="shrink_end_child">false</property>
-
-                            <!-- preview -->
-                            <property name="start_child">
-                              <object class="ActivityViewer" id="preview_viewer">
-                                <signal name="activate-slide" handler="handle_preview_activate_slide" swapped="true"/>
-                                <property name="title">Preview</property>
+                          <object class="GtkBox">
+                            <child >
+                              <object class="SearchActivityViewer" id="search_viewer">
+                                <signal name="preview-slides" handler="handle_search_preview_slides" swapped="true"/>
+                                <signal name="preview-background" handler="handle_search_preview_background" swapped="true"/>
+                                <signal name="add-to-schedule" handler="handle_search_add_to_schedule" swapped="true"/>
                               </object>
-                            </property>
-
-                            <!-- live -->
-                            <property name="end_child">
-                              <object class="ActivityViewer" id="live_viewer">
-                                <property name="title">Live</property>
-                              </object>
-                            </property>
+                            </child>
                           </object>
                         </property>
-
                       </object>
                     </child>
 
