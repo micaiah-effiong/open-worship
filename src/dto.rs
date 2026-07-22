@@ -1,5 +1,5 @@
-use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
+use gtk::{glib, pango};
 
 use crate::{
     services::settings::ApplicationSettings,
@@ -135,32 +135,35 @@ impl From<SongObject> for SongData {
     }
 }
 
-impl Into<SlideManagerData> for SongObject {
-    fn into(self) -> SlideManagerData {
+impl From<SongObject> for SlideManagerData {
+    fn from(value: SongObject) -> Self {
         let settings = ApplicationSettings::get_instance();
-        let slide_list = self
+        let slide_list = value
             .verses()
             .into_iter()
             .map(|s| {
-                let mut s = s
-                    .slide
-                    .as_ref()
-                    .and_then(|val| serde_json::from_str(val).ok())
-                    .unwrap_or_else(SlideData::from_default);
-                for v in &mut s.items {
-                    match &mut v.item_type {
+                let lyrics = format!(r#"<span weight="700">{}</span>"#, s.text);
+
+                let lyrics64 = glib::base64_encode(lyrics.as_bytes());
+                let mut slide = SlideData::from_default();
+
+                match slide.items.iter_mut().next() {
+                    Some(val) => match &mut val.item_type {
                         CanvasItemType::Text(text_item_data) => {
+                            text_item_data.text_data = lyrics64.into();
                             text_item_data.font = settings.song_font();
                         }
-                        _ => (),
-                    };
-                }
-                s
+                        _ => {}
+                    },
+                    None => todo!(),
+                };
+
+                slide
             })
             .collect::<Vec<_>>();
 
         let mut sm_data = SlideManagerData::new(0, 0, slide_list);
-        sm_data.title = self.title();
+        sm_data.title = value.title();
         sm_data
     }
 }
@@ -184,11 +187,14 @@ impl From<SlideManagerData> for SongObject {
                             text_item.text_data = "".into();
                             let slide_data = (*slide != SlideData::from_default())
                                 .then_some(serde_json::to_string(&slide).ok().unwrap_or_default());
-                            let song_verse = SongVerse::new(
-                                String::from_utf8(b64).unwrap_or_default(),
-                                None,
-                                slide_data,
-                            );
+
+                            let text = String::from_utf8(b64).unwrap_or_default();
+                            let text = match pango::parse_markup(&text, '0') {
+                                Ok(s) => s.1.into(),
+                                Err(e) => panic!("expected string: {:?}", e),
+                            };
+
+                            let song_verse = SongVerse::new(text, None, slide_data);
                             return Some(song_verse);
                         }
                         _ => continue,
