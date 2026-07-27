@@ -24,8 +24,9 @@ mod imp {
     use std::{cell::RefCell, sync::OnceLock};
 
     use crate::{
-        utils::WidgetChildrenExt,
-        widgets::{canvas::serialise::SlideManagerData, search::songs::edit_modal::SongEditWindow},
+        application_window::MainApplicationWindow,
+        utils::{WidgetChildrenExt, WidgetExtrasExt},
+        widgets::{canvas::serialise::SlideManagerData, editor::Editor},
     };
 
     use super::*;
@@ -175,22 +176,43 @@ mod imp {
             add_action.connect_activate(glib::clone!(
                 #[strong]
                 listview,
+                #[weak(rename_to=imp)]
+                self,
                 move |_sa, _v| {
-                    let edit_window = SongEditWindow::new(None);
-                    let listview = listview.clone();
-                    edit_window.connect_save(move |_, smd| {
-                        let schedule_data: ScheduleData = smd.clone().into();
-                        listview.append_item(&schedule_data);
-                    });
+                    let Some(win) = imp
+                        .obj()
+                        .toplevel_window()
+                        .and_downcast::<MainApplicationWindow>()
+                    else {
+                        return;
+                    };
 
-                    edit_window.show(None);
+                    let editor = win.open_editor(None, None);
+                    editor.connect_save(glib::clone!(
+                        #[strong]
+                        listview,
+                        move |_, smd| {
+                            let schedule_data: ScheduleData = smd.clone().into();
+                            listview.append_item(&schedule_data);
+                        }
+                    ));
                 }
             ));
             let edit_action = SimpleAction::new("edit_item", None);
             edit_action.connect_activate(clone!(
                 #[strong]
                 listview,
+                #[weak(rename_to=obj)]
+                self,
                 move |_sa, _v| {
+                    let Some(win) = obj
+                        .obj()
+                        .toplevel_window()
+                        .and_downcast::<MainApplicationWindow>()
+                    else {
+                        return;
+                    };
+
                     let model = listview
                         .model()
                         .and_downcast::<gtk::SingleSelection>()
@@ -200,9 +222,8 @@ mod imp {
                         return;
                     };
 
-                    let edit_window = SongEditWindow::new(None);
-
-                    edit_window.connect_save(glib::clone!(
+                    let editor = win.open_editor(None, Some(item.slide_data()));
+                    editor.connect_save(glib::clone!(
                         #[strong]
                         item,
                         move |_, smd| {
@@ -212,8 +233,6 @@ mod imp {
                             item.set_slide_data(smd);
                         }
                     ));
-
-                    edit_window.show(Some(item.slide_data()));
                 }
             ));
             let remove_action = SimpleAction::new("remove_item", None);

@@ -6,218 +6,240 @@
     <property name="maximized">true</property>
     <property name="title">Openworship</property>
     <property name="content">
+
       <object class="AdwToolbarView">
         <child type="top">
-          <object class="AdwHeaderBar">
-
-          </object>
+          <object class="AdwHeaderBar"/>
         </child>
 
         <property name="content">
-          <object class="GtkBox" id="window_box">
-            <property name="orientation">vertical</property>
+          <object class="GtkStack" id="stack">
 
-            <!--header box-->
             <child>
-              <object class="GtkBox">
-                <property name="orientation">horizontal</property>
-                <property name="margin_start">12</property>
-                <property name="margin_end">12</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
+              <object class="GtkStackPage">
+                <property name="name">main</property>
+                <property name="child">
+                  <object class="GtkBox" id="window_box">
+                    <property name="orientation">vertical</property>
 
-                <child>
-                  <object class="GtkBox">
-                    <property name="hexpand">true</property>
-                  </object>
-                </child>
-
-                <child>
-                  <object class="GtkBox">
-                    <property name="spacing">5</property>
-
+                    <!--header box-->
                     <child>
-                      <object class="GtkMenuButton" id="alert_btn">
-                        <!-- <signal name="clicked" handler="handle_open_alert" swapped="true"/> -->
-
-                        <property name="popover">
-                          <object class="GtkPopover" id="alert_popover">
-                            <property name="autohide">false</property>
-                          </object>
-                        </property>
+                      <object class="GtkBox">
+                        <property name="orientation">horizontal</property>
+                        <property name="margin_start">12</property>
+                        <property name="margin_end">12</property>
+                        <property name="margin_top">3</property>
+                        <property name="margin_bottom">3</property>
 
                         <child>
-                          <object class="GtkLabel">
-                            <property name="label">Alert</property>
-                          </object>
-                        </child>
-
-                      </object>
-                    </child>
-
-                    <child>
-                      <object class="GtkButton">
-                        <signal name="clicked" handler="handle_go_live" swapped="true"/>
-                        <style>
-                          <class name="flat"/>
-                        </style>
-
-                        <child>
-                          <object class="GtkLabel">
-                            <property name="label">Go live</property>
-                          </object>
-                        </child>
-
-                      </object>
-                    </child>
-
-                    <child>
-                      <object class="GtkToggleButton">
-                        <property name="label">Clear</property>
-                        <signal name="toggled" handler="handle_clear_live" swapped="true"/>
-
-                        <style>
-                          <class name="flat" />
-                        </style>
-                      </object>
-                    </child>
-
-                    <child>
-                      <object class="GtkToggleButton">
-                        <property name="label">Live</property>
-                        <property name="active">true</property>
-                        <signal name="toggled" handler="handle_toggle_live" swapped="true"/>
-
-                        <style>
-                          <class name="flat" />
-                        </style>
-                      </object>
-                    </child>
-
-                  </object>
-                </child>
-
-
-              </object>
-            </child>
-
-            <child>
-              <object class="GtkSeparator"></object>
-            </child>
-
-            <!--body-->
-            <child>
-              <object class="GtkBox">
-                <property name="margin_start">12</property>
-                <property name="margin_end">12</property>
-                <property name="margin_top">3</property>
-                <property name="margin_bottom">3</property>
-                <property name="orientation">vertical</property>
-
-                <child>
-                  <object class="GtkBox">
-                    <property name="hexpand">true</property>
-                    <property name="vexpand">true</property>
-                    <property name="homogeneous">true</property>
-                    <property name="orientation">horizontal</property>
-
-                    <child>
-                      <object class="GtkPaned">
-                        <property name="orientation">vertical</property>
-                        <property name="wide_handle">true</property>
-
-                        <!--pane1-->
-                        <property name="start_child">
-                          <object class="GtkPaned">
-                            <property name="orientation">horizontal</property>
-
-                            <!--settings this to "true" will throw some gtk warnings-->
-                            <property name="shrink_start_child">true</property> 
-                            <property name="shrink_end_child">false</property>
-                            <property name="position">300</property> 
-
-                            <property name="start_child">
-                              <object class="GtkBox">
-                                <property name="hexpand">true</property>
-                                <property name="orientation">vertical</property>
-
-                                <child>
-                                  <object class="ScheduleActivityViewer" id="schedule_viewer">
-                                    <signal name="activate" handler="handle_activate_schedule" swapped="true"/>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-
-
-                            <property name="end_child">
-                              <object class="GtkBox">
-                                <property name="hexpand">true</property>
-                                <child>
-                                  <object class="GtkPaned">
-                                    <property name="orientation">horizontal</property>
-                                    <property name="shrink_start_child">true</property>
-                                    <property name="shrink_end_child">true</property>
-
-                                    <!-- preview -->
-                                    <property name="start_child">
-                                      <object class="ActivityViewer" id="preview_viewer">
-                                        <signal name="activate-slide" handler="handle_preview_activate_slide" swapped="true"/>
-                                        <property name="title">Preview</property>
-                                      </object>
-                                    </property>
-
-                                    <!-- live -->
-                                    <property name="end_child">
-                                      <object class="ActivityViewer" id="live_viewer">
-                                        <property name="title">Live</property>
-                                      </object>
-                                    </property>
-                                  </object>
-                                </child>
-                              </object>
-                            </property>
-
-                          </object>
-                        </property>
-
-
-
-                        <property name="end_child">
                           <object class="GtkBox">
-                            <child >
-                              <object class="SearchActivityViewer" id="search_viewer">
-                                <signal name="preview-slides" handler="handle_search_preview_slides" swapped="true"/>
-                                <signal name="preview-background" handler="handle_search_preview_background" swapped="true"/>
-                                <signal name="add-to-schedule" handler="handle_search_add_to_schedule" swapped="true"/>
+                            <property name="hexpand">true</property>
+                          </object>
+                        </child>
+
+                        <child>
+                          <object class="GtkBox">
+                            <property name="spacing">5</property>
+
+                            <child>
+                              <object class="GtkMenuButton" id="alert_btn">
+                                <!-- <signal name="clicked" handler="handle_open_alert" swapped="true"/> -->
+
+                                <property name="popover">
+                                  <object class="GtkPopover" id="alert_popover">
+                                    <property name="autohide">false</property>
+                                  </object>
+                                </property>
+
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="label">Alert</property>
+                                  </object>
+                                </child>
+
                               </object>
                             </child>
+
+                            <child>
+                              <object class="GtkButton">
+                                <signal name="clicked" handler="handle_go_live" swapped="true"/>
+                                <style>
+                                  <class name="flat"/>
+                                </style>
+
+                                <child>
+                                  <object class="GtkLabel">
+                                    <property name="label">Go live</property>
+                                  </object>
+                                </child>
+
+                              </object>
+                            </child>
+
+                            <child>
+                              <object class="GtkToggleButton">
+                                <property name="label">Clear</property>
+                                <signal name="toggled" handler="handle_clear_live" swapped="true"/>
+
+                                <style>
+                                  <class name="flat" />
+                                </style>
+                              </object>
+                            </child>
+
+                            <child>
+                              <object class="GtkToggleButton">
+                                <property name="label">Live</property>
+                                <property name="active">true</property>
+                                <signal name="toggled" handler="handle_toggle_live" swapped="true"/>
+
+                                <style>
+                                  <class name="flat" />
+                                </style>
+                              </object>
+                            </child>
+
                           </object>
-                        </property>
+                        </child>
+
+
+                      </object>
+                    </child>
+
+                    <child>
+                      <object class="GtkSeparator"></object>
+                    </child>
+
+                    <!--body-->
+                    <child>
+                      <object class="GtkBox">
+                        <property name="margin_start">12</property>
+                        <property name="margin_end">12</property>
+                        <property name="margin_top">3</property>
+                        <property name="margin_bottom">3</property>
+                        <property name="orientation">vertical</property>
+
+                        <child>
+                          <object class="GtkBox">
+                            <property name="hexpand">true</property>
+                            <property name="vexpand">true</property>
+                            <property name="homogeneous">true</property>
+                            <property name="orientation">horizontal</property>
+
+                            <child>
+                              <object class="GtkPaned">
+                                <property name="orientation">vertical</property>
+                                <property name="wide_handle">true</property>
+
+                                <!--pane1-->
+                                <property name="start_child">
+                                  <object class="GtkPaned">
+                                    <property name="orientation">horizontal</property>
+
+                                    <!--settings this to "true" will throw some gtk warnings-->
+                                    <property name="shrink_start_child">true</property> 
+                                    <property name="shrink_end_child">false</property>
+                                    <property name="position">300</property> 
+
+                                    <property name="start_child">
+                                      <object class="GtkBox">
+                                        <property name="hexpand">true</property>
+                                        <property name="orientation">vertical</property>
+
+                                        <child>
+                                          <object class="ScheduleActivityViewer" id="schedule_viewer">
+                                            <signal name="activate" handler="handle_activate_schedule" swapped="true"/>
+                                          </object>
+                                        </child>
+                                      </object>
+                                    </property>
+
+
+                                    <property name="end_child">
+                                      <object class="GtkBox">
+                                        <property name="hexpand">true</property>
+                                        <child>
+                                          <object class="GtkPaned">
+                                            <property name="orientation">horizontal</property>
+                                            <property name="shrink_start_child">true</property>
+                                            <property name="shrink_end_child">true</property>
+
+                                            <!-- preview -->
+                                            <property name="start_child">
+                                              <object class="ActivityViewer" id="preview_viewer">
+                                                <signal name="activate-slide" handler="handle_preview_activate_slide" swapped="true"/>
+                                                <property name="title">Preview</property>
+                                              </object>
+                                            </property>
+
+                                            <!-- live -->
+                                            <property name="end_child">
+                                              <object class="ActivityViewer" id="live_viewer">
+                                                <property name="title">Live</property>
+                                              </object>
+                                            </property>
+                                          </object>
+                                        </child>
+                                      </object>
+                                    </property>
+
+                                  </object>
+                                </property>
+
+                                <property name="end_child">
+                                  <object class="GtkBox">
+                                    <child >
+                                      <object class="SearchActivityViewer" id="search_viewer">
+                                        <signal name="preview-slides" handler="handle_search_preview_slides" swapped="true"/>
+                                        <signal name="preview-background" handler="handle_search_preview_background" swapped="true"/>
+                                        <signal name="add-to-schedule" handler="handle_search_add_to_schedule" swapped="true"/>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </property>
+                              </object>
+                            </child>
+
+                          </object>
+                        </child>
+
+                      </object>
+                    </child>
+
+                    <!-- footer -->
+                    <child>
+                      <object class="GtkBox">
+                        <property name="margin_end">12</property>
+                        <property name="orientation">vertical</property>
+
+                        <child>
+                          <object class="GtkLabel">
+                            <property name="label"></property>
+                          </object>
+                        </child>
                       </object>
                     </child>
 
                   </object>
-                </child>
-
+                </property>
               </object>
             </child>
 
-            <!-- footer -->
             <child>
-              <object class="GtkBox">
-                <property name="margin_end">12</property>
-                <property name="orientation">vertical</property>
-
-                <child>
-                  <object class="GtkLabel">
-                    <property name="label"></property>
+              <object class="GtkStackPage">
+                <property name="name">editor</property>
+                <property name="child">
+                  <object class="AdwToolbarView">
+                    <property name="content">
+                      <object class="GtkBox" id="editor_view"></object>
+                    </property>
                   </object>
-                </child>
+                </property>
               </object>
             </child>
-
           </object>
+
+
         </property>
       </object>
     </property>

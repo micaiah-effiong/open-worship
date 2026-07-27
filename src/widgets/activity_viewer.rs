@@ -272,9 +272,13 @@ mod imp {
                 .shrink_start_child(true)
                 .start_child(&list_viewer)
                 .wide_handle(true)
-                .position(300)
                 .end_child(&screen)
                 .build();
+
+            #[cfg(target_os = "macos")]
+            paned.set_position(300);
+            #[cfg(not(target_os = "macos"))]
+            paned.set_position(350);
 
             obj.append(&paned);
 

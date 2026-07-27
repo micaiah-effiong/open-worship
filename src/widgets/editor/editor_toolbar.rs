@@ -5,7 +5,7 @@ use gtk::{
 
 use crate::{
     services::slide_manager::SlideManager,
-    widgets::search::songs::toolbar::{canvas_toolbar::CanvasToolbar, text_toolbar::TextToolbar},
+    widgets::editor::{canvas_toolbar::CanvasToolbar, text_toolbar::TextToolbar},
 };
 
 mod imp {
@@ -22,35 +22,35 @@ mod imp {
     use crate::services::slide_manager::SlideManager;
 
     #[derive(Debug, Default)]
-    pub struct SongEditorToolbar {
+    pub struct EditorToolbar {
         pub slide_manager: RefCell<SlideManager>,
     }
 
     #[glib::object_subclass]
-    impl ObjectSubclass for SongEditorToolbar {
-        const NAME: &'static str = "SongEditorToolbar";
-        type Type = super::SongEditorToolbar;
+    impl ObjectSubclass for EditorToolbar {
+        const NAME: &'static str = "EditorToolbar";
+        type Type = super::EditorToolbar;
         type ParentType = gtk::Box;
     }
 
-    impl ObjectImpl for SongEditorToolbar {}
-    impl WidgetImpl for SongEditorToolbar {}
-    impl BoxImpl for SongEditorToolbar {}
+    impl ObjectImpl for EditorToolbar {}
+    impl WidgetImpl for EditorToolbar {}
+    impl BoxImpl for EditorToolbar {}
 }
 
 glib::wrapper! {
-    pub struct SongEditorToolbar(ObjectSubclass<imp::SongEditorToolbar>)
+    pub struct EditorToolbar(ObjectSubclass<imp::EditorToolbar>)
         @extends  gtk::Box, gtk::Widget,
         @implements gtk::Accessible, gtk::Orientable, gtk::Buildable, gtk::ConstraintTarget;
 }
 
-impl Default for SongEditorToolbar {
+impl Default for EditorToolbar {
     fn default() -> Self {
         glib::Object::new()
     }
 }
 
-impl SongEditorToolbar {
+impl EditorToolbar {
     pub fn new(slide_manager: &SlideManager) -> Self {
         let obj: Self = glib::Object::new();
         obj.imp().slide_manager.replace(slide_manager.clone());

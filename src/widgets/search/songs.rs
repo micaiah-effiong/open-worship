@@ -1,9 +1,7 @@
-pub mod edit_modal;
-mod list_item;
-mod toolbar;
-
 use gtk::glib;
 use gtk::prelude::*;
+
+mod song_list_item;
 
 use crate::widgets::canvas::serialise::SlideManagerData;
 
@@ -54,17 +52,14 @@ mod imp {
 
     use crate::{
         application::OwApplication,
+        application_window::MainApplicationWindow,
         db::query::Query,
         dto::SongObject,
         utils::{ListViewExtra, WidgetExtrasExt},
         widgets::{
             canvas::serialise::SlideManagerData,
-            search::songs::{
-                SearchMode,
-                edit_modal::{EditorType, SongEditWindow},
-                list_item::SongListItem,
-                signals,
-            },
+            editor::EditorType,
+            search::songs::{SearchMode, signals, song_list_item::SongListItem},
         },
     };
 
@@ -229,7 +224,7 @@ mod imp {
             add_song_action.connect_activate(glib::clone!(
                 #[weak(rename_to=imp)]
                 self,
-                move |_sa, _v| imp.open_edit_modal(None)
+                move |_sa, _v| imp.open_editor(None)
             ));
 
             let edit_action = gio::SimpleAction::new("edit", None);
@@ -247,7 +242,7 @@ mod imp {
                         return;
                     };
 
-                    imp.open_edit_modal(Some(song_list_item));
+                    imp.open_editor(Some(song_list_item));
                 }
             ));
 
@@ -457,9 +452,17 @@ mod imp {
             ));
         }
 
-        fn open_edit_modal(&self, song: Option<SongObject>) {
-            let edit_window = SongEditWindow::new(Some(EditorType::Song));
+        fn open_editor(&self, song: Option<SongObject>) {
+            let Some(win) = self
+                .obj()
+                .toplevel_window()
+                .and_downcast::<MainApplicationWindow>()
+            else {
+                return;
+            };
+
             let song_id = song.clone().map(|v| v.song_id()).unwrap_or_default();
+            let edit_window = win.open_editor(Some(EditorType::Song), song.map(SongObject::into));
 
             edit_window.connect_save(glib::clone!(
                 #[weak(rename_to=imp)]
@@ -482,7 +485,6 @@ mod imp {
                     imp.reload_song_list();
                 }
             ));
-            edit_window.show(song.map(SongObject::into));
         }
         fn reload_song_list(&self) {
             let songs = Query::search_songs("", true);

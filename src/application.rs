@@ -21,10 +21,7 @@ use crate::{
     config,
     db::query::Query,
     services::{file_manager::FileManager, openlyrics},
-    widgets::{
-        search::songs::edit_modal::{EditorType, SongEditWindow},
-        settings_window::SettingsWindow,
-    },
+    widgets::{editor::EditorType, settings_window::SettingsWindow},
 };
 
 mod signal {
@@ -267,10 +264,15 @@ impl OwApplication {
 
         // FILE
         let add_song_action = gtk::gio::ActionEntry::builder("add-song")
-            .activate(|_, _, _| {
-                let win = SongEditWindow::new(Some(EditorType::Song));
-                win.show(None);
-            })
+            .activate(glib::clone!(
+                #[weak(rename_to=obj)]
+                self,
+                move |_, _, _| {
+                    let win = obj.main_window();
+                    win.open_editor(Some(EditorType::Song), None);
+                    unimplemented!("saving songs has not been added here yet")
+                }
+            ))
             .build();
 
         let open = gio::ActionEntry::builder("open")

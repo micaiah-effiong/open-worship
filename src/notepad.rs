@@ -39,7 +39,6 @@ use crate::widgets::message_alert_editor::MessageAlertEditor;
 use crate::widgets::message_alert_editor_window::MessageAlertEditorWindow;
 use crate::widgets::message_alert_viewer::MessageAlertViewer;
 use crate::widgets::message_alert_wrapper::MessageAlertWapper;
-use crate::widgets::search::songs::edit_modal::SongEditWindow;
 use crate::widgets::settings_window::SettingsWindow;
 use crate::widgets::{self, canvas, search};
 
@@ -84,7 +83,6 @@ pub fn init_app() {
     app.connect_activate(|app| {
         {
             // let win = SettingsWindow::new();
-            // let win = SongEditWindow::new();
             // app.add_window(&win);
             // win.show(None);
         }

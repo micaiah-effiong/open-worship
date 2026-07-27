@@ -1,5 +1,6 @@
 pub mod activity_viewer;
 pub mod canvas;
+pub mod editor;
 pub mod entry_combo;
 pub mod extended_screen;
 pub mod group_toggle_button;

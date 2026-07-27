@@ -56,12 +56,10 @@ mod imp {
 
     use super::*;
     use crate::{
+        application_window::MainApplicationWindow,
         db::query::Query,
-        utils::ListViewExtra,
-        widgets::search::{
-            presentation::presentation_listitem::PresentationListItem,
-            songs::edit_modal::SongEditWindow,
-        },
+        utils::{ListViewExtra, WidgetExtrasExt},
+        widgets::search::presentation::presentation_listitem::PresentationListItem,
     };
 
     #[derive(Default, Debug, gtk::CompositeTemplate)]
@@ -392,8 +390,16 @@ mod imp {
 
         fn open_editor(&self, initial_data: Option<PresentationObj>) {
             let slide_data = initial_data.as_ref().map(|v| v.data());
-            let edit_window = SongEditWindow::new(None);
+
             let obj = self.obj().clone();
+            let Some(window) = obj
+                .toplevel_window()
+                .and_downcast::<MainApplicationWindow>()
+            else {
+                return;
+            };
+
+            let edit_window = window.open_editor(None, slide_data);
 
             edit_window.connect_save(glib::clone!(
                 #[weak]
@@ -418,7 +424,7 @@ mod imp {
                 }
             ));
 
-            edit_window.show(slide_data);
+            // edit_window.show(slide_data);
         }
 
         fn load_presentation(&self) {

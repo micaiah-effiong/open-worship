@@ -1,9 +1,16 @@
 use gtk::gio;
 use gtk::glib;
+use gtk::glib::object::CastNone;
+use gtk::glib::subclass::types::ObjectSubclassIsExt;
+use gtk::prelude::BoxExt;
 use gtk::prelude::GtkWindowExt;
+use gtk::prelude::WidgetExt;
+
+use crate::widgets::canvas::serialise::SlideManagerData;
+use crate::widgets::editor::{Editor, EditorType};
 
 mod imp {
-    use std::cell::RefCell;
+    use std::{cell::RefCell, sync::OnceLock};
 
     use adw::subclass::prelude::AdwApplicationWindowImpl;
     use gtk::{
@@ -13,6 +20,7 @@ mod imp {
             self, Properties,
             object::{Cast, CastNone},
             subclass::{
+                Signal,
                 object::{ObjectImpl, ObjectImplExt},
                 types::ObjectSubclass,
             },
@@ -32,7 +40,7 @@ mod imp {
     use crate::{
         services::message_alert_manager::MessageAlertManager,
         widgets::{
-            activity_viewer::ActivityViewer, canvas::serialise::SlideManagerData,
+            activity_viewer::ActivityViewer, canvas::serialise::SlideManagerData, editor::Editor,
             extended_screen::ExtendedScreen, message_alert_viewer::MessageAlertViewer,
             schedule_activity_viewer::ScheduleActivityViewer, search::SearchActivityViewer,
         },
@@ -67,6 +75,10 @@ mod imp {
         alert_popover: gtk::TemplateChild<gtk::Popover>,
         #[template_child]
         alert_btn: gtk::TemplateChild<gtk::MenuButton>,
+        #[template_child]
+        pub(super) stack: gtk::TemplateChild<gtk::Stack>,
+        #[template_child]
+        pub(super) editor_view: gtk::TemplateChild<gtk::Box>,
 
         //
         #[property(get)]
@@ -89,6 +101,7 @@ mod imp {
             ScheduleActivityViewer::ensure_type();
             ActivityViewer::ensure_type();
             MessageAlertViewer::ensure_type();
+            Editor::ensure_type();
 
             klass.bind_template();
             klass.bind_template_callbacks();
@@ -100,6 +113,12 @@ mod imp {
 
     #[glib::derived_properties]
     impl ObjectImpl for MainApplicationWindow {
+        fn signals() -> &'static [Signal] {
+            static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
+
+            SIGNALS.get_or_init(|| Vec::from([]))
+        }
+
         fn constructed(&self) {
             self.parent_constructed();
 
@@ -142,6 +161,15 @@ mod imp {
     impl MainApplicationWindow {
         #[template_callback]
         fn handle_close_request(&self, w: &gtk::ApplicationWindow) -> glib::Propagation {
+            if let Some(name) = self.stack.visible_child_name()
+                && name == "editor"
+            {
+                if let Some(editor) = self.editor_view.first_child().and_downcast::<Editor>() {
+                    editor.cancel_reponse();
+                    return glib::Propagation::Stop;
+                };
+            };
+
             if let Some(app) = w.application() {
                 app.quit();
             };
@@ -263,5 +291,33 @@ impl MainApplicationWindow {
     pub fn show_all(&self) {
         self.present();
         self.extended_screen().present();
+    }
+}
+
+impl MainApplicationWindow {
+    pub fn open_editor(
+        &self,
+        editor_type: Option<EditorType>,
+        data: Option<SlideManagerData>,
+    ) -> Editor {
+        let imp = self.imp();
+        let stack = imp.stack.clone();
+        if let Some(editor) = stack.child_by_name("editor").and_downcast::<Editor>() {
+            stack.remove(&editor);
+            editor.unparent();
+        };
+
+        let editor = Editor::new(self.clone(), editor_type, data);
+        imp.editor_view.append(&editor);
+        stack.set_visible_child_name("editor");
+
+        editor
+    }
+
+    pub fn close_editor(&self, editor: Editor) {
+        let stack = self.imp().stack.clone();
+        stack.set_visible_child_name("main");
+        self.imp().editor_view.remove(&editor);
+        editor.unparent();
     }
 }
