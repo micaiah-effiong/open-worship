@@ -24,7 +24,7 @@ mod imp {
     use std::usize;
 
     use super::*;
-    use crate::utils::WidgetChildrenExt;
+    use crate::utils::{WidgetChildrenExt, WidgetExtrasExt};
     use crate::widgets::canvas::canvas_grid::CanvasGrid;
     use crate::widgets::canvas::canvas_item::CanvasItem;
     use crate::widgets::canvas::serialise::CanvasData;
@@ -111,6 +111,7 @@ mod imp {
             overlay.add_overlay(&gtk::Label::builder().sensitive(false).build());
             overlay.set_child_visible(true);
             overlay.add_css_class("canvas");
+            overlay.set_expand(true);
 
             {
                 let hr = self.hr.borrow().clone();

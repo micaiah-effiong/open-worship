@@ -205,6 +205,7 @@ mod imp {
                 let base = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
                     .hexpand(true)
+                    .vexpand(true)
                     // .height_request(super::MIN_GRID_HEIGHT)
                     .build();
 
@@ -222,80 +223,38 @@ mod imp {
             };
 
             let screen = {
-                // let layout = gtk::ConstraintLayout::new();
-                // let guide = gtk::ConstraintGuide::new();
-                // guide.set_min_size(200, 200); // min width=50, min height=0 (unconstrained)
-                // guide.set_max_size(200, 200); // max width=200, height uncapped (-1)
-                // guide.set_nat_size(100, -1); // preferred/natural width=100
-                // guide.set_strength(gtk::ConstraintStrength::Strong);
-                // guide.set_name(Some("width_cap_guide")); // for debugging only
-                // layout.add_guide(guide.clone());
-
-                let base = gtk::Box::new(gtk::Orientation::Vertical, 0);
-                base.set_halign(gtk::Align::Center);
+                let base = gtk::Box::builder()
+                    .orientation(gtk::Orientation::Vertical)
+                    .spacing(5)
+                    .halign(gtk::Align::Center)
+                    .valign(gtk::Align::Center)
+                    .build();
 
                 let frame = gtk::Box::builder()
                     // .height_request(super::MIN_GRID_HEIGHT)
                     // .layout_manager(&layout)
-                    .height_request(50)
+                    // .height_request(70)
                     .overflow(gtk::Overflow::Hidden)
                     .build();
 
+                let size = 150;
                 let aspect_frame = gtk::AspectFrame::builder()
                     // .height_request(super::MIN_GRID_HEIGHT)
                     .ratio(AppConfig::aspect_ratio())
                     .obey_child(false)
                     .xalign(0.0)
+                    .width_request(size)
+                    .height_request((size as f32 / AppConfig::aspect_ratio()) as i32)
                     .build();
-                aspect_frame.set_child(Some(&self.slide_manager.borrow().slideshow()));
+                let ov = gtk::Overlay::new();
+                ov.set_child(Some(&gtk::Label::new(None)));
+                ov.add_overlay(&self.slide_manager.borrow().slideshow());
+                aspect_frame.set_child(Some(&ov));
                 aspect_frame.set_parent(&frame);
-
-                // layout.add_constraint(gtk::Constraint::new(
-                //     Some(&aspect_frame),
-                //     gtk::ConstraintAttribute::Width,
-                //     gtk::ConstraintRelation::Eq,
-                //     Some(&guide),
-                //     gtk::ConstraintAttribute::Width,
-                //     1.0,
-                //     0.0,
-                //     gtk::ConstraintStrength::Strong.into_glib(),
-                // ));
-                // layout.add_constraint(gtk::Constraint::new(
-                //     Some(&aspect_frame),
-                //     gtk::ConstraintAttribute::Height,
-                //     gtk::ConstraintRelation::Eq,
-                //     Some(&guide),
-                //     gtk::ConstraintAttribute::Height,
-                //     1.0,
-                //     0.0,
-                //     gtk::ConstraintStrength::Strong.into_glib(),
-                // ));
-                //
-                // layout.add_constraint(gtk::Constraint::new(
-                //     Some(&aspect_frame),
-                //     gtk::ConstraintAttribute::CenterX,
-                //     gtk::ConstraintRelation::Le,
-                //     None::<&gtk::Widget>,
-                //     gtk::ConstraintAttribute::CenterX,
-                //     1.0,
-                //     0.0,
-                //     gtk::ConstraintStrength::Required.into_glib(),
-                // ));
-                // layout.add_constraint(gtk::Constraint::new(
-                //     Some(&aspect_frame),
-                //     gtk::ConstraintAttribute::CenterY,
-                //     gtk::ConstraintRelation::Le,
-                //     None::<&gtk::Widget>,
-                //     gtk::ConstraintAttribute::CenterY,
-                //     1.0,
-                //     0.0,
-                //     gtk::ConstraintStrength::Required.into_glib(),
-                // ));
 
                 let details_box = gtk::Box::builder()
                     .halign(gtk::Align::Center)
                     .hexpand(true)
-                    .vexpand(true)
                     .build();
                 let label = self.info_label.borrow().clone();
 
@@ -313,6 +272,7 @@ mod imp {
                 .shrink_start_child(true)
                 .start_child(&list_viewer)
                 .wide_handle(true)
+                .position(300)
                 .end_child(&screen)
                 .build();
 
@@ -395,7 +355,11 @@ impl ActivityViewer {
             .borrow_mut()
             .slides
             .iter_mut()
-            .for_each(|v| v.canvas_data.background_pattern = Some(self.background_image()));
+            .for_each(|v| {
+                v.canvas_data
+                    .background_pattern
+                    .get_or_insert(self.background_image());
+            });
         // sm.set_current_slide(sm.slides().get(data.current_slide as usize));
 
         if model.n_items() > 0 {
