@@ -1,11 +1,21 @@
 use gtk::glib;
 use serde::{Deserialize, Serialize};
 
-use crate::{app_config::AppConfig, services::settings::ApplicationSettings};
+use crate::services::settings::ApplicationSettings;
 
 pub const MAGIC_HEADER: &[u8] = b"OPW\x01";
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
+#[derive(Default)]
+pub enum SlideType {
+    Song,
+    Bible,
+    Presentation,
+    Media,
+    #[default]
+    __Unknown,
+}
+
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, glib::Boxed)]
 #[boxed_type(name = "TextItemData")]
 pub struct TextItemData {
     #[serde(rename = "text-data")]
@@ -22,13 +32,13 @@ pub struct TextItemData {
     pub text_shadow: bool,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, glib::Boxed)]
 #[boxed_type(name = "ImageItemData")]
 pub struct ImageItemData {
     pub url: String,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq /* Eq */)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq)]
 pub struct CanvasItemData {
     pub x: i32,
     pub y: i32,
@@ -79,7 +89,7 @@ pub enum CanvasItemType {
     Unknown,
 }
 
-#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, glib::Boxed)]
 #[boxed_type(name = "SlideData")]
 #[serde(default)]
 pub struct SlideData {
@@ -139,7 +149,7 @@ impl From<SlideData> for CanvasData {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, /* Eq, */ glib::Boxed)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, glib::Boxed)]
 #[boxed_type(name = "SlideManagerData")]
 #[serde(default)]
 pub struct SlideManagerData {

@@ -40,7 +40,7 @@ pub fn openlyrics_to_song_data(content: &str) -> Option<SongData> {
 
     let song_verses = lyrics
         .iter()
-        .map(|(t, l)| SongVerse::new(l.clone(), Some(t.clone()), None))
+        .map(|(t, l)| SongVerse::new(l.clone(), Some(t.clone())))
         .collect::<Vec<_>>();
     let data = SongData::new(0, title.clone(), song_verses);
 

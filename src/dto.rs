@@ -16,12 +16,11 @@ pub struct SongVerse {
     /// - etc...
     pub tag: Option<String>,
     pub text: String,
-    pub slide: Option<String>,
 }
 
 impl SongVerse {
-    pub fn new(text: String, tag: Option<String>, slide: Option<String>) -> Self {
-        SongVerse { tag, text, slide }
+    pub fn new(text: String, tag: Option<String>) -> Self {
+        SongVerse { tag, text }
     }
 }
 
@@ -90,7 +89,7 @@ impl SongObject {
         let mut verses = Vec::new();
 
         for verse in verse_list {
-            verses.push(SongVerse::new(verse, None, None));
+            verses.push(SongVerse::new(verse, None));
         }
 
         Self::from_verses(title, verses, song_id)
@@ -142,7 +141,7 @@ impl From<SongObject> for SlideManagerData {
             .verses()
             .into_iter()
             .map(|s| {
-                let lyrics = format!(r#"<span weight="700">{}</span>"#, s.text);
+                let lyrics = format!(r#"<span line-height="1.2" weight="700">{}</span>"#, s.text);
 
                 let lyrics64 = glib::base64_encode(lyrics.as_bytes());
                 let mut slide = SlideData::from_default();
@@ -185,8 +184,6 @@ impl From<SlideManagerData> for SongObject {
                         CanvasItemType::Text(text_item) => {
                             let b64 = glib::base64_decode(&text_item.text_data);
                             text_item.text_data = "".into();
-                            let slide_data = (*slide != SlideData::from_default())
-                                .then_some(serde_json::to_string(&slide).ok().unwrap_or_default());
 
                             let text = String::from_utf8(b64).unwrap_or_default();
                             let text = match pango::parse_markup(&text, '0') {
@@ -194,7 +191,7 @@ impl From<SlideManagerData> for SongObject {
                                 Err(e) => panic!("expected string: {:?}", e),
                             };
 
-                            let song_verse = SongVerse::new(text, None, slide_data);
+                            let song_verse = SongVerse::new(text, None);
                             return Some(song_verse);
                         }
                         _ => continue,
@@ -221,14 +218,14 @@ pub struct Scripture {
 }
 
 trait ScriptureDisplay {
-    fn scripture_display(&self, text: String) -> String {
+    fn formatted_text(&self, text: String) -> String {
         format!(r#"<span line-height="1.2" weight="bold">{text}</span>"#)
     }
 }
 
 impl ScriptureDisplay for Scripture {}
 impl Scripture {
-    pub fn screen_display(&self) -> String {
+    pub fn to_slide_data_text(&self) -> String {
         let settings = ApplicationSettings::get_instance();
         let num = settings
             .show_verse_number()
@@ -239,7 +236,7 @@ impl Scripture {
             "{} {}\n{} {}:{} ({})",
             num, self.text, self.book, self.chapter, self.verse, self.translation
         );
-        self.scripture_display(text)
+        self.formatted_text(text)
     }
 }
 
@@ -293,7 +290,7 @@ impl ScriptureVerseRange {
                 num,
                 self.translation
             );
-            return self.scripture_display(text);
+            return self.formatted_text(text);
         }
 
         let text = self
@@ -310,7 +307,7 @@ impl ScriptureVerseRange {
             "{}\n{} {}:{}-{} ({})",
             text, self.book, self.chapter, first, last, self.translation
         );
-        self.scripture_display(text)
+        self.formatted_text(text)
     }
 }
 impl Into<SlideData> for ScriptureVerseRange {
@@ -381,7 +378,7 @@ pub mod scripture {
         fn into(self) -> SlideData {
             let settings = ApplicationSettings::get_instance();
 
-            let text = self.item().screen_display();
+            let text = self.item().to_slide_data_text();
             let mut slide_data = SlideData::from_default();
 
             for v in &mut slide_data.items {

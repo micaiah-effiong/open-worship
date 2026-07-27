@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS song_verses (
   verse INTEGER NOT NULL,
   text TEXT NOT NULL,
   tag TEXT,
-  slide BLOB,
   FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE
 );
 

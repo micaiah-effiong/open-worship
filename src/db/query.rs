@@ -124,13 +124,7 @@ impl Query {
             for (i, verse) in song.verses.iter().enumerate() {
                 tx.execute(
                     song_verse_sql,
-                    (
-                        &song_id,
-                        &i.saturating_add(1),
-                        &verse.text,
-                        &verse.tag,
-                        &verse.slide,
-                    ),
+                    (&song_id, &i.saturating_add(1), &verse.text, &verse.tag),
                 )?;
             }
 
@@ -146,7 +140,7 @@ impl Query {
         "#;
 
         let song_verse_sql = r#"
-            INSERT INTO song_verses(song_id,verse,text,tag,slide) VALUES(?1,?2,?3,?4,jsonb(?5))
+            INSERT INTO song_verses(song_id,verse,text,tag,slide) VALUES(?1,?2,?3,?4)
         "#;
 
         let r = DatabaseConnection::with_mut_db(|conn| {
@@ -164,7 +158,6 @@ impl Query {
                             &i.saturating_add(1),
                             &verse.text,
                             &verse.tag,
-                            &verse.slide,
                         ))?;
                     }
                 }
@@ -183,7 +176,7 @@ impl Query {
         let clear_song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
 
         let song_verse_sql = r#"
-            INSERT INTO song_verses(song_id,verse,text,tag,slide) VALUES(?1,?2,?3,?4,jsonb(?5))
+            INSERT INTO song_verses(song_id,verse,text,tag) VALUES(?1,?2,?3,?4)
         "#;
 
         let r = DatabaseConnection::with_mut_db(|conn| {
@@ -194,13 +187,7 @@ impl Query {
             for (i, verse) in song.verses.iter().enumerate() {
                 tx.execute(
                     song_verse_sql,
-                    (
-                        &song.song_id,
-                        &i.saturating_add(1),
-                        &verse.text,
-                        &verse.tag,
-                        &verse.slide,
-                    ),
+                    (&song.song_id, &i.saturating_add(1), &verse.text, &verse.tag),
                 )?;
             }
 
@@ -237,9 +224,8 @@ impl Query {
             };
 
             let mut songs_sql = conn.prepare(song_sql)?;
-            let mut songs_verses_sql = conn.prepare(
-                "SELECT verse, text, tag, json(slide) FROM song_verses WHERE song_id = ?1",
-            )?;
+            let mut songs_verses_sql =
+                conn.prepare("SELECT verse, text, tag FROM song_verses WHERE song_id = ?1")?;
 
             let songs_query = songs_sql.query_map([format!("%{search_text}%")], |r| {
                 Ok((r.get::<_, u32>(0)?, r.get::<_, String>(1)?))
@@ -253,12 +239,8 @@ impl Query {
                 let verses_query = songs_verses_sql.query_map([&song.0], |r| {
                     let text = r.get::<_, Option<String>>(1)?;
                     let tag = r.get::<_, Option<String>>(2)?;
-                    let slide = r.get::<_, Option<String>>(3)?;
 
-                    let slide =
-                        slide_str_to_slide_data_str(text.clone().unwrap_or_default(), slide);
-
-                    Ok(SongVerse::new(text.unwrap_or_default(), tag, slide))
+                    Ok(SongVerse::new(text.unwrap_or_default(), tag))
                 })?;
 
                 let verses = verses_query.map(|v| v.unwrap()).collect::<Vec<SongVerse>>();
