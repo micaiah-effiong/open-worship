@@ -25,6 +25,9 @@ mod imp {
 
         pub sig_contents: RefCell<Option<glib::SignalHandlerId>>,
         pub sig_size: RefCell<Option<glib::SignalHandlerId>>,
+
+        //
+        pub(super) renderer: RefCell<gsk::CairoRenderer>,
     }
 
     impl Default for WidgetMediaStream {
@@ -37,6 +40,7 @@ mod imp {
                 start_time: Cell::new(0),
                 sig_contents: RefCell::new(None),
                 sig_size: RefCell::new(None),
+                renderer: RefCell::new(gsk::CairoRenderer::default()),
             }
         }
     }
@@ -84,6 +88,15 @@ mod imp {
     impl MediaStreamImpl for WidgetMediaStream {
         fn play(&self) -> bool {
             let widget = self.widget.borrow();
+            if !self
+                .renderer
+                .borrow()
+                .realize(None)
+                .map_err(|e| println!("error renderer realize: {:?}", e))
+                .is_ok()
+            {
+                return false;
+            };
 
             self.start_time.set(glib::monotonic_time());
             let stream = self.obj().clone();
@@ -112,6 +125,7 @@ mod imp {
             if let Some(id) = self.tick_id.take() {
                 id.remove();
             }
+            self.renderer.borrow().unrealize();
         }
 
         fn seek(&self, _timestamp: i64) {
@@ -122,6 +136,9 @@ mod imp {
     impl WidgetMediaStream {
         pub(super) fn connect_paintable_signals(&self, paintable: &gtk::WidgetPaintable) {
             let stream = self.obj().clone();
+            if !stream.is_playing() {
+                return;
+            };
             let id_contents = paintable.connect_invalidate_contents(move |_| {
                 stream.invalidate_contents();
             });
@@ -197,7 +214,7 @@ impl WidgetMediaStream {
         obj
     }
 
-    fn extract_frame(&self, pts: i64) -> Option<NdiFrame> {
+    fn extract_frame(&self, pts: i64) -> Option<VideoFrame> {
         let image = self.current_image();
         let w = image.intrinsic_width();
         let h = image.intrinsic_height();
@@ -211,13 +228,13 @@ impl WidgetMediaStream {
 
         // Reuse the widget's display for the renderer so we stay on the
         // same GPU context — avoids an extra copy.
-        let renderer = gsk::CairoRenderer::new();
-        renderer
-            .realize(None)
-            .map_err(|e| println!("Error renderer realize: {:?}", e))
-            .ok()?;
+        let renderer = self.imp().renderer.borrow();
+        // renderer
+        //     .realize(None)
+        //     .map_err(|e| println!("Error renderer realize: {:?}", e))
+        //     .ok()?;
         let texture = renderer.render_texture(&node, None);
-        renderer.unrealize();
+        // renderer.unrealize();
 
         // w * h * RGBA
         let mut data = vec![0u8; (w * h * 4) as usize];
@@ -228,18 +245,20 @@ impl WidgetMediaStream {
             pixel.swap(0, 2);
         }
 
-        Some(NdiFrame {
+        Some(VideoFrame {
             data,
             width: w as u32,
             height: h as u32,
+            stride: 4,
             pts,
         })
     }
 }
 
-struct NdiFrame {
+struct VideoFrame {
     data: Vec<u8>,
     width: u32,
     height: u32,
+    stride: usize,
     pts: i64, // stream position in µs
 }
