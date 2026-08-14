@@ -331,19 +331,19 @@ impl Slide {
     }
 
     pub fn entry_buffer(&self) -> Option<gtk::TextBuffer> {
-        if let Some(canvas) = self.canvas() {
-            for t in canvas.widget().get_children::<TextItem>() {
-                return Some(t.buffer().clone());
-            }
+        if let Some(canvas) = self.canvas()
+            && let Some(t) = canvas.widget().get_children::<TextItem>().next()
+        {
+            return Some(t.buffer().clone());
         }
 
         None
     }
     pub fn text_item(&self) -> Option<TextItem> {
-        if let Some(canvas) = self.canvas() {
-            for t in canvas.widget().get_children::<TextItem>() {
-                return Some(t);
-            }
+        if let Some(canvas) = self.canvas()
+            && let Some(t) = canvas.widget().get_children::<TextItem>().next()
+        {
+            return Some(t);
         }
 
         None

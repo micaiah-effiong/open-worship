@@ -1,7 +1,7 @@
 use gtk::{gio, glib};
 
 mod imp {
-    use std::{cell::RefCell, collections::HashMap, usize};
+    use std::{cell::RefCell, collections::HashMap};
 
     use gtk::{
         gdk::{
@@ -212,7 +212,7 @@ mod imp {
     impl SettingsWindow {
         fn get_fonts(&self) -> Vec<String> {
             let font_map = self.fonts_map.borrow().clone();
-            let mut fonts = font_map.keys().map(|v| v.clone()).collect::<Vec<_>>();
+            let mut fonts = font_map.keys().cloned().collect::<Vec<_>>();
             fonts.sort();
             fonts
         }
@@ -335,10 +335,8 @@ mod imp {
                 gtk::ClosureExpression::new::<Option<String>>(
                     gtk::Expression::NONE,
                     glib::closure_local!(move |item: glib::Object| {
-                        match item.downcast_ref::<IntegerObject>() {
-                            Some(item) => Some(item.number().to_string()),
-                            None => None,
-                        }
+                        item.downcast_ref::<IntegerObject>()
+                            .map(|item| item.number().to_string())
                     }),
                 ),
             ));
@@ -435,7 +433,7 @@ mod imp {
                             .position(|v| *v == font)
                             .unwrap_or_default() as u32;
 
-                        Some((found as u32).to_value())
+                        Some(found.to_value())
                     }
                 ))
                 .set_mapping(glib::clone!(
@@ -445,9 +443,7 @@ mod imp {
                         let selected: u32 =
                             font.get().expect("The variant needs to be of type `i32`.");
 
-                        let Some(font) = font_names.get(selected as usize) else {
-                            return None;
-                        };
+                        let font = font_names.get(selected as usize)?;
                         Some(font.to_variant())
                     }
                 ))
@@ -469,7 +465,7 @@ mod imp {
                             .position(|v| *v == font)
                             .unwrap_or_default() as u32;
 
-                        Some((found as u32).to_value())
+                        Some(found.to_value())
                     }
                 ))
                 .set_mapping(glib::clone!(
@@ -479,9 +475,7 @@ mod imp {
                         let selected: u32 =
                             font.get().expect("The variant needs to be of type `i32`.");
 
-                        let Some(font) = font_names.get(selected as usize) else {
-                            return None;
-                        };
+                        let font = font_names.get(selected as usize)?;
                         Some(font.to_variant())
                     }
                 ))

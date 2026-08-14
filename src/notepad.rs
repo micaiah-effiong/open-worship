@@ -179,6 +179,7 @@ fn build_ui(app: &impl IsA<gtk::Application>) -> impl IsA<gtk::Window> {
         let buff_tv = buff_tv.clone();
         move |_, slide| {
             if let Some(canvas) = slide.canvas() {
+                for _ in [0, 0, 0].iter() {}
                 for t in canvas.widget().get_children::<TextItem>() {
                     let buff = t.buffer();
                     buff_tv.set_buffer(Some(&buff));
@@ -189,7 +190,6 @@ fn build_ui(app: &impl IsA<gtk::Application>) -> impl IsA<gtk::Window> {
                         buff,
                         buff_tv.buffer()
                     );
-                    break;
                 }
             }
         }
