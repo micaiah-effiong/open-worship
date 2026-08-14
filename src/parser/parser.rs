@@ -80,7 +80,7 @@ impl NumberLiteral {
             value,
             token: Token {
                 value: value.to_string(),
-                t_type: TokenEnum::NUMBER,
+                t_type: TokenEnum::Number,
             },
         }
     }
@@ -148,45 +148,45 @@ impl Expression for Identifier {
 }
 
 impl FromAstNode for Identifier {
-    fn from_node(node: &AstNode) -> Option<&Self> {
+    fn try_from_node(node: &AstNode) -> Option<&Self> {
         match node {
             AstNode::Identifier(val) => Some(val),
-            _ => return None,
+            _ => None,
         }
     }
 }
 
 impl FromAstNode for NumberLiteral {
-    fn from_node(node: &AstNode) -> Option<&Self> {
+    fn try_from_node(node: &AstNode) -> Option<&Self> {
         match node {
             AstNode::NumberLiteral(val) => Some(val),
-            _ => return None,
+            _ => None,
         }
     }
 }
 
 impl FromAstNode for RangeLiteral {
-    fn from_node(node: &AstNode) -> Option<&Self> {
+    fn try_from_node(node: &AstNode) -> Option<&Self> {
         match node {
             AstNode::RangeLiteral(val) => Some(val),
-            _ => return None,
+            _ => None,
         }
     }
 }
 impl FromAstNode for ReferenceLiteral {
-    fn from_node(node: &AstNode) -> Option<&Self> {
+    fn try_from_node(node: &AstNode) -> Option<&Self> {
         match node {
             AstNode::ReferenceLiteral(val) => Some(val),
-            _ => return None,
+            _ => None,
         }
     }
 }
 
 impl FromAstNode for PassageLiteral {
-    fn from_node(node: &AstNode) -> Option<&Self> {
+    fn try_from_node(node: &AstNode) -> Option<&Self> {
         match node {
             AstNode::AstReferenceLiteral(val) => Some(val),
-            _ => return None,
+            _ => None,
         }
     }
 }
@@ -201,12 +201,12 @@ enum AstNode {
 }
 
 trait FromAstNode {
-    fn from_node(node: &AstNode) -> Option<&Self>;
+    fn try_from_node(node: &AstNode) -> Option<&Self>;
 }
 
 impl AstNode {
-    fn from_node<T: FromAstNode>(&self) -> Option<&T> {
-        T::from_node(self)
+    fn try_from_node<T: FromAstNode>(&self) -> Option<&T> {
+        T::try_from_node(self)
     }
 }
 
@@ -221,7 +221,7 @@ impl AstExpression {
     }
 
     fn get<T: FromAstNode>(&self) -> Option<&T> {
-        self.node.from_node::<T>()
+        self.node.try_from_node::<T>()
     }
 }
 
@@ -267,7 +267,7 @@ impl Parser {
             current_token,
             peek_token: next_token,
             prev_token: Token {
-                t_type: TokenEnum::EOF,
+                t_type: TokenEnum::Eof,
                 value: String::from('\0'),
             },
 
@@ -279,17 +279,17 @@ impl Parser {
         };
 
         // prefix
-        parser.register_prefix(TokenEnum::IDENTIFIER, parse_prefix_identifier);
-        parser.register_prefix(TokenEnum::NUMBER, parse_number);
+        parser.register_prefix(TokenEnum::Identifier, parse_prefix_identifier);
+        parser.register_prefix(TokenEnum::Number, parse_number);
         // parser.register_prefix(TokenEnum::COLON, parse_pre_verse);
 
         // infix
-        parser.register_infix(TokenEnum::HYPHEN, parse_range);
+        parser.register_infix(TokenEnum::Hyphen, parse_range);
         // parser.register_infix(TokenEnum::COLON, parse_page);
 
         // postfix
-        parser.register_postfix(TokenEnum::IDENTIFIER, parse_post_identifier);
-        parser.register_postfix(TokenEnum::COLON, parse_post_chapter);
+        parser.register_postfix(TokenEnum::Identifier, parse_post_identifier);
+        parser.register_postfix(TokenEnum::Colon, parse_post_chapter);
 
         parser
     }
@@ -325,13 +325,12 @@ impl Parser {
     fn parse_program(&mut self) -> Vec<AstExpression> {
         let mut stmts = Vec::new();
 
-        while self.current_token.t_type.ne(&TokenEnum::EOF) {
+        while self.current_token.t_type.ne(&TokenEnum::Eof) {
             // parse statement
             let stmt = self.parse_expression_statement();
 
             if let Some(stmt) = stmt {
                 stmts.push(stmt)
-            } else {
             };
 
             self.next_token();
@@ -342,7 +341,7 @@ impl Parser {
 
     fn parse_expression_statement(&mut self) -> Option<AstExpression> {
         let expression = self.parse_expression();
-        if self.peek_token.t_type == TokenEnum::EOF {
+        if self.peek_token.t_type == TokenEnum::Eof {
             self.next_token();
         }
 
@@ -360,11 +359,11 @@ impl Parser {
 
         let mut left_exp = prefix_fn(self)?;
 
-        while self.current_token.t_type.ne(&TokenEnum::COMMA)
-            && self.current_token.t_type.ne(&TokenEnum::SEMICOLON)
+        while self.current_token.t_type.ne(&TokenEnum::Comma)
+            && self.current_token.t_type.ne(&TokenEnum::Semicolon)
         {
             // check for infix
-            let t_type = self.peek_token.t_type.clone();
+            let t_type = self.peek_token.t_type;
             if !self.infix_fn.contains_key(&t_type) {
                 break;
             }
@@ -381,7 +380,7 @@ impl Parser {
         }
 
         //get postfix
-        let peek_ttype = self.peek_token.t_type.clone();
+        let peek_ttype = self.peek_token.t_type;
         if let Some(post_fn) = self.postfix_fn.get(&peek_ttype)
             && let Some(post) = post_fn(self, &left_exp)
         {
@@ -394,7 +393,7 @@ impl Parser {
                 let chapter = parse_number(self)?;
                 let chapter_ref = parse_post_chapter(self, &chapter)?
                     .node
-                    .from_node::<ReferenceLiteral>()?
+                    .try_from_node::<ReferenceLiteral>()?
                     .clone();
                 let book_ref = PassageLiteral {
                     book: ident,
@@ -410,7 +409,7 @@ impl Parser {
 }
 
 fn parse_number(p: &mut Parser) -> Option<AstExpression> {
-    if p.current_token.t_type != TokenEnum::NUMBER {
+    if p.current_token.t_type != TokenEnum::Number {
         return None;
     }
 
@@ -431,7 +430,7 @@ fn parse_number(p: &mut Parser) -> Option<AstExpression> {
 }
 
 fn parse_range(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
-    if p.current_token.t_type != TokenEnum::HYPHEN {
+    if p.current_token.t_type != TokenEnum::Hyphen {
         return None;
     }
 
@@ -471,7 +470,7 @@ fn parse_post_identifier(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpre
 fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
     let number_literal = lhs.get::<NumberLiteral>()?;
 
-    if p.peek_token.t_type != TokenEnum::COLON {
+    if p.peek_token.t_type != TokenEnum::Colon {
         return None;
     }
 
@@ -490,7 +489,7 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
 }
 
 fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
-    if p.current_token.t_type != TokenEnum::COLON {
+    if p.current_token.t_type != TokenEnum::Colon {
         return None;
     }
 
@@ -506,10 +505,10 @@ fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
         hold = Some(num.clone());
     };
 
-    while p.current_token.t_type.ne(&TokenEnum::EOF)
-        && p.current_token.t_type.ne(&TokenEnum::SEMICOLON)
+    while p.current_token.t_type.ne(&TokenEnum::Eof)
+        && p.current_token.t_type.ne(&TokenEnum::Semicolon)
     {
-        if p.peek_token.t_type == TokenEnum::IDENTIFIER {
+        if p.peek_token.t_type == TokenEnum::Identifier {
             break;
         }
         let verse = p.parse_expression();
@@ -544,11 +543,11 @@ fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
 }
 
 fn parse_prefix_identifier(p: &mut Parser) -> Option<AstExpression> {
-    if p.current_token.t_type != TokenEnum::IDENTIFIER {
+    if p.current_token.t_type != TokenEnum::Identifier {
         return None;
     }
 
-    if p.peek_token.t_type != TokenEnum::NUMBER {
+    if p.peek_token.t_type != TokenEnum::Number && p.peek_token.t_type != TokenEnum::Chapter {
         return None;
     }
 
@@ -558,7 +557,13 @@ fn parse_prefix_identifier(p: &mut Parser) -> Option<AstExpression> {
         prefix: None,
     };
 
-    Some(AstExpression::new(AstNode::Identifier(ident)))
+    let identifier = AstExpression::new(AstNode::Identifier(ident));
+
+    if p.peek_token.t_type == TokenEnum::Chapter {
+        p.next_token();
+    }
+
+    Some(identifier)
 }
 
 #[cfg(test)]
@@ -575,14 +580,14 @@ mod test {
                     prefix: None,
                     value: String::from("John"),
                     token: Token {
-                        t_type: TokenEnum::IDENTIFIER,
+                        t_type: TokenEnum::Identifier,
                         value: String::from("John"),
                     },
                 },
                 reference: ReferenceLiteral {
                     chapter: NumberLiteral::new(1),
                     token: Token {
-                        t_type: TokenEnum::COLON,
+                        t_type: TokenEnum::Colon,
                         value: String::from(":"),
                     },
                     verses: vec![NumberLiteral::new(1)],
@@ -609,14 +614,14 @@ mod test {
                     prefix: Some(NumberLiteral::new(3)),
                     value: String::from("John"),
                     token: Token {
-                        t_type: TokenEnum::IDENTIFIER,
+                        t_type: TokenEnum::Identifier,
                         value: String::from("John"),
                     },
                 },
                 reference: ReferenceLiteral {
                     chapter: NumberLiteral::new(1),
                     token: Token {
-                        t_type: TokenEnum::COLON,
+                        t_type: TokenEnum::Colon,
                         value: String::from(":"),
                     },
                     verses: vec![NumberLiteral::new(1)],
@@ -672,7 +677,7 @@ mod test {
         let expected = AstExpression::new(AstNode::NumberLiteral(NumberLiteral {
             value: 1,
             token: Token {
-                t_type: TokenEnum::NUMBER,
+                t_type: TokenEnum::Number,
                 value: String::from("1"),
             },
         }));
@@ -703,29 +708,33 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_range_literal() {
-        let input = String::from("1-4");
-        let expected = AstExpression::new(AstNode::RangeLiteral(RangeLiteral {
+    fn range_test_data() -> AstExpression {
+        AstExpression::new(AstNode::RangeLiteral(RangeLiteral {
             start: NumberLiteral {
                 value: 1,
                 token: Token {
-                    t_type: TokenEnum::NUMBER,
+                    t_type: TokenEnum::Number,
                     value: String::from("1"),
                 },
             },
             end: NumberLiteral {
                 value: 4,
                 token: Token {
-                    t_type: TokenEnum::NUMBER,
+                    t_type: TokenEnum::Number,
                     value: String::from("4"),
                 },
             },
             token: Token {
-                t_type: TokenEnum::HYPHEN,
+                t_type: TokenEnum::Hyphen,
                 value: String::from("-"),
             },
-        }));
+        }))
+    }
+
+    #[test]
+    fn test_range_literal_with_through() {
+        let input = String::from("1 through 4");
+        let expected = range_test_data();
 
         let tokenizer = Tokenizer::new(input);
         let mut parser = Parser::new(tokenizer);
@@ -754,22 +763,117 @@ mod test {
     }
 
     #[test]
-    fn test_reference_literal() {
-        let input = String::from("3:3");
-        let expected = AstExpression::new(AstNode::ReferenceLiteral(ReferenceLiteral {
+    fn test_range_literal_with_to() {
+        let input = String::from("1 to 4");
+        let expected = range_test_data();
+
+        let tokenizer = Tokenizer::new(input);
+        let mut parser = Parser::new(tokenizer);
+        let stmts = parser.parse_program();
+
+        let expression = stmts.first().unwrap();
+        let ident = expression.get::<RangeLiteral>();
+        let tt = expected.get::<RangeLiteral>().unwrap();
+
+        // ==
+        assert!(ident.is_some(), "Expected RangeLiteral");
+
+        let ident = ident.unwrap();
+
+        assert_eq!(
+            tt.start, ident.start,
+            "expected [{:?}], got [{:?}]",
+            tt.start, ident.start,
+        );
+
+        assert_eq!(
+            ident.token.t_type, tt.token.t_type,
+            "expected [{:?}], got [{:?}]",
+            tt.token.t_type, ident.token.t_type
+        );
+    }
+
+    #[test]
+    fn test_range_literal() {
+        let input = String::from("1-4");
+        let expected = range_test_data();
+
+        let tokenizer = Tokenizer::new(input);
+        let mut parser = Parser::new(tokenizer);
+        let stmts = parser.parse_program();
+
+        let expression = stmts.first().unwrap();
+        let ident = expression.get::<RangeLiteral>();
+        let tt = expected.get::<RangeLiteral>().unwrap();
+
+        // ==
+        assert!(ident.is_some(), "Expected RangeLiteral");
+
+        let ident = ident.unwrap();
+
+        assert_eq!(
+            tt.start, ident.start,
+            "expected [{:?}], got [{:?}]",
+            tt.start, ident.start,
+        );
+
+        assert_eq!(
+            ident.token.t_type, tt.token.t_type,
+            "expected [{:?}], got [{:?}]",
+            tt.token.t_type, ident.token.t_type
+        );
+    }
+
+    fn reference_test_data() -> AstExpression {
+        AstExpression::new(AstNode::ReferenceLiteral(ReferenceLiteral {
             token: Token {
-                t_type: TokenEnum::COLON,
+                t_type: TokenEnum::Colon,
                 value: String::from(":"),
             },
             chapter: NumberLiteral {
                 value: 3,
                 token: Token {
-                    t_type: TokenEnum::NUMBER,
+                    t_type: TokenEnum::Number,
                     value: String::from("3"),
                 },
             },
             verses: vec![NumberLiteral::new(3)],
-        }));
+        }))
+    }
+
+    #[test]
+    fn test_reference_literal_chapter_tag() {
+        let input = String::from("chapter 3:3");
+        let expected = reference_test_data();
+
+        let tokenizer = Tokenizer::new(input);
+        let mut parser = Parser::new(tokenizer);
+        let stmts = parser.parse_program();
+        println!("{:?}", stmts);
+
+        let expression = stmts.first().unwrap();
+
+        _test_reference_literal(&expected, expression);
+    }
+    #[test]
+    fn test_reference_literal_words() {
+        let input = String::from("3 verse 3");
+        let expected = reference_test_data();
+
+        let tokenizer = Tokenizer::new(input);
+        let mut parser = Parser::new(tokenizer);
+        let stmts = parser.parse_program();
+        println!("{:?}", stmts);
+
+        let expression = stmts.first().unwrap();
+
+        _test_reference_literal(&expected, expression);
+    }
+
+    #[test]
+    fn test_reference_literal() {
+        let input = String::from("3:3");
+        let expected = reference_test_data();
 
         let tokenizer = Tokenizer::new(input);
         let mut parser = Parser::new(tokenizer);
@@ -814,21 +918,21 @@ mod test {
             AstExpression::new(AstNode::NumberLiteral(NumberLiteral {
                 value: 1,
                 token: Token {
-                    t_type: TokenEnum::NUMBER,
+                    t_type: TokenEnum::Number,
                     value: String::from("1"),
                 },
             })),
             AstExpression::new(AstNode::NumberLiteral(NumberLiteral {
                 value: 4,
                 token: Token {
-                    t_type: TokenEnum::NUMBER,
+                    t_type: TokenEnum::Number,
                     value: String::from("4"),
                 },
             })),
             AstExpression::new(AstNode::NumberLiteral(NumberLiteral {
                 value: 3,
                 token: Token {
-                    t_type: TokenEnum::NUMBER,
+                    t_type: TokenEnum::Number,
                     value: String::from("3"),
                 },
             })),
@@ -866,20 +970,20 @@ mod test {
 
     #[test]
     fn test_program() {
-        let input = String::from("1 John 1:1-3,5,7-10");
+        let input = String::from("1 John 1:1 to 3,5,7-10");
         let expected_list = [AstExpression::new(AstNode::AstReferenceLiteral(
             PassageLiteral {
                 book: Identifier {
                     prefix: Some(NumberLiteral::new(1)),
                     value: String::from("John"),
                     token: Token {
-                        t_type: TokenEnum::IDENTIFIER,
+                        t_type: TokenEnum::Identifier,
                         value: String::from("John"),
                     },
                 },
                 reference: ReferenceLiteral {
                     token: Token {
-                        t_type: TokenEnum::COLON,
+                        t_type: TokenEnum::Colon,
                         value: String::from(":"),
                     },
                     chapter: NumberLiteral::new(1),

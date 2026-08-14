@@ -1,17 +1,16 @@
-use std::usize;
-
 use gtk::glib::char;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
 pub enum TokenEnum {
-    NUMBER,
-    IDENTIFIER,
-    COLON,
-    SEMICOLON,
-    HYPHEN,
-    COMMA,
-    ILLEGAL,
-    EOF,
+    Number,
+    Identifier,
+    Colon,
+    Semicolon,
+    Chapter,
+    Hyphen,
+    Comma,
+    Illegal,
+    Eof,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -21,6 +20,9 @@ pub struct Token {
 }
 
 impl Token {
+    fn new(t_type: TokenEnum, value: String) -> Self {
+        Self { t_type, value }
+    }
     pub fn inspect(&self) -> String {
         self.value.clone()
     }
@@ -53,19 +55,19 @@ impl Tokenizer {
 
         let token = match self.char {
             ':' => Token {
-                t_type: TokenEnum::COLON,
+                t_type: TokenEnum::Colon,
                 value: String::from(":"),
             },
             ';' => Token {
-                t_type: TokenEnum::SEMICOLON,
+                t_type: TokenEnum::Semicolon,
                 value: String::from(";"),
             },
             '-' => Token {
-                t_type: TokenEnum::HYPHEN,
+                t_type: TokenEnum::Hyphen,
                 value: String::from("-"),
             },
             ',' => Token {
-                t_type: TokenEnum::COMMA,
+                t_type: TokenEnum::Comma,
                 value: String::from(","),
             },
 
@@ -73,17 +75,20 @@ impl Tokenizer {
             // handle EOF
             // ===
             '\0' => Token {
-                t_type: TokenEnum::EOF,
+                t_type: TokenEnum::Eof,
                 value: String::from('\0'),
             },
 
             ch => {
                 if Tokenizer::is_letter(ch) {
                     // read string
-                    let str = self.read_string();
-                    return Token {
-                        t_type: TokenEnum::IDENTIFIER,
-                        value: str,
+                    let text = self.read_string();
+
+                    return match text.to_lowercase().as_str() {
+                        "chapter" => Token::new(TokenEnum::Chapter, text),
+                        "verse" | "verses" => Token::new(TokenEnum::Colon, text),
+                        "to" | "through" => Token::new(TokenEnum::Hyphen, text),
+                        _ => Token::new(TokenEnum::Identifier, text),
                     };
                 }
 
@@ -91,14 +96,14 @@ impl Tokenizer {
                     // read digit
                     let num = self.read_digit();
                     return Token {
-                        t_type: TokenEnum::NUMBER,
+                        t_type: TokenEnum::Number,
                         value: num,
                     };
                 }
 
                 Token {
                     value: String::from(self.char),
-                    t_type: TokenEnum::ILLEGAL,
+                    t_type: TokenEnum::Illegal,
                 }
             }
         };
@@ -171,147 +176,59 @@ mod test {
             1 John 1:3-1
             1 John 1:1,3
             1 John 1:1-3,5;
+            John chapter 1 verse 3
+            to through
             "#,
         );
 
         let expected = vec![
             // 1
-            Token {
-                value: "John".to_string(),
-                t_type: TokenEnum::IDENTIFIER,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ":".to_string(),
-                t_type: TokenEnum::COLON,
-            },
-            Token {
-                value: "3".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
+            Token::new(TokenEnum::Identifier, "John".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Colon, ":".to_string()),
+            Token::new(TokenEnum::Number, "3".to_string()),
             // 2
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: "John".to_string(),
-                t_type: TokenEnum::IDENTIFIER,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ":".to_string(),
-                t_type: TokenEnum::COLON,
-            },
-            Token {
-                value: "3".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Identifier, "John".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Colon, ":".to_string()),
+            Token::new(TokenEnum::Number, "3".to_string()),
             // 3
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: "John".to_string(),
-                t_type: TokenEnum::IDENTIFIER,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ":".to_string(),
-                t_type: TokenEnum::COLON,
-            },
-            Token {
-                value: "3".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: "-".to_string(),
-                t_type: TokenEnum::HYPHEN,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Identifier, "John".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Colon, ":".to_string()),
+            Token::new(TokenEnum::Number, "3".to_string()),
+            Token::new(TokenEnum::Hyphen, "-".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
             // 4
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: "John".to_string(),
-                t_type: TokenEnum::IDENTIFIER,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ":".to_string(),
-                t_type: TokenEnum::COLON,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ",".to_string(),
-                t_type: TokenEnum::COMMA,
-            },
-            Token {
-                value: "3".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Identifier, "John".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Colon, ":".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Comma, ",".to_string()),
+            Token::new(TokenEnum::Number, "3".to_string()),
             // 5
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: "John".to_string(),
-                t_type: TokenEnum::IDENTIFIER,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ":".to_string(),
-                t_type: TokenEnum::COLON,
-            },
-            Token {
-                value: "1".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: "-".to_string(),
-                t_type: TokenEnum::HYPHEN,
-            },
-            Token {
-                value: "3".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ",".to_string(),
-                t_type: TokenEnum::COMMA,
-            },
-            Token {
-                value: "5".to_string(),
-                t_type: TokenEnum::NUMBER,
-            },
-            Token {
-                value: ";".to_string(),
-                t_type: TokenEnum::SEMICOLON,
-            },
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Identifier, "John".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Colon, ":".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Hyphen, "-".to_string()),
+            Token::new(TokenEnum::Number, "3".to_string()),
+            Token::new(TokenEnum::Comma, ",".to_string()),
+            Token::new(TokenEnum::Number, "5".to_string()),
+            Token::new(TokenEnum::Semicolon, ";".to_string()),
+            // 6
+            Token::new(TokenEnum::Identifier, "John".to_string()),
+            Token::new(TokenEnum::Chapter, "chapter".to_string()),
+            Token::new(TokenEnum::Number, "1".to_string()),
+            Token::new(TokenEnum::Colon, "verse".to_string()),
+            Token::new(TokenEnum::Number, "3".to_string()),
+            // 7
+            Token::new(TokenEnum::Hyphen, "to".to_string()),
+            Token::new(TokenEnum::Hyphen, "through".to_string()),
         ];
 
         let mut lexer = Tokenizer::new(input);
