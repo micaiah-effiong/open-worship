@@ -88,6 +88,7 @@ impl Tokenizer {
                         "chapter" => Token::new(TokenEnum::Chapter, text),
                         "verse" | "verses" => Token::new(TokenEnum::Colon, text),
                         "to" | "through" => Token::new(TokenEnum::Hyphen, text),
+                        "and" => Token::new(TokenEnum::Comma, text),
                         _ => Token::new(TokenEnum::Identifier, text),
                     };
                 }
@@ -177,7 +178,7 @@ mod test {
             1 John 1:1,3
             1 John 1:1-3,5;
             John chapter 1 verse 3
-            to through
+            to through and
             "#,
         );
 
@@ -229,6 +230,7 @@ mod test {
             // 7
             Token::new(TokenEnum::Hyphen, "to".to_string()),
             Token::new(TokenEnum::Hyphen, "through".to_string()),
+            Token::new(TokenEnum::Comma, "and".to_string()),
         ];
 
         let mut lexer = Tokenizer::new(input);

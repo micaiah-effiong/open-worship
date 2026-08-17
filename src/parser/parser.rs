@@ -470,11 +470,13 @@ fn parse_post_identifier(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpre
 fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
     let number_literal = lhs.get::<NumberLiteral>()?;
 
-    if p.peek_token.t_type != TokenEnum::Colon {
+    if p.peek_token.t_type != TokenEnum::Colon && p.peek_token.t_type != TokenEnum::Number {
         return None;
     }
 
-    p.next_token();
+    if p.peek_token.t_type == TokenEnum::Colon {
+        p.next_token();
+    }
 
     let token = p.current_token.clone();
     let verses = parse_verse(p)?;
@@ -489,11 +491,14 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
 }
 
 fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
-    if p.current_token.t_type != TokenEnum::Colon {
+    println!("{:?}", p.current_token);
+    if p.current_token.t_type != TokenEnum::Colon && p.current_token.t_type != TokenEnum::Number {
         return None;
     }
 
-    p.next_token();
+    if p.current_token.t_type == TokenEnum::Colon {
+        p.next_token();
+    }
 
     let mut verses = Vec::new();
 
@@ -601,7 +606,7 @@ mod test {
             let stmts = parser.parse_program();
 
             let actual = stmts.first().unwrap();
-            _test_identifier(i as u32, expected.get(i).unwrap(), actual);
+            _test_passage_literal(i as u32, expected.get(i).unwrap(), actual);
         }
     }
 
@@ -635,18 +640,18 @@ mod test {
             let stmts = parser.parse_program();
 
             let actual = stmts.first().unwrap();
-            _test_identifier(i as u32, expected.get(i).unwrap(), actual);
+            _test_passage_literal(i as u32, expected.get(i).unwrap(), actual);
         }
     }
 
-    fn _test_identifier(index: u32, expected: &AstExpression, actual: &AstExpression) {
+    fn _test_passage_literal(index: u32, expected: &AstExpression, actual: &AstExpression) {
         let expected_val = expected.get::<PassageLiteral>().unwrap().book.clone();
         let actual_exp = actual.get::<PassageLiteral>();
 
         // ==
         assert!(
             actual_exp.is_some(),
-            "TEST {index}: Expected [AstReference] got [{:?}]",
+            "{index}: Expected [PassageLiteral] got [{:?}]",
             actual_exp
         );
 
@@ -708,6 +713,7 @@ mod test {
         );
     }
 
+    /// data to test is 1-4
     fn range_test_data() -> AstExpression {
         AstExpression::new(AstNode::RangeLiteral(RangeLiteral {
             start: NumberLiteral {
@@ -731,9 +737,8 @@ mod test {
         }))
     }
 
-    #[test]
-    fn test_range_literal_with_through() {
-        let input = String::from("1 through 4");
+    fn test_range_literal_(input: &str) {
+        let input = String::from(input);
         let expected = range_test_data();
 
         let tokenizer = Tokenizer::new(input);
@@ -760,68 +765,21 @@ mod test {
             "expected [{:?}], got [{:?}]",
             tt.token.t_type, ident.token.t_type
         );
+    }
+
+    #[test]
+    fn test_range_literal_with_through() {
+        test_range_literal_("1 through 4");
     }
 
     #[test]
     fn test_range_literal_with_to() {
-        let input = String::from("1 to 4");
-        let expected = range_test_data();
-
-        let tokenizer = Tokenizer::new(input);
-        let mut parser = Parser::new(tokenizer);
-        let stmts = parser.parse_program();
-
-        let expression = stmts.first().unwrap();
-        let ident = expression.get::<RangeLiteral>();
-        let tt = expected.get::<RangeLiteral>().unwrap();
-
-        // ==
-        assert!(ident.is_some(), "Expected RangeLiteral");
-
-        let ident = ident.unwrap();
-
-        assert_eq!(
-            tt.start, ident.start,
-            "expected [{:?}], got [{:?}]",
-            tt.start, ident.start,
-        );
-
-        assert_eq!(
-            ident.token.t_type, tt.token.t_type,
-            "expected [{:?}], got [{:?}]",
-            tt.token.t_type, ident.token.t_type
-        );
+        test_range_literal_("1 to 4");
     }
 
     #[test]
     fn test_range_literal() {
-        let input = String::from("1-4");
-        let expected = range_test_data();
-
-        let tokenizer = Tokenizer::new(input);
-        let mut parser = Parser::new(tokenizer);
-        let stmts = parser.parse_program();
-
-        let expression = stmts.first().unwrap();
-        let ident = expression.get::<RangeLiteral>();
-        let tt = expected.get::<RangeLiteral>().unwrap();
-
-        // ==
-        assert!(ident.is_some(), "Expected RangeLiteral");
-
-        let ident = ident.unwrap();
-
-        assert_eq!(
-            tt.start, ident.start,
-            "expected [{:?}], got [{:?}]",
-            tt.start, ident.start,
-        );
-
-        assert_eq!(
-            ident.token.t_type, tt.token.t_type,
-            "expected [{:?}], got [{:?}]",
-            tt.token.t_type, ident.token.t_type
-        );
+        test_range_literal_("1 - 4");
     }
 
     fn reference_test_data() -> AstExpression {
@@ -911,10 +869,8 @@ mod test {
         );
     }
 
-    #[test]
-    fn test_list_operator() {
-        let input = String::from("1,4,3");
-        let expected_list = [
+    fn list_operator_data() -> [AstExpression; 3] {
+        [
             AstExpression::new(AstNode::NumberLiteral(NumberLiteral {
                 value: 1,
                 token: Token {
@@ -936,7 +892,12 @@ mod test {
                     value: String::from("3"),
                 },
             })),
-        ];
+        ]
+    }
+
+    fn test_list_operator_(input: &str) {
+        let input = String::from(input);
+        let expected_list = list_operator_data();
 
         let tokenizer = Tokenizer::new(input);
         let mut parser = Parser::new(tokenizer);
@@ -969,9 +930,16 @@ mod test {
     }
 
     #[test]
-    fn test_program() {
-        let input = String::from("1 John 1:1 to 3,5,7-10");
-        let expected_list = [AstExpression::new(AstNode::AstReferenceLiteral(
+    fn test_list_operator() {
+        test_list_operator_("1,4,3");
+    }
+    #[test]
+    fn test_list_operator_with_and() {
+        test_list_operator_("1,4 and 3");
+    }
+
+    fn test_program_data() -> [AstExpression; 1] {
+        [AstExpression::new(AstNode::AstReferenceLiteral(
             PassageLiteral {
                 book: Identifier {
                     prefix: Some(NumberLiteral::new(1)),
@@ -998,45 +966,34 @@ mod test {
                     ],
                 },
             },
-        ))];
+        ))]
+    }
 
-        let tokenizer = Tokenizer::new(input);
+    fn test_program_(input: &str) {
+        // let input = String::from("1 John 1:1 to 3,5,7-10");
+        let expected_list = test_program_data();
+
+        let tokenizer = Tokenizer::new(input.into());
         let mut parser = Parser::new(tokenizer);
         let stmts = parser.parse_program();
 
-        {
-            let stmt = stmts.first(); // identifier
-            _test_identifier(0, expected_list.first().unwrap(), stmt.unwrap());
-        }
+        let stmt = stmts.first(); // identifier
+        _test_passage_literal(0, expected_list.first().unwrap(), stmt.unwrap());
+    }
 
-        // {
-        //     let stmt = stmts.get(1); // identifier
-        //     _test_reference_literal(expected_list.get(1).unwrap(), stmt.unwrap());
-        // }
+    #[test]
+    fn test_program_with_space() {
+        test_program_("1 John 1 1 to 3 5 7 through 10");
+        test_program_("1 John 1 1-3 5 7-10");
+        test_program_("1 John 1 1-3 and 5 and 7-10");
+        test_program_("1 John 1 1-3, 5, 7-10");
+    }
 
-        // for (i, expected) in expected_list.iter().enumerate() {
-        //     let stmt = stmts.get(i);
-        //     assert!(stmt.is_some(), "Expected [Some] got [None]");
-        //
-        //     let actual = stmt.unwrap().get::<NumberLiteral>();
-        //     let expected_value = expected.get::<NumberLiteral>().unwrap();
-        //
-        //     // ==
-        //     assert!(actual.is_some(), "Expected [{}]",);
-        //
-        //     let actual = actual.unwrap();
-        //
-        //     assert_eq!(
-        //         expected_value, actual,
-        //         "expected [{:?}], got [{:?}]",
-        //         expected_value, actual,
-        //     );
-        //
-        //     assert_eq!(
-        //         actual.token.t_type, expected_value.token.t_type,
-        //         "expected [{:?}], got [{:?}]",
-        //         expected_value.token.t_type, actual.token.t_type
-        //     );
-        // }
+    #[test]
+    fn test_program() {
+        test_program_("1 John 1:1 to 3,5,7-10");
+        test_program_("1 John 1:1 to 3,5 and 7-10");
+        test_program_("1 John 1:1 to 3 5 7 through 10");
+        test_program_("1 John 1 1 to 3 5 7 through 10");
     }
 }
