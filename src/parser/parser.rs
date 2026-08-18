@@ -500,7 +500,10 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
 }
 
 fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
-    if p.current_token.t_type != TokenEnum::Colon && p.current_token.t_type != TokenEnum::Number {
+    if p.current_token.t_type != TokenEnum::Colon
+        && p.current_token.t_type != TokenEnum::Number
+        && p.current_token.t_type != TokenEnum::Comma
+    {
         return None;
     }
 
@@ -996,7 +999,10 @@ mod test {
         test_program_("1 John 1:1 to 3 5 7 through 10");
         test_program_("open to 1 John 1:1 to 3,5,7-10, lets read");
         test_program_("open 1 John 1:1 to 3,5,7-10, lets read");
-        test_program_("1 John 1, verses 1 to 3,5,7-10, lets read");
+        test_program_("1 John 1, verses 1 to 3,5,7-10");
+        test_program_("1 John chapter 1, verses 1 to 3,5,7-10");
+        test_program_("1 John 1, 1 to 3,5,7-10");
+        test_program_("1 John chapter 1, 1 to 3,5,7-10");
 
         test_program_("1 John 1 1 to 3 5 7 through 10");
         test_program_("1 John 1 1-3 5 7-10");
