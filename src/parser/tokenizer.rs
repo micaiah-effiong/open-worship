@@ -1,5 +1,64 @@
 use gtk::glib::char;
 
+const BIBLE_BOOK_IDENTIFIERS: [&str; 56] = [
+    "genesis",
+    "exodus",
+    "leviticus",
+    "numbers",
+    "deuteronomy",
+    "joshua",
+    "judges",
+    "ruth",
+    "samuel",
+    "kings",
+    "chronicles",
+    "ezra",
+    "nehemiah",
+    "esther",
+    "job",
+    "psalms",
+    "proverbs",
+    "ecclesiastes",
+    "song of solomon",
+    "isaiah",
+    "jeremiah",
+    "lamentations",
+    "ezekiel",
+    "daniel",
+    "hosea",
+    "joel",
+    "amos",
+    "obadiah",
+    "jonah",
+    "micah",
+    "nahum",
+    "habakkuk",
+    "zephaniah",
+    "haggai",
+    "zechariah",
+    "malachi",
+    "matthew",
+    "mark",
+    "luke",
+    "john",
+    "acts",
+    "romans",
+    "corinthians",
+    "galatians",
+    "ephesians",
+    "philippians",
+    "colossians",
+    "thessalonians",
+    "timothy",
+    "titus",
+    "philemon",
+    "hebrews",
+    "james",
+    "peter",
+    "jude",
+    "revelation",
+];
+
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Copy)]
 pub enum TokenEnum {
     Number,
@@ -89,7 +148,10 @@ impl Tokenizer {
                         "verse" | "verses" => Token::new(TokenEnum::Colon, text),
                         "to" | "through" => Token::new(TokenEnum::Hyphen, text),
                         "and" => Token::new(TokenEnum::Comma, text),
-                        _ => Token::new(TokenEnum::Identifier, text),
+                        s if BIBLE_BOOK_IDENTIFIERS.contains(&text.to_lowercase().as_str()) => {
+                            Token::new(TokenEnum::Identifier, text)
+                        }
+                        _ => Token::new(TokenEnum::Illegal, text),
                     };
                 }
 
@@ -179,6 +241,7 @@ mod test {
             1 John 1:1-3,5;
             John chapter 1 verse 3
             to through and
+            rubish
             "#,
         );
 
@@ -231,6 +294,7 @@ mod test {
             Token::new(TokenEnum::Hyphen, "to".to_string()),
             Token::new(TokenEnum::Hyphen, "through".to_string()),
             Token::new(TokenEnum::Comma, "and".to_string()),
+            Token::new(TokenEnum::Illegal, "rubish".to_string()),
         ];
 
         let mut lexer = Tokenizer::new(input);

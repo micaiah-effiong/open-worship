@@ -470,10 +470,19 @@ fn parse_post_identifier(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpre
 fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpression> {
     let number_literal = lhs.get::<NumberLiteral>()?;
 
-    if p.peek_token.t_type != TokenEnum::Colon && p.peek_token.t_type != TokenEnum::Number {
+    if p.peek_token.t_type != TokenEnum::Colon
+        && p.peek_token.t_type != TokenEnum::Number
+        && p.peek_token.t_type != TokenEnum::Comma
+    {
         return None;
     }
 
+    // eg. Genesis 5, verse 4
+    if p.peek_token.t_type == TokenEnum::Comma {
+        p.next_token();
+    }
+
+    // eg. Genesis 5:4
     if p.peek_token.t_type == TokenEnum::Colon {
         p.next_token();
     }
@@ -491,7 +500,6 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
 }
 
 fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
-    println!("{:?}", p.current_token);
     if p.current_token.t_type != TokenEnum::Colon && p.current_token.t_type != TokenEnum::Number {
         return None;
     }
@@ -555,6 +563,8 @@ fn parse_prefix_identifier(p: &mut Parser) -> Option<AstExpression> {
     if p.peek_token.t_type != TokenEnum::Number && p.peek_token.t_type != TokenEnum::Chapter {
         return None;
     }
+
+    // match text
 
     let ident = Identifier {
         token: p.current_token.clone(),
@@ -807,7 +817,6 @@ mod test {
         let tokenizer = Tokenizer::new(input);
         let mut parser = Parser::new(tokenizer);
         let stmts = parser.parse_program();
-        println!("{:?}", stmts);
 
         let expression = stmts.first().unwrap();
 
@@ -821,7 +830,6 @@ mod test {
         let tokenizer = Tokenizer::new(input);
         let mut parser = Parser::new(tokenizer);
         let stmts = parser.parse_program();
-        println!("{:?}", stmts);
 
         let expression = stmts.first().unwrap();
 
@@ -982,18 +990,18 @@ mod test {
     }
 
     #[test]
-    fn test_program_with_space() {
-        test_program_("1 John 1 1 to 3 5 7 through 10");
-        test_program_("1 John 1 1-3 5 7-10");
-        test_program_("1 John 1 1-3 and 5 and 7-10");
-        test_program_("1 John 1 1-3, 5, 7-10");
-    }
-
-    #[test]
     fn test_program() {
         test_program_("1 John 1:1 to 3,5,7-10");
         test_program_("1 John 1:1 to 3,5 and 7-10");
         test_program_("1 John 1:1 to 3 5 7 through 10");
+        test_program_("open to 1 John 1:1 to 3,5,7-10, lets read");
+        test_program_("open 1 John 1:1 to 3,5,7-10, lets read");
+        test_program_("1 John 1, verses 1 to 3,5,7-10, lets read");
+
         test_program_("1 John 1 1 to 3 5 7 through 10");
+        test_program_("1 John 1 1-3 5 7-10");
+        test_program_("1 John 1 1-3 and 5 and 7-10");
+        test_program_("1 John 1 1-3, 5, 7-10");
+        test_program_("1 John 1 verses 1 to 3 5 7 through 10");
     }
 }
