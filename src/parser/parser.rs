@@ -474,7 +474,12 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
         && p.peek_token.t_type != TokenEnum::Number
         && p.peek_token.t_type != TokenEnum::Comma
     {
-        return None;
+        let chapter = ReferenceLiteral {
+            token: p.current_token.clone(),
+            chapter: number_literal.clone(),
+            verses: vec![],
+        };
+        return Some(AstExpression::new(AstNode::ReferenceLiteral(chapter)));
     }
 
     // eg. Genesis 5, verse 4
@@ -495,21 +500,19 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
         chapter: number_literal.clone(),
         verses,
     };
-
     Some(AstExpression::new(AstNode::ReferenceLiteral(chapter)))
 }
 
 fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
     if p.current_token.t_type != TokenEnum::Colon
-        && p.current_token.t_type != TokenEnum::Number
+    // this should be chapter number
+        && p.current_token.t_type != TokenEnum::Number 
         && p.current_token.t_type != TokenEnum::Comma
     {
         return None;
     }
 
-    if p.current_token.t_type == TokenEnum::Colon {
-        p.next_token();
-    }
+    p.next_token();
 
     let mut verses = Vec::new();
 
@@ -523,6 +526,7 @@ fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
 
     while p.current_token.t_type.ne(&TokenEnum::Eof)
         && p.current_token.t_type.ne(&TokenEnum::Semicolon)
+        && p.current_token.t_type.ne(&TokenEnum::Illegal)
     {
         if p.peek_token.t_type == TokenEnum::Identifier {
             break;
@@ -990,6 +994,90 @@ mod test {
 
         let stmt = stmts.first(); // identifier
         _test_passage_literal(0, expected_list.first().unwrap(), stmt.unwrap());
+    }
+
+    #[test]
+    fn test_program_simple() {
+        fn test_data() -> [AstExpression; 1] {
+            [AstExpression::new(AstNode::AstReferenceLiteral(
+                PassageLiteral {
+                    book: Identifier {
+                        prefix: None,
+                        value: String::from("James"),
+                        token: Token {
+                            t_type: TokenEnum::Identifier,
+                            value: String::from("James"),
+                        },
+                    },
+                    reference: ReferenceLiteral {
+                        token: Token {
+                            t_type: TokenEnum::Colon,
+                            value: String::from(":"),
+                        },
+                        chapter: NumberLiteral::new(1),
+                        verses: vec![NumberLiteral::new(17)],
+                    },
+                },
+            ))]
+        }
+
+        fn test_program_(input: &str) {
+            let expected_list = test_data();
+
+            let tokenizer = Tokenizer::new(input.into());
+            let mut parser = Parser::new(tokenizer);
+            let stmts = parser.parse_program();
+
+            let stmt = stmts.first(); // identifier
+            _test_passage_literal(0, expected_list.first().unwrap(), stmt.unwrap());
+        }
+
+        test_program_("James 1 17");
+        test_program_("James 1:17");
+        test_program_("James 1, 17");
+
+        test_program_("James 1 17 something here 5");
+        test_program_("James 1:17 something here 5");
+        test_program_("James 1, 17 something here 5");
+    }
+
+    #[test]
+    fn test_program_with_no_verses() {
+        fn test_data() -> [AstExpression; 1] {
+            [AstExpression::new(AstNode::AstReferenceLiteral(
+                PassageLiteral {
+                    book: Identifier {
+                        prefix: Some(NumberLiteral::new(1)),
+                        value: String::from("John"),
+                        token: Token {
+                            t_type: TokenEnum::Identifier,
+                            value: String::from("John"),
+                        },
+                    },
+                    reference: ReferenceLiteral {
+                        token: Token {
+                            t_type: TokenEnum::Colon,
+                            value: String::from(":"),
+                        },
+                        chapter: NumberLiteral::new(1),
+                        verses: vec![],
+                    },
+                },
+            ))]
+        }
+
+        fn test_program_(input: &str) {
+            let expected_list = test_data();
+
+            let tokenizer = Tokenizer::new(input.into());
+            let mut parser = Parser::new(tokenizer);
+            let stmts = parser.parse_program();
+
+            let stmt = stmts.first(); // identifier
+            _test_passage_literal(0, expected_list.first().unwrap(), stmt.unwrap());
+        }
+
+        test_program_("1 John 1");
     }
 
     #[test]
