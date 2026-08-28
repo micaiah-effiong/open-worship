@@ -21,7 +21,7 @@ jobs:
       - name: Install GTK4 and libfuse2 (Linux)
         run: |
           apt-get update
-          apt-get install -y curl wget git just meson ninja-build desktop-file-utils shared-mime-info gtk-update-icon-cache libglib2.0-bin libssl-dev file pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev libadwaita-1-dev
+          apt-get install -y cmake libclang-dev clang libasound2-dev curl wget git just meson ninja-build desktop-file-utils shared-mime-info gtk-update-icon-cache libglib2.0-bin libssl-dev file pkg-config libgtk-4-dev build-essential libfuse2 librsvg2-dev libadwaita-1-dev
 
       - name: Configure cache
         uses: actions/cache@v5
