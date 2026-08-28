@@ -26,10 +26,10 @@ else
     output: '@0@.gschema.xml'.format(application_id),
     configuration: gschema_conf,
     install: true,
-    install_dir: schema_dir
+    install_dir: schema_dir,
   )
 
-  if host_machine.system() == 'windows' 
+  if host_machine.system() == 'windows'
     meson.add_install_script(
       'glib-compile-schemas',
       schema_dir,

@@ -66,6 +66,7 @@ cp $PLIST $BUNDLE_PATH/Contents/
 
 mkdir -p $BUNDLE_PATH/Contents/Resources/share/glib-2.0
 cp -r /opt/homebrew/share/glib-2.0/schemas $BUNDLE_PATH/Contents/Resources/share/glib-2.0
+glib-compile-schemas $BUNDLE_PATH/Contents/Resources/share/glib-2.0/schemas
 
 # 2. Copy and fix dependencies
 destDir=$BUNDLE_PATH/Contents/Resources/lib
