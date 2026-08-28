@@ -1,4 +1,5 @@
 pub mod alert;
+pub mod audio;
 pub mod file_manager;
 pub mod message_alert_manager;
 pub mod openlyrics;
