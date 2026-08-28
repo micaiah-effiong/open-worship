@@ -107,6 +107,51 @@ impl Query {
         Ok(rows)
     }
 
+    pub fn search_by_verses_query<I: IntoIterator<Item = u32>>(
+        translation: String,
+        book: String,
+        chapter: u32,
+        verses: I,
+    ) -> Result<Vec<BibleVerse>, DBError> {
+        let verses_list = verses
+            .into_iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            r#"
+            SELECT book_id, chapter, verse, text, books.name AS book 
+            FROM {translation}_verses
+            JOIN bible_books AS books ON books.id = {translation}_verses.book_id
+            WHERE {translation}_verses.book_id =(SELECT id FROM bible_books WHERE name LIKE ?1) 
+                AND {translation}_verses.chapter = ?2 
+                AND {translation}_verses.verse IN ({verses_list}) 
+            "#
+        );
+
+        let rows = DatabaseConnection::with_db(|conn| {
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map(params![format!("%{book}%"), chapter], |r| {
+                Ok(BibleVerse {
+                    book_id: r.get::<_, u32>(0)?,
+                    chapter: r.get::<_, u32>(1)?,
+                    verse: r.get::<_, u32>(2)?,
+                    text: r.get::<_, String>(3)?,
+                    book: r.get::<_, String>(4)?,
+                })
+            })?;
+
+            let mut verses_vec = Vec::new();
+            for row in rows {
+                verses_vec.push(row.unwrap());
+            }
+
+            Ok(verses_vec)
+        })?;
+
+        Ok(rows)
+    }
+
     pub fn insert_song(song: &SongData) -> Result<(), DBError> {
         let song_sql = r#"
             INSERT INTO songs(title) VALUES(?1) RETURNING id

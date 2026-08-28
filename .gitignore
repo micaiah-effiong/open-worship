@@ -34,3 +34,4 @@ builddir/*
 data/resources/gschemas.compiled
 .cargo/*
 !.cargo/config.toml.in
+models

@@ -122,8 +122,7 @@ impl SongObject {
 }
 impl From<SongData> for SongObject {
     fn from(data: SongData) -> Self {
-        let obj = SongObject::from_verses(data.title, data.verses, data.song_id);
-        obj
+        SongObject::from_verses(data.title, data.verses, data.song_id)
     }
 }
 
@@ -147,13 +146,12 @@ impl From<SongObject> for SlideManagerData {
                 let mut slide = SlideData::from_default();
 
                 match slide.items.iter_mut().next() {
-                    Some(val) => match &mut val.item_type {
-                        CanvasItemType::Text(text_item_data) => {
+                    Some(val) => {
+                        if let CanvasItemType::Text(text_item_data) = &mut val.item_type {
                             text_item_data.text_data = lyrics64.into();
                             text_item_data.font = settings.song_font();
                         }
-                        _ => {}
-                    },
+                    }
                     None => todo!(),
                 };
 
@@ -257,7 +255,7 @@ impl ScriptureVerseRange {
         verses: Vec<(u32, String)>,
         translation: String,
     ) -> Self {
-        assert_eq!(verses.len() > 0, true,);
+        assert!(!verses.is_empty());
 
         Self {
             book,
@@ -296,7 +294,7 @@ impl ScriptureVerseRange {
         let text = self
             .verses
             .iter()
-            .map(|(num, text)| format!("{}", format_verse(*num, text)))
+            .map(|(num, text)| format_verse(*num, text))
             .collect::<Vec<_>>()
             .join(" ");
 
@@ -310,24 +308,62 @@ impl ScriptureVerseRange {
         self.formatted_text(text)
     }
 }
-impl Into<SlideData> for ScriptureVerseRange {
-    fn into(self) -> SlideData {
+
+/// NOTE: This is only used ones, when "break_new_verse" is false
+impl From<ScriptureVerseRange> for SlideData {
+    fn from(value: ScriptureVerseRange) -> Self {
         let settings = ApplicationSettings::get_instance();
 
-        let text = self.screen_display();
-        let mut slide_data = SlideData::from_default();
+        let text = value.screen_display();
+        let mut slide_data = Self::from_default();
 
         for v in &mut slide_data.items {
-            match &mut v.item_type {
-                CanvasItemType::Text(text_item_data) => {
-                    text_item_data.font = settings.scripture_font();
-                    text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
-                }
-                _ => (),
+            if let CanvasItemType::Text(text_item_data) = &mut v.item_type {
+                text_item_data.font = settings.scripture_font();
+                text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
             };
         }
 
         slide_data
+    }
+}
+
+impl From<ScriptureVerseRange> for SlideManagerData {
+    fn from(value: ScriptureVerseRange) -> Self {
+        let settings = ApplicationSettings::get_instance();
+
+        let book = value.book.clone();
+        let chapter = value.chapter;
+        let translation = value.translation.clone();
+
+        let sm_data = value
+            .verses
+            .iter()
+            .map(|(v, text)| {
+                let mut slide_data = SlideData::from_default();
+
+                let text = ScriptureVerseRange::new(
+                    book.clone(),
+                    chapter,
+                    vec![(*v, text.clone())],
+                    translation.clone(),
+                )
+                .screen_display();
+
+                for v in &mut slide_data.items {
+                    if let CanvasItemType::Text(text_item_data) = &mut v.item_type {
+                        text_item_data.font = settings.scripture_font();
+                        text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
+                    };
+                }
+
+                slide_data
+            })
+            .collect::<Vec<_>>();
+
+        // let text = value.screen_display();
+
+        Self::new(0, 0, sm_data)
     }
 }
 
@@ -382,12 +418,9 @@ pub mod scripture {
             let mut slide_data = SlideData::from_default();
 
             for v in &mut slide_data.items {
-                match &mut v.item_type {
-                    CanvasItemType::Text(text_item_data) => {
-                        text_item_data.font = settings.scripture_font();
-                        text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
-                    }
-                    _ => (),
+                if let CanvasItemType::Text(text_item_data) = &mut v.item_type {
+                    text_item_data.font = settings.scripture_font();
+                    text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
                 };
             }
 

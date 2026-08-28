@@ -49,12 +49,10 @@ impl AppConfig {
     }
 
     pub fn get_db_path() -> String {
-        let db_path = AppConfigDir::dir_path(AppConfigDir::Database)
+        AppConfigDir::dir_path(AppConfigDir::Database)
             .join("db.sqlite")
             .display()
-            .to_string();
-
-        db_path
+            .to_string()
     }
 
     pub fn aspect_size() -> (i32, i32) {
@@ -86,17 +84,19 @@ pub enum AppConfigDir {
     SlideMedia,
     Backgrounds,
     Schedule,
+    Models,
 }
 
-impl Into<String> for AppConfigDir {
-    fn into(self) -> String {
-        match self {
-            Self::Media => "media",
-            Self::Database => "database",
-            Self::Downloads => "downloads",
-            Self::Backgrounds => "backgrounds",
-            Self::SlideMedia => "slide_media",
-            Self::Schedule => "schedule",
+impl From<AppConfigDir> for String {
+    fn from(val: AppConfigDir) -> Self {
+        match val {
+            AppConfigDir::Media => "media",
+            AppConfigDir::Database => "database",
+            AppConfigDir::Downloads => "downloads",
+            AppConfigDir::Backgrounds => "backgrounds",
+            AppConfigDir::SlideMedia => "slide_media",
+            AppConfigDir::Schedule => "schedule",
+            AppConfigDir::Models => "models",
         }
         .into()
     }
@@ -112,6 +112,7 @@ impl TryFrom<String> for AppConfigDir {
             "backgrounds" => Ok(Self::Backgrounds),
             "slide_media" => Ok(Self::SlideMedia),
             "schedule" => Ok(Self::Schedule),
+            "models" => Ok(Self::Models),
             _ => Err(()),
         }
     }

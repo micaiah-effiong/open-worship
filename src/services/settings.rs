@@ -11,7 +11,7 @@ pub struct ApplicationSettings;
 impl ApplicationSettings {
     pub fn get_instance() -> Self {
         SINGLETON.with(|c| {
-            let settings = c.get_or_init(|| Self::default());
+            let settings = c.get_or_init(Self::default);
             settings.clone()
         })
     }

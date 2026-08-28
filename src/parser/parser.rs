@@ -14,7 +14,7 @@ struct PageReference {
     verses: Vec<u32>,
 }
 
-trait Expression {
+pub trait Expression {
     fn inspect(&self) -> String;
 }
 
@@ -143,7 +143,12 @@ impl Expression for NumberLiteral {
 
 impl Expression for Identifier {
     fn inspect(&self) -> String {
-        self.token.inspect()
+        let t = self.token.inspect();
+        if let Some(tt) = &self.prefix {
+            return format!("{} {t}", tt.token.inspect());
+        }
+
+        t
     }
 }
 
@@ -256,6 +261,28 @@ impl Parser {
             .iter()
             .filter_map(|v| v.get::<PassageLiteral>())
             .map(|v| v.eval())
+            .collect()
+    }
+
+    pub fn parse_passage(input: String) -> Vec<PassageLiteral> {
+        let mut parser = Parser::from(input);
+
+        parser
+            .parse_program()
+            .iter()
+            .filter_map(|v| v.get::<PassageLiteral>().cloned())
+            // .map(|v| v.eval())
+            .collect()
+    }
+
+    pub fn parse_format(input: String) -> Vec<String> {
+        let mut parser = Parser::from(input);
+
+        parser
+            .parse_program()
+            .iter()
+            .filter_map(|v| v.get::<PassageLiteral>().cloned())
+            .map(|v| v.inspect())
             .collect()
     }
 
@@ -506,7 +533,7 @@ fn parse_post_chapter(p: &mut Parser, lhs: &AstExpression) -> Option<AstExpressi
 fn parse_verse(p: &mut Parser) -> Option<Vec<NumberLiteral>> {
     if p.current_token.t_type != TokenEnum::Colon
     // this should be chapter number
-        && p.current_token.t_type != TokenEnum::Number 
+        && p.current_token.t_type != TokenEnum::Number
         && p.current_token.t_type != TokenEnum::Comma
     {
         return None;

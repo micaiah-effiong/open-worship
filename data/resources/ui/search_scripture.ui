@@ -64,6 +64,14 @@
                       <object class="GtkDropDown" id="dropdown">
                       </object>
                     </child>
+
+                    <child>
+                      <object class="GtkButton" id="audio_assist_btn">
+                        <property name="label">Assist</property>
+                        <property name="valign">center</property>
+                        <signal name="clicked" handler="audio_assist" swapped="true"/>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>

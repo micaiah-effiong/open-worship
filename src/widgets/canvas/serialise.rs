@@ -132,8 +132,8 @@ impl SlideData {
         // let canvas_item = CanvasItemData::new(0, 0, 2755, 1566, CanvasItemType::Text(text));
         let canvas_item = CanvasItemData::new(0, 0, -1, -1, CanvasItemType::Text(text));
 
-        let mut slide = Self::default();
-        slide.canvas_data = CanvasData::default();
+        let mut slide = SlideData::default();
+        // slide.canvas_data = CanvasData::default();
         slide.items.push(canvas_item);
 
         slide
@@ -181,9 +181,11 @@ impl SlideManagerData {
         preview_slide: u32,
         slides: I,
     ) -> Self {
-        let mut data = Self::default();
-        data.current_slide = current_slide;
-        data.preview_slide = preview_slide;
+        let mut data = Self {
+            current_slide,
+            preview_slide,
+            ..Default::default()
+        };
         data.slides.extend(slides);
         data
     }
