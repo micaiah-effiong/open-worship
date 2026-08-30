@@ -57,6 +57,9 @@ samplerate = "0.2.4"
 text2num = "2.7.0"
 async-channel = "2.5.0"
 
+[target.'cfg(target_os = "macos")'.dependencies]
+whisper-rs = { version = "0.16.0", features = ["coreml", "metal"] }
+
 [package.metadata.winres]
 ProductName = "Openworship"
 
@@ -72,5 +75,3 @@ strip = true
 [build-dependencies]
 glib-build-tools = "0.22.0"
 
-# [build-dependencies]
-# glib-build-tools = "0.21.0"
