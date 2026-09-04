@@ -69,6 +69,7 @@
                       <object class="GtkButton" id="audio_assist_btn">
                         <property name="label">Assist</property>
                         <property name="valign">center</property>
+                        <property name="visible">false</property>
                         <signal name="clicked" handler="audio_assist" swapped="true"/>
                       </object>
                     </child>

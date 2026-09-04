@@ -130,9 +130,8 @@ mod imp {
                 scroll.set_vexpand(true);
                 scroll.set_child(Some(&list_view));
                 self.list_view.replace(list_view);
-                let bbox = gtk::Box::new(gtk::Orientation::Vertical, 2);
 
-                bbox
+                gtk::Box::new(gtk::Orientation::Vertical, 2)
             };
 
             let stack = gtk::Stack::new();
