@@ -10,7 +10,7 @@ use crate::{
 };
 
 const MIN_GRID_WIDTH: i32 = 300;
-const MIN_GRID_HEIGHT: i32 = 300;
+// const MIN_GRID_HEIGHT: i32 = 300;
 
 mod signals {
     pub const ACTIVATE_SLIDE: &str = "activate-slide";
@@ -41,7 +41,7 @@ mod imp {
     use crate::{
         app_config::AppConfig,
         services::{slide::Slide, slide_manager::SlideManager},
-        utils::{TextBufferExtraExt, WidgetExtrasExt},
+        utils::TextBufferExtraExt,
         widgets::{activity_viewer::signals, canvas::serialise::SlideManagerData},
     };
 
@@ -90,22 +90,34 @@ mod imp {
                 let factory = gtk::SignalListItemFactory::new();
 
                 factory.connect_setup(move |_, list_item| {
+                    let tag_label = gtk::Label::builder()
+                        .ellipsize(gtk::pango::EllipsizeMode::End)
+                        .wrap_mode(gtk::pango::WrapMode::Word)
+                        .justify(gtk::Justification::Fill)
+                        .halign(gtk::Align::Fill)
+                        .lines(1)
+                        .hexpand(true)
+                        .xalign(0.0)
+                        .css_classes(["slide-tag"])
+                        .build();
+
                     let label = gtk::Label::builder()
                         .ellipsize(gtk::pango::EllipsizeMode::End)
                         .wrap_mode(gtk::pango::WrapMode::Word)
-                        // .lines(2)
-                        .margin_top(12)
-                        .margin_bottom(12)
                         .halign(gtk::Align::Start)
                         .justify(gtk::Justification::Fill)
+                        .margin_start(8)
+                        .margin_end(8)
+                        .margin_bottom(8)
                         .build();
-                    label.set_margin_all(8);
                     label.set_height_request(40);
+
                     let li = list_item
                         .downcast_ref::<gtk::ListItem>()
                         .expect("Needs to be ListItem");
 
-                    let view = gtk::Box::default();
+                    let view = gtk::Box::new(gtk::Orientation::Vertical, 0);
+                    view.append(&tag_label);
                     view.append(&label);
 
                     li.set_child(Some(&view));
@@ -126,13 +138,27 @@ mod imp {
                         .and_downcast::<gtk::Box>()
                         .expect("The child has to be a `Box`.");
 
-                    let child = view.first_child();
-                    let label = child
+                    let text_child = view.last_child();
+                    let text_label = text_child
                         .and_downcast::<gtk::Label>()
                         .expect("The child has to be a `Label`.");
 
+                    let tag_child = view.first_child();
+                    let tag_label = tag_child
+                        .and_downcast::<gtk::Label>()
+                        .expect("The child has to be a `Label`.");
+
+                    tag_label.set_markup(&format!(r#"<span weight="bold">{}</span>"#, slide.tag()));
+
+                    if slide.tag().is_empty()
+                        && let Some(v) = view.first_child()
+                    {
+                        text_label.set_margin_top(8);
+                        v.set_visible(false);
+                    };
+
                     if let Some(buf) = slide.entry_buffer() {
-                        label.set_label(&buf.full_text());
+                        text_label.set_label(&buf.full_text());
                     }
                 });
 

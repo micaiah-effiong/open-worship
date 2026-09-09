@@ -41,13 +41,14 @@ install-appimage: (setup "default" "deb")
     --appdir AppDir \
     --plugin gtk \
     --output appimage
+
   mv Openworship-$(uname -m).AppImage openworship-$VERSION-$(uname -m).AppImage
   rm -r $BUNDLE_DIR
 
 install-deb: (setup "default" "deb")
   #!/usr/bin/env bash
 
-  BUNDLE_NAME="openworship_$(cargo pkgid | cut -d "@" -f2)"
+  BUNDLE_NAME="openworship-$(cargo pkgid | cut -d "@" -f2)"
   meson install -C {{builddir}} --destdir=$BUNDLE_NAME
   cd {{builddir}}
   BUNDLE_DIR="$PWD/$BUNDLE_NAME"

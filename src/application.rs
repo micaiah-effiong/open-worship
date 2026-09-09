@@ -192,6 +192,11 @@ mod imp {
             let obj = self.obj();
 
             let main_window = obj.main_window();
+            if main_window.is_visible() {
+                main_window.present();
+                return;
+            }
+
             let extended_screen = main_window.extended_screen();
             obj.add_window(&main_window);
             obj.add_window(&extended_screen);

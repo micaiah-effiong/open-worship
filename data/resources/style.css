@@ -158,6 +158,10 @@ editablelabel.schedule-list-item-editable {
   border-radius: 0;
 }
 
+.slide-tag, .slide-tag text {
+  background-color: maroon;
+}
+
 @media (prefers-color-scheme: dark) {
   .drop-over {
     border-top-color: white;

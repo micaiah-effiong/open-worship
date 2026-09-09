@@ -289,10 +289,9 @@ mod imp {
                 #[weak(rename_to=imp)]
                 self,
                 move |_sa, _v| {
-                    model
-                        .selected_item()
-                        .and_downcast::<PresentationObj>()
-                        .map(|v| imp.open_editor(Some(v)));
+                    if let Some(v) = model.selected_item().and_downcast::<PresentationObj>() {
+                        imp.open_editor(Some(v))
+                    }
                 }
             ));
 

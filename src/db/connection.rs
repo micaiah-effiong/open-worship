@@ -22,8 +22,7 @@ impl DatabaseConnection {
 
     fn instance() -> MutexGuard<'static, DatabaseConnection> {
         let db = DB.get_or_init(|| Mutex::new(DatabaseConnection::open(AppConfig::get_db_path())));
-        let conn = db.lock().unwrap();
-        conn
+        db.lock().unwrap()
     }
 
     pub fn with_db<F, R>(f: F) -> Result<R, rusqlite::Error>

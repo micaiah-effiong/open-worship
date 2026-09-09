@@ -16,9 +16,7 @@ pub fn run() -> glib::ExitCode {
     let args = std::env::args().collect::<Vec<_>>();
 
     let app = OwApplication::default();
-    let code = app.run_with_args(&args);
-
-    code
+    app.run_with_args(&args)
 }
 
 fn log_display_info() {
@@ -46,7 +44,6 @@ fn log_display_info() {
 }
 
 fn app_init() {
-    println!("RESOURCE_FILE {}", config::resource_file());
     println!("APP_ID {}", config::app_id());
     // let res =
     //     gtk::gio::Resource::load(config::resource_file()).expect("could not find app resources");

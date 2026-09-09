@@ -54,6 +54,56 @@ function process_dependencies()
   done
 }
 
+function process_dependencies2()
+{
+  local destdir=$1
+  local file=$2
+  local rpath=$3
+
+  echo "Processing $file"
+
+  local inst_prefix="$(brew --prefix)"
+
+  local DEPS=$(dyld_info -dependents $file | tail -n +4)
+  local process_list=""
+  for dep in $DEPS; do
+    local dep_file=""
+    local resolved_src=""
+
+    if [[ $dep == $inst_prefix/* ]]; then
+      # Absolute Homebrew path
+      dep_file=$(basename $dep)
+      resolved_src=$dep
+    elif [[ $dep == @rpath/* || $dep == @loader_path/* ]]; then
+      # Sibling-package reference (e.g. libwebp -> libsharpyuv)
+      dep_file=$(basename $dep)
+      # Search likely locations: same dir as $file, and any homebrew lib dir
+      resolved_src=$(find "$inst_prefix" -maxdepth 3 -name "$dep_file" -print -quit)
+      if [ -z "$resolved_src" ]; then
+        echo "  WARNING: could not resolve $dep for $file"
+        continue
+      fi
+    else
+      continue
+    fi
+
+    local new_dep_file=$destdir/$dep_file
+    if [ ! -f $new_dep_file ]; then
+      echo "  Copying $resolved_src"
+      cp -n $resolved_src $destdir
+    fi
+
+    echo "  Patching $dep -> $rpath/$dep_file"
+    install_name_tool -change $dep $rpath/$dep_file $file
+
+    process_list="$new_dep_file $process_list"
+  done
+
+  for dep in $process_list; do
+    process_dependencies2 $destdir $dep $rpath
+  done
+}
+
 # 1. Create the bundle
 mkdir -p $BUNDLE_PATH/Contents/{MacOS,Resources}
 mkdir -p $BUNDLE_PATH/Contents/Resources/{lib,share}
@@ -70,7 +120,7 @@ glib-compile-schemas $BUNDLE_PATH/Contents/Resources/share/glib-2.0/schemas
 
 # 2. Copy and fix dependencies
 destDir=$BUNDLE_PATH/Contents/Resources/lib
-process_dependencies $target $destDir $BUNDLE_PATH/Contents/MacOS/openworship "@executable_path/../Resources/lib"
+process_dependencies2 $target $destDir $BUNDLE_PATH/Contents/MacOS/openworship "@executable_path/../Resources/lib"
 
 # 3. Copy loaders
 mkdir -p $BUNDLE_PATH/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders
@@ -78,7 +128,7 @@ cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so $BUNDLE_PATH/Contents
 
 # 4. Fix loaders
 for loader in $BUNDLE_PATH/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0/loaders/*.so; do
-  process_dependencies $target $destDir $loader "@executable_path/../Resources/lib"
+  process_dependencies2 $target $destDir $loader "@executable_path/../Resources/lib"
 done
 
 cp -r /opt/homebrew/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache $BUNDLE_PATH/Contents/Resources/lib/gdk-pixbuf-2.0/2.10.0

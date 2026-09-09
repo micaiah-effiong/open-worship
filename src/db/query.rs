@@ -5,6 +5,7 @@ use crate::{
     db::connection::BibleVerse,
     dto::{SongData, SongVerse},
     services::{alert::Alert, settings::ApplicationSettings},
+    utils::tag_to_string,
     widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData},
 };
 
@@ -152,43 +153,16 @@ impl Query {
         Ok(rows)
     }
 
-    pub fn insert_song(song: &SongData) -> Result<(), DBError> {
-        let song_sql = r#"
-            INSERT INTO songs(title) VALUES(?1) RETURNING id
-        "#;
-
-        let song_verse_sql = r#"
-            INSERT INTO song_verses(song_id,verse,text,tag,slide) VALUES(?1,?2,?3,?4,jsonb(?5))
-        "#;
-
-        let r = DatabaseConnection::with_mut_db(|conn| {
-            let tx = conn.transaction()?;
-
-            let song_id = tx.query_row(song_sql, [&song.title], |r| r.get::<_, u32>(0))?;
-
-            for (i, verse) in song.verses.iter().enumerate() {
-                tx.execute(
-                    song_verse_sql,
-                    (&song_id, &i.saturating_add(1), &verse.text, &verse.tag),
-                )?;
-            }
-
-            tx.commit()
-        })?;
-
-        Ok(r)
-    }
-
     pub fn insert_songs(songs: &Vec<SongData>) -> Result<(), DBError> {
         let song_sql = r#"
             INSERT INTO songs(title) VALUES(?1) RETURNING id
         "#;
 
         let song_verse_sql = r#"
-            INSERT INTO song_verses(song_id,verse,text,tag,slide) VALUES(?1,?2,?3,?4)
+            INSERT INTO song_verses(song_id,verse,text,tag) VALUES(?1,?2,?3,?4)
         "#;
 
-        let r = DatabaseConnection::with_mut_db(|conn| {
+        DatabaseConnection::with_mut_db(|conn| {
             let tx = conn.transaction()?;
 
             {
@@ -213,7 +187,7 @@ impl Query {
             tx.commit()
         })?;
 
-        Ok(r)
+        Ok(())
     }
 
     pub fn update_song(song: &SongData) -> Result<(), DBError> {
@@ -224,7 +198,7 @@ impl Query {
             INSERT INTO song_verses(song_id,verse,text,tag) VALUES(?1,?2,?3,?4)
         "#;
 
-        let r = DatabaseConnection::with_mut_db(|conn| {
+        DatabaseConnection::with_mut_db(|conn| {
             let tx = conn.transaction()?;
             tx.execute(song_sql, (&song.title, &song.song_id))?;
             tx.execute(clear_song_verses_sql, [&song.song_id])?;
@@ -239,14 +213,14 @@ impl Query {
             tx.commit()
         })?;
 
-        Ok(r)
+        Ok(())
     }
 
     pub fn delete_song(song: SongData) -> Result<(), DBError> {
         let song_sql = "DELETE FROM songs WHERE id = ?1";
         let song_verses_sql = "DELETE FROM song_verses WHERE song_id = ?1";
 
-        let r = DatabaseConnection::with_mut_db(|conn| {
+        let r: () = DatabaseConnection::with_mut_db(|conn| {
             let tx = conn.transaction()?;
             tx.execute(song_verses_sql, [&song.song_id])?;
             tx.execute(song_sql, [&song.song_id])?;
@@ -284,6 +258,20 @@ impl Query {
                 let verses_query = songs_verses_sql.query_map([&song.0], |r| {
                     let text = r.get::<_, Option<String>>(1)?;
                     let tag = r.get::<_, Option<String>>(2)?;
+
+                    let tag = {
+                        let tag = tag.clone().and_then(|v| {
+                            let mut char_iter = v.chars();
+                            let l = char_iter.next()?;
+                            let m = char_iter
+                                .next()
+                                .map(|v| String::from(v).parse::<u32>().ok().unwrap_or_default());
+                            let m = m.unwrap_or_default();
+                            Some((l, m))
+                        });
+
+                        tag.map(tag_to_string)
+                    };
 
                     Ok(SongVerse::new(text.unwrap_or_default(), tag))
                 })?;
@@ -330,7 +318,7 @@ impl Query {
             vec_sql_verse.push((verse_sql, id, book));
         }
 
-        let r = DatabaseConnection::with_mut_db(|conn| {
+        DatabaseConnection::with_mut_db(|conn| {
             let tx = conn.transaction()?;
 
             tx.execute(&table_sql, [])?;
@@ -360,7 +348,7 @@ impl Query {
             tx.commit()
         })?;
 
-        Ok(r)
+        Ok(())
     }
 
     pub fn get_translations() -> Result<Vec<String>, DBError> {
@@ -388,7 +376,7 @@ impl Query {
         let delete_translations_sql = "DELETE FROM translations WHERE translation = ?1";
         let drop_translation_table_sql = format!("DROP TABLE IF EXISTS {translation}_verses"); // <name>_verses
 
-        let r = DatabaseConnection::with_mut_db(|conn| {
+        DatabaseConnection::with_mut_db(|conn| {
             let trx = conn.transaction()?;
             trx.execute(delete_translations_sql, [&translation])?;
             trx.execute(&drop_translation_table_sql, [])?;
@@ -396,7 +384,7 @@ impl Query {
             trx.commit()
         })?;
 
-        Ok(r)
+        Ok(())
     }
 
     pub fn get_alerts() -> Result<Vec<Alert>, DBError> {

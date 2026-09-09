@@ -5,7 +5,7 @@ use crate::services::settings::ApplicationSettings;
 
 pub const MAGIC_HEADER: &[u8] = b"OPW\x01";
 
-#[derive(Default)]
+#[derive(Default, Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
 pub enum SlideType {
     Song,
     Bible,
@@ -98,6 +98,9 @@ pub struct SlideData {
     pub preview: Vec<u8>,
     #[serde(flatten)]
     pub canvas_data: CanvasData,
+
+    pub notes: String,
+    pub tag: String,
 }
 
 impl SlideData {
@@ -106,12 +109,16 @@ impl SlideData {
         items: I,
         preview: Vec<u8>,
         canvas_data: CanvasData,
+        tag: String,
+        notes: String,
     ) -> Self {
         Self {
             transition,
             items: items.into_iter().collect(),
             preview,
             canvas_data,
+            tag,
+            notes,
         }
     }
 
@@ -161,6 +168,7 @@ pub struct SlideManagerData {
     // aspect_ratio
     pub slides: Vec<SlideData>,
     pub note: String,
+    pub r#type: SlideType,
 }
 
 impl Default for SlideManagerData {
@@ -171,6 +179,7 @@ impl Default for SlideManagerData {
             title: String::default(),
             slides: Vec::default(),
             note: String::from("No Item"),
+            r#type: SlideType::__Unknown,
         }
     }
 }

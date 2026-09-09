@@ -196,6 +196,7 @@ jobs:
         with:
           name: openworship-setup
           path: ${{ env.APP_BUILDDIR }}/build/openworship-setup.exe
+          archive: false
           if-no-files-found: error
 
       # - name: Upload installer to assets

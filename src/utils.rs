@@ -1,11 +1,11 @@
+use std::collections::HashMap;
+
 use gtk::gdk_pixbuf::prelude::PixbufLoaderExt;
 use gtk::gio::prelude::ListModelExt;
 use gtk::glib::object::{Cast, CastNone, IsA};
 use gtk::glib::types::StaticType;
-use gtk::prelude::{
-    AccessibleExt, SelectionModelExt, SnapshotExt, StyleContextExt, TextBufferExt, WidgetExt,
-};
-use gtk::{CssProvider, Image, gio, glib};
+use gtk::prelude::{AccessibleExt, SnapshotExt, StyleContextExt, TextBufferExt, WidgetExt};
+use gtk::{CssProvider, gio, glib};
 
 use crate::widgets::canvas::canvas::Canvas;
 use crate::widgets::canvas::canvas_item::CanvasItem;
@@ -67,7 +67,7 @@ impl<O: IsA<gtk::Widget>> WidgetChildrenExt for O {
         let model = self.observe_children();
         let size = model.n_items();
         ChildrenIterator {
-            model: model,
+            model,
             front_index: 0,
             back_index: size,
             _marker: std::marker::PhantomData,
@@ -115,9 +115,9 @@ pub mod rect {
             Self::new(value.x(), value.y(), value.width(), value.height())
         }
     }
-    impl Into<gdk::Rectangle> for Rect {
-        fn into(self) -> gdk::Rectangle {
-            gdk::Rectangle::new(self.x, self.y, self.width, self.height)
+    impl From<Rect> for gdk::Rectangle {
+        fn from(val: Rect) -> Self {
+            gdk::Rectangle::new(val.x, val.y, val.width, val.height)
         }
     }
     impl Rect {
@@ -244,7 +244,7 @@ pub fn base64_to_pixbuf(b64: &str) -> Option<gtk::gdk_pixbuf::Pixbuf> {
             return None;
         }
     };
-    return loader.pixbuf();
+    loader.pixbuf()
 }
 
 //
@@ -320,9 +320,7 @@ pub trait ListViewExtra: IsA<gtk::ListView> {
 
     fn get_list_store(&self) -> Option<gio::ListStore> {
         let list_view = self.upcast_ref::<gtk::ListView>();
-        let Some(selection_model) = list_view.model() else {
-            return None;
-        };
+        let selection_model = list_view.model()?;
 
         let mut model =
             if let Ok(single) = selection_model.clone().downcast::<gtk::SingleSelection>() {
@@ -412,11 +410,10 @@ pub trait RGBExtra {
 
 impl RGBExtra for gtk::gdk::RGBA {
     fn to_hex(&self) -> String {
-        let rgba = self.clone();
-        let r = (rgba.red() * 255.0) as u8;
-        let g = (rgba.green() * 255.0) as u8;
-        let b = (rgba.blue() * 255.0) as u8;
-        let a = (rgba.alpha() * 255.0) as u8;
+        let r = (self.red() * 255.0) as u8;
+        let g = (self.green() * 255.0) as u8;
+        let b = (self.blue() * 255.0) as u8;
+        let a = (self.alpha() * 255.0) as u8;
         format!("#{:02X}{:02X}{:02X}{:02X}", r, g, b, a).to_lowercase()
     }
 }
@@ -519,7 +516,7 @@ pub mod buffer_markup {
                 // println!("tag: {:?}", get_truthy_properties(&tag));
                 let attrs = get_truthy_properties(&tag)
                     .iter()
-                    .filter_map(|(n, v)| Some(format!("{n}=\"{v}\"")))
+                    .map(|(n, v)| format!("{n}=\"{v}\""))
                     .collect::<Vec<_>>()
                     .join(" ");
 
@@ -563,12 +560,9 @@ pub mod buffer_markup {
                     _ => &name,
                 };
 
-                let raw = obj.property_value(&readable_name);
+                let raw = obj.property_value(readable_name);
 
-                match cast_value(&raw) {
-                    Some(pv) => Some((name, pv)),
-                    None => None,
-                }
+                cast_value(&raw).map(|pv| (name, pv))
             })
             .filter_map(|(n, v)| is_truthy(&v).then(|| (n, v.to_display_string())))
             .collect()
@@ -605,7 +599,7 @@ pub mod buffer_markup {
     }
     fn is_truthy(value: &PropValue) -> bool {
         match value {
-            PropValue::Bool(b) => *b != false,
+            PropValue::Bool(b) => *b,
             PropValue::I32(i) => *i != 0,
             PropValue::U32(i) => *i != 0,
             PropValue::I64(i) => *i != 0,
@@ -643,7 +637,7 @@ pub mod buffer_markup {
                     return Some(PropValue::String(val.to_hex()));
                 };
                 println!("cast = {:?}", value.type_());
-                return None;
+                None
             }
         }
     }
@@ -651,7 +645,7 @@ pub mod buffer_markup {
     pub trait TextBufferExtra: IsA<gtk::TextBuffer> {
         fn markup(&self) -> String {
             let buff = self.upcast_ref::<gtk::TextBuffer>();
-            buffer_to_markup(&buff)
+            buffer_to_markup(buff)
         }
         fn cursor_is_between(&self, start: &gtk::TextIter, end: &gtk::TextIter) -> bool {
             let buf = self.upcast_ref::<gtk::TextBuffer>();
@@ -679,9 +673,70 @@ pub mod buffer_markup {
             let tags = buffer.get_tags_by(f);
             tags.iter()
                 // .filter(|v| v.is_weight_set())
-                .for_each(|tag| buffer.remove_tag(tag, &start, &end));
+                .for_each(|tag| buffer.remove_tag(tag, start, end));
         }
     }
 
     impl<O: IsA<gtk::TextBuffer>> TextBufferExtra for O {}
+}
+
+/// Song TAGS
+pub fn tag_to_string(t: (char, u32)) -> String {
+    let label = match t.0 {
+        'i' => "Intro",
+        'v' => "Verse",
+        'p' => "Pre-chorus",
+        'c' => "Chorus",
+        's' => "Solo",
+        'b' => "Bridge",
+        'm' => "Middle",
+        'o' => "Other",
+        'e' => "Ending",
+        _ => return "".to_string(),
+    };
+
+    if t.1 == 0 {
+        return label.to_string();
+    };
+
+    format!("{label} {}", t.1)
+}
+
+const TAGS: [(&str, &str); 9] = [
+    ("i", "intro"),
+    ("v", "verse"),
+    ("p", "pre-chorus"),
+    ("c", "chorus"),
+    ("s", "solo"),
+    ("b", "bridge"),
+    ("m", "middle"),
+    ("o", "other"),
+    ("e", "ending"),
+];
+
+fn get_tag(s: &str) -> Option<&str> {
+    TAGS.iter()
+        .find(|(_, v)| s.to_lowercase().starts_with(v))
+        .map(|v| v.0)
+}
+
+pub fn label_tag(items: Vec<&str>) -> Vec<String> {
+    let mut cache: HashMap<&str, u32> = HashMap::new();
+
+    let items: Vec<_> = items
+        .iter()
+        .map(|v| {
+            let tag = get_tag(v).unwrap_or(v);
+            let cached_count = *cache.get(tag).unwrap_or(&1);
+            if !tag.is_empty() {
+                cache.insert(tag, cached_count + 1);
+            }
+
+            (cached_count == 1)
+                .then(|| tag.to_string())
+                .unwrap_or(format!("{tag}{cached_count}"))
+        })
+        .collect();
+
+    items
 }

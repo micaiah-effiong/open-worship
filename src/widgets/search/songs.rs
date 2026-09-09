@@ -135,17 +135,7 @@ mod imp {
                 child.load_data(item);
             });
 
-            let initial_songs = Query::search_songs("", true);
-            match initial_songs {
-                Ok(songs) => {
-                    let songs_slice: Vec<SongObject> =
-                        songs.into_iter().map(|v| v.into()).collect();
-                    let store = listview.get_list_store().expect("Expect gio::ListStore");
-                    store.extend_from_slice(&songs_slice);
-                }
-                Err(e) => eprintln!("SQL ERROR: {:?}", e),
-            }
-
+            self.reload_song_list();
             self.obj().connect_realize(|obj| {
                 obj.imp().register_song_imported();
             });
@@ -182,12 +172,11 @@ mod imp {
 
             let change_fn =
                 |model: &gtk::SingleSelection, imp: &glib::subclass::ObjectImplRef<SearchSong>| {
-                    let Some(song_list_item) = model.selected_item().and_downcast::<SongObject>()
-                    else {
+                    let Some(song_obj) = model.selected_item().and_downcast::<SongObject>() else {
                         return;
                     };
 
-                    let list: SlideManagerData = song_list_item.into();
+                    let list: SlideManagerData = song_obj.into();
 
                     imp.obj().emit_send_to_preview(&list);
                 };
@@ -468,16 +457,14 @@ mod imp {
                 #[weak(rename_to=imp)]
                 self,
                 move |w, smd| {
-                    println!("SONG saved");
-
                     let song_obj = SongObject::from(smd.clone());
                     song_obj.set_song_id(song_id);
                     let song_data = song_obj.song_data();
                     let res = match w.is_new() {
-                        true => Query::insert_song(&song_data),
+                        true => Query::insert_songs(&vec![song_data]),
                         false => Query::update_song(&song_data),
                     };
-                    let _ = match res {
+                    match res {
                         Ok(()) => w.set_is_new(false),
                         Err(x) => println!("SQL ERROR: {:?}", x),
                     };

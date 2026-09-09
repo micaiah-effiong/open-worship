@@ -45,6 +45,9 @@ mod imp {
 
         #[property(get, set, construct, default_value = false)]
         pub presentation_mode: Cell<bool>,
+
+        #[property(set, get, default_value = "")]
+        pub tag: RefCell<String>,
     }
 
     #[glib::object_subclass]
@@ -67,6 +70,7 @@ mod imp {
                 transition: RefCell::new(gtk::StackTransitionType::None),
                 visible: Cell::new(true),
                 presentation_mode: Cell::new(false),
+                tag: RefCell::new(String::default()),
             }
         }
     }
@@ -95,10 +99,7 @@ impl Slide {
     pub fn new(/* window: &SpiceWindow, */ save_data: Option<SlideData>) -> Self {
         let slide = glib::Object::new::<Slide>();
 
-        let canvas_data: Option<CanvasData> = match save_data.clone() {
-            Some(d) => Some(d.into()),
-            None => None,
-        };
+        let canvas_data: Option<CanvasData> = save_data.clone().map(|d| d.into());
 
         slide.imp().save_data.replace(save_data.clone());
         let canvas = Canvas::new(/* window, */ canvas_data);
@@ -189,6 +190,8 @@ impl Slide {
 
         self.set_transition(utils::int_to_transition(save_data.transition));
 
+        self.set_tag(save_data.tag);
+        self.set_notes(save_data.notes);
         self.imp().save_data.replace(None);
     }
 
@@ -234,6 +237,8 @@ impl Slide {
             c_item_data,
             self.preview_data().to_vec(),
             canvas.serialise(),
+            imp.tag.borrow().clone(),
+            raw_notes.into(),
         )
     }
 
@@ -323,7 +328,8 @@ impl Slide {
         }
 
         self.set_transition(utils::int_to_transition(save_data.transition));
-        // self.set_notes(save_data.notes);
+        self.set_tag(save_data.tag);
+        self.set_notes(save_data.notes);
     }
 
     pub fn canvas(&self) -> Option<Canvas> {

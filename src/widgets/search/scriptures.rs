@@ -1,4 +1,3 @@
-mod bible_assist;
 pub mod download;
 
 use std::cell::RefCell;
@@ -54,7 +53,7 @@ mod imp {
         dto::{ScriptureVerseRange, scripture::ScriptureObject},
         services::settings::ApplicationSettings,
         utils::ListViewExtra,
-        widgets::{canvas::serialise::SlideData, search::scriptures::bible_assist::BibleAssist},
+        widgets::canvas::serialise::SlideData,
     };
 
     use super::*;
@@ -100,7 +99,6 @@ mod imp {
         close_download_btn: gtk::TemplateChild<gtk::Button>,
 
         search_mode: RefCell<SearchMode>,
-        bible_assist_win: RefCell<Option<BibleAssist>>,
     }
 
     #[glib::object_subclass]
@@ -240,12 +238,6 @@ mod imp {
         }
 
         #[template_callback]
-        fn audio_assist(&self, _: &gtk::Button) {
-            glib::g_message!("SearchScripture", "audio_assist");
-            self.audio_capture();
-        }
-
-        #[template_callback]
         fn close_download_handler(&self, _: &gtk::Button) {
             self.scripture_stack
                 .set_visible_child_name(super::SCRIPTURE_STACK_MAIN);
@@ -345,42 +337,6 @@ mod imp {
             if let Some(data) = self.prepare_to_send() {
                 self.obj().emit_send_scriptures(data);
             };
-        }
-
-        fn audio_capture(&self) {
-            let translation = self.translation.borrow().clone();
-
-            if let Some(assist_window) = self.bible_assist_win.take() {
-                assist_window.present();
-                assist_window
-                    .can_start_running()
-                    .then(|| assist_window.start(&translation));
-                self.bible_assist_win.replace(Some(assist_window));
-                return;
-            };
-
-            let assist_window = BibleAssist::new();
-            assist_window.present();
-            assist_window.start(&translation);
-
-            assist_window.connect_close_request(glib::clone!(
-                #[weak(rename_to=imp)]
-                self,
-                #[upgrade_or]
-                glib::Propagation::Proceed,
-                move |_| {
-                    imp.bible_assist_win.take();
-                    glib::Propagation::Proceed
-                }
-            ));
-
-            assist_window.connect_send_to_preveiew(glib::clone!(
-                #[weak(rename_to=imp)]
-                self,
-                move |_, data| imp.obj().emit_send_scriptures(data.clone())
-            ));
-
-            self.bible_assist_win.replace(Some(assist_window));
         }
     }
 

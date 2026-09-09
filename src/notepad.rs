@@ -26,7 +26,6 @@ use crate::app_config::{self, AppConfig};
 use crate::config;
 use crate::format_resource;
 use crate::services::alert::Alert;
-use crate::services::audio::{AudioRecorder, transcibe};
 use crate::services::message_alert_manager::MessageAlertManager;
 use crate::services::slide::Slide;
 use crate::services::slide_manager::SlideManager;
@@ -44,28 +43,6 @@ use crate::widgets::message_alert_wrapper::MessageAlertWapper;
 use crate::widgets::settings_window::SettingsWindow;
 use crate::widgets::{self, canvas, search};
 
-pub fn transcribe() {
-    let whisper_model_path = std::path::PathBuf::new()
-        .join(env!("CARGO_MANIFEST_DIR"))
-        .join("models/ggml-small.bin");
-    // .join("whisper-tiny.apr");
-
-    let Some(p) = whisper_model_path.to_str() else {
-        return;
-    };
-
-    println!("[t] {:?}", p);
-    println!("[dir] {:?}", env!("CARGO_MANIFEST_DIR"));
-
-    let (tx, rx) = std::sync::mpsc::channel();
-    let (ttx, trx) = async_channel::unbounded();
-
-    if let anyhow::Result::Ok(res) = transcibe::Stt::new() {
-        let _ = res.start(ttx, tx, rx);
-    }
-    // let t = transcibe::transcribe_loop(tx, rx, p);
-}
-
 pub fn init_app() {
     let _ = adw::init();
 
@@ -76,8 +53,9 @@ pub fn init_app() {
 
         //
         gtk::glib::set_application_name("Open worship");
-        gtk::gio::Resource::load(config::resource_file()).expect("could not find app resources");
-
+        gtk::gio::resources_register_include!("resources.gresource")
+            .expect("could not find app resources");
+        //
         // let provider = gtk::CssProvider::new();
         // provider.load_from_resource(format_resource!("styles", "style.css"));
         //

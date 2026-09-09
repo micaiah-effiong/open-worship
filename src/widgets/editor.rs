@@ -1,15 +1,16 @@
 use crate::application_window::MainApplicationWindow;
 use crate::services::slide::Slide;
-use crate::utils::{ListViewExtra, WidgetChildrenExt};
+use crate::utils::{self, ListViewExtra, WidgetChildrenExt};
 use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
 use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::*;
 mod canvas_toolbar;
+mod editor_listitem;
 mod editor_toolbar;
 mod text_toolbar;
 
-const WIDTH: i32 = 1000;
+// const WIDTH: i32 = 1000;
 const MIN_TEXT_WIDTH: i32 = 300;
 
 mod signals {
@@ -31,9 +32,11 @@ mod imp {
 
     use super::*;
     use crate::{
-        app_config::AppConfig, application_window::MainApplicationWindow,
-        services::slide_manager::SlideManager, utils::WidgetExtrasExt,
-        widgets::editor::editor_toolbar::EditorToolbar,
+        app_config::AppConfig,
+        application_window::MainApplicationWindow,
+        services::slide_manager::SlideManager,
+        utils::WidgetExtrasExt,
+        widgets::editor::{editor_listitem::EditorListItem, editor_toolbar::EditorToolbar},
     };
     use gtk::{
         gdk,
@@ -46,7 +49,7 @@ mod imp {
                 types::{ObjectSubclass, ObjectSubclassExt},
             },
         },
-        prelude::{AccessibleExt, BoxExt, EntryExt, ListItemExt, TextViewExt, WidgetExt},
+        prelude::{BoxExt, EntryExt, ListItemExt, TextViewExt, WidgetExt},
         subclass::{box_::BoxImpl, prelude::DerivedObjectProperties, widget::WidgetImpl},
     };
 
@@ -83,14 +86,6 @@ mod imp {
             self.parent_constructed();
             let obj = self.obj();
 
-            // obj.set_default_width(WIDTH);
-            // obj.set_default_height(562);
-            // obj.set_modal(true);
-            // obj.set_focus_visible(true);
-            // obj.set_resizable(false);
-            obj.set_accessible_role(gtk::AccessibleRole::Dialog);
-            obj.add_css_class("dialog");
-
             let model = gtk::gio::ListStore::new::<Slide>();
             let selection_model = gtk::SingleSelection::new(Some(model));
             let factory = gtk::SignalListItemFactory::new();
@@ -119,30 +114,25 @@ mod imp {
                 list_stack.append_page(&slide_scrolled, Some(&gtk::Label::new(Some("Preview"))));
             }
 
-            factory.connect_setup({
-                let listview = listview.clone();
-                let obj = obj.downgrade();
+            factory.connect_setup(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
                 move |_, list_item| {
-                    let tv = gtk::TextView::new();
-                    tv.set_margin_start(8);
-                    tv.set_left_margin(6);
-                    tv.set_right_margin(6);
-                    tv.set_top_margin(6);
-                    tv.set_bottom_margin(6);
-                    tv.set_height_request(40);
+                    let editor_item = EditorListItem::new(imp.editor_type.borrow().clone());
+
                     let li = list_item
                         .downcast_ref::<gtk::ListItem>()
                         .expect("Needs to be ListItem");
+                    li.set_focusable(false);
 
-                    li.set_child(Some(&tv));
+                    li.set_child(Some(&editor_item));
 
-                    if let Some(obj) = obj.upgrade() {
-                        obj.imp().setup_key_controller(&tv, &listview);
-                    };
+                    let listview = imp.list_view.borrow().clone();
+                    imp.setup_key_controller(&editor_item.textview(), &listview);
                 }
-            });
+            ));
 
-            factory.connect_bind(move |_, list_item| {
+            factory.connect_bind(|_, list_item| {
                 let slide = list_item
                     .downcast_ref::<gtk::ListItem>()
                     .expect("Needs to be ListItem")
@@ -150,27 +140,25 @@ mod imp {
                     .and_downcast::<Slide>()
                     .expect("The item has to be an `Slide`.");
 
-                let textview = list_item
+                let editor_listitem = list_item
                     .downcast_ref::<gtk::ListItem>()
                     .expect("Needs to be ListItem")
                     .child()
-                    .and_downcast::<gtk::TextView>()
-                    .expect("The child has to be a `TextView`.");
+                    .and_downcast::<EditorListItem>()
+                    .expect("The child has to be a `EditorListItem`.");
 
-                // textview.set_margin_all(0);
-                textview.set_wrap_mode(gtk::WrapMode::Word);
+                editor_listitem.bind(slide);
+            });
 
-                if let Some(buf) = slide.entry_buffer() {
-                    textview.set_buffer(Some(&buf));
-                }
+            factory.connect_unbind(|_, listitem| {
+                let editor_listitem = listitem
+                    .downcast_ref::<gtk::ListItem>()
+                    .expect("Needs to be ListItem")
+                    .child()
+                    .and_downcast::<EditorListItem>()
+                    .expect("The child has to be a `EditorListItem`.");
 
-                slide.connect_visible_notify(glib::clone!(
-                    #[weak]
-                    textview,
-                    move |slide| {
-                        textview.parent().map(|w| w.set_visible(slide.visible()));
-                    }
-                ));
+                editor_listitem.unbind();
             });
 
             self.list_view.replace(listview.clone());
@@ -317,9 +305,9 @@ mod imp {
                             .child(&label)
                             .build();
                         win.set_visible(true);
-                        return true;
+                        true
                     } else {
-                        return false;
+                        false
                     }
                 };
 
@@ -413,7 +401,9 @@ mod imp {
                 container.set_child(Some(&pic));
 
                 slide.connect_visible_notify(move |slide| {
-                    pic.parent().map(|w| w.set_visible(slide.visible()));
+                    if let Some(w) = pic.parent() {
+                        w.set_visible(slide.visible())
+                    }
                 });
             });
 
@@ -529,19 +519,21 @@ impl Editor {
         data: Option<SlideManagerData>,
     ) -> Self {
         let obj: Self = glib::Object::new();
-        obj.imp().main_window.set(Some(&main_window));
+        let imp = obj.imp();
+        imp.main_window.set(Some(&main_window));
 
         let t = editor_type.unwrap_or_default();
         if t == EditorType::Song {
-            obj.imp().toolbar_box.borrow().set_visible(false);
+            imp.toolbar_box.borrow().set_visible(false);
+            imp.notebook.borrow().remove_page(Some(1));
         }
-        obj.imp().editor_type.replace(t);
+        imp.editor_type.replace(t);
 
         if let Some(data) = data {
             obj.load_song(&data);
-            obj.imp().is_new.set(false);
+            imp.is_new.set(false);
         } else {
-            obj.imp().is_new.set(true);
+            imp.is_new.set(true);
             obj.add_new_verse();
         }
 
@@ -598,10 +590,12 @@ impl Editor {
             .and_downcast::<gtk::SingleSelection>()
             .expect("Expected gtk::SingleSelection");
 
-        model
+        if let Some(c) = model
             .selected_item()
             .and_then(|item| item.downcast::<Slide>().ok())
-            .map(|c| c.delete());
+        {
+            c.delete()
+        }
 
         let selection = model.selected();
         let total = page.children().filter(|c| c.is_visible()).count();
@@ -613,7 +607,7 @@ impl Editor {
         let listitems = page
             .children()
             .enumerate()
-            .filter_map(|(i, c)| c.is_visible().then(|| i))
+            .filter_map(|(i, c)| c.is_visible().then_some(i))
             .collect::<Vec<_>>();
 
         let (lt, gt): (Vec<_>, Vec<_>) = listitems
@@ -667,6 +661,15 @@ impl Editor {
 
         let mut data = SlideManagerData::new(0, 0, slides);
         data.title = title.text().into();
+
+        if self.imp().editor_type.borrow().clone() == EditorType::Song {
+            let slide_tags: Vec<_> = data.slides.iter().map(|v| v.tag.as_str()).collect();
+            let formatted_slide_tags = utils::label_tag(slide_tags);
+            data.slides
+                .iter_mut()
+                .zip(formatted_slide_tags)
+                .for_each(|(slide, tag)| slide.tag = tag);
+        }
 
         self.emit_save(&data);
     }

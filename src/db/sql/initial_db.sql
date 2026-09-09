@@ -39,4 +39,9 @@ CREATE TABLE IF NOT EXISTS presentations (
   slide_data BLOB NOT NULL
 );
 
+-- NOTE: cant run this because sqlite does not
+-- support IF EXISTS for ALTER query
+-- ALTER TABLE song_verses
+-- DROP COLUMN slide;
+
 COMMIT;

@@ -1,6 +1,9 @@
+use std::ops::Not;
+
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::{glib, pango};
 
+use crate::widgets::canvas::serialise::SlideType;
 use crate::{
     services::settings::ApplicationSettings,
     widgets::canvas::serialise::{CanvasItemType, SlideData, SlideManagerData},
@@ -144,6 +147,7 @@ impl From<SongObject> for SlideManagerData {
 
                 let lyrics64 = glib::base64_encode(lyrics.as_bytes());
                 let mut slide = SlideData::from_default();
+                slide.tag = s.tag.unwrap_or_default();
 
                 match slide.items.iter_mut().next() {
                     Some(val) => {
@@ -161,6 +165,7 @@ impl From<SongObject> for SlideManagerData {
 
         let mut sm_data = SlideManagerData::new(0, 0, slide_list);
         sm_data.title = value.title();
+        sm_data.r#type = SlideType::Song;
         sm_data
     }
 }
@@ -189,7 +194,8 @@ impl From<SlideManagerData> for SongObject {
                                 Err(e) => panic!("expected string: {:?}", e),
                             };
 
-                            let song_verse = SongVerse::new(text, None);
+                            let tag = slide.tag.is_empty().not().then(|| slide.tag.clone());
+                            let song_verse = SongVerse::new(text, tag);
                             return Some(song_verse);
                         }
                         _ => continue,
@@ -225,10 +231,10 @@ impl ScriptureDisplay for Scripture {}
 impl Scripture {
     pub fn to_slide_data_text(&self) -> String {
         let settings = ApplicationSettings::get_instance();
-        let num = settings
-            .show_verse_number()
-            .then(|| self.verse.to_string())
-            .unwrap_or_default();
+        let num = match settings.show_verse_number() {
+            true => self.verse.to_string(),
+            false => String::default(),
+        };
 
         let text = format!(
             "{} {}\n{} {}:{} ({})",
@@ -264,6 +270,28 @@ impl ScriptureVerseRange {
             translation,
         }
     }
+
+    pub fn reference_display(&self) -> String {
+        assert!(!self.verses.is_empty());
+
+        if self.verses.len() == 1 {
+            let (verse, _) = self.verses.first().unwrap();
+            let text = format!(
+                "{} {}:{} ({})",
+                self.book, self.chapter, verse, self.translation
+            );
+            return text;
+        }
+
+        let first = self.verses.first().unwrap().0;
+        let last = self.verses.last().unwrap().0;
+
+        format!(
+            "{} {}:{}-{} ({})",
+            self.book, self.chapter, first, last, self.translation
+        )
+    }
+
     pub fn screen_display(&self) -> String {
         assert!(!self.verses.is_empty());
         let settings = ApplicationSettings::get_instance();
@@ -277,20 +305,6 @@ impl ScriptureVerseRange {
             }
         };
 
-        if self.verses.len() == 1 {
-            let (num, text) = self.verses.first().unwrap();
-
-            let text = format!(
-                "{}\n{} {}:{} ({})",
-                format_verse(*num, text),
-                self.book,
-                self.chapter,
-                num,
-                self.translation
-            );
-            return self.formatted_text(text);
-        }
-
         let text = self
             .verses
             .iter()
@@ -298,13 +312,7 @@ impl ScriptureVerseRange {
             .collect::<Vec<_>>()
             .join(" ");
 
-        let first = self.verses.first().unwrap().0;
-        let last = self.verses.last().unwrap().0;
-
-        let text = format!(
-            "{}\n{} {}:{}-{} ({})",
-            text, self.book, self.chapter, first, last, self.translation
-        );
+        let text = format!("{}\n{}", text, self.reference_display());
         self.formatted_text(text)
     }
 }
@@ -316,11 +324,13 @@ impl From<ScriptureVerseRange> for SlideData {
 
         let text = value.screen_display();
         let mut slide_data = Self::from_default();
+        slide_data.tag = value.reference_display();
 
         for v in &mut slide_data.items {
             if let CanvasItemType::Text(text_item_data) = &mut v.item_type {
                 text_item_data.font = settings.scripture_font();
                 text_item_data.text_data = glib::base64_encode(text.as_bytes()).into();
+                break;
             };
         }
 
@@ -410,11 +420,11 @@ pub mod scripture {
         }
     }
 
-    impl Into<SlideData> for ScriptureObject {
-        fn into(self) -> SlideData {
+    impl From<ScriptureObject> for SlideData {
+        fn from(val: ScriptureObject) -> Self {
             let settings = ApplicationSettings::get_instance();
 
-            let text = self.item().to_slide_data_text();
+            let text = val.item().to_slide_data_text();
             let mut slide_data = SlideData::from_default();
 
             for v in &mut slide_data.items {
