@@ -51,6 +51,8 @@ regex = "1.12.3"
 openlyrics = "0.1.1"
 quick-xml = { version = "0.40.1", features = ["serialize"] }
 anyhow = "1.0.104"
+icu = "2.3.1"
+sys-locale = "0.3.2"
 
 [package.metadata.winres]
 ProductName = "Openworship"

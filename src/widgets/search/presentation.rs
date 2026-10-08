@@ -494,7 +494,6 @@ mod imp {
                 #[strong]
                 list,
                 move |_se| {
-                    println!("S ACTIVATE");
                     let Some(model) = list.model().and_downcast::<gtk::SingleSelection>() else {
                         return;
                     };

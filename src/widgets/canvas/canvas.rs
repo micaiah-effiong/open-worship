@@ -428,13 +428,12 @@ impl Canvas {
                     return;
                 }
 
-                let r: gdk::Rectangle = ci.rectangle().into();
+                let r = ci.rectangle();
 
-                let x = (delta_x as f64 / c.current_ratio()) as i32 + r.x();
-                let y = (delta_y as f64 / c.current_ratio()) as i32 + r.y();
+                let x = (delta_x as f64 / c.current_ratio()) as i32 + r.x;
+                let y = (delta_y as f64 / c.current_ratio()) as i32 + r.y;
 
-                let rect = gdk::Rectangle::new(x, y, r.width(), r.height());
-                ci.set_rectangle(utils::rect::Rect::from(rect));
+                ci.set_rectangle(utils::rect::Rect::new(x, y, r.width, r.height));
 
                 // ci.queue_allocate();
                 ci.style(); // NOTE: allows font rescaling after item resize

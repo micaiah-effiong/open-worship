@@ -9,6 +9,7 @@ pub mod message_alert_editor;
 pub mod message_alert_editor_window;
 pub mod message_alert_viewer;
 pub mod message_alert_wrapper;
+pub mod ow_spinbutton;
 pub mod schedule_activity_viewer;
 pub mod search;
 pub mod settings_window;

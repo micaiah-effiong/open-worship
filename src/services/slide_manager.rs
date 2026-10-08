@@ -269,7 +269,7 @@ impl SlideManager {
         self.emit_by_name::<()>(signals::SLIDES_SORTED, &[]);
     }
 
-    pub fn connect_new_slide_created<F: Fn(&Self, &Slide) -> () + 'static>(&self, f: F) {
+    pub fn connect_new_slide_created<F: Fn(&Self, &Slide) + 'static>(&self, f: F) {
         self.connect_closure(
             signals::NEW_SLIDE_CREATED,
             false,
@@ -277,7 +277,7 @@ impl SlideManager {
         );
     }
 
-    pub fn connect_slides_sorted<F: Fn() -> () + 'static>(&self, f: F) {
+    pub fn connect_slides_sorted<F: Fn() + 'static>(&self, f: F) {
         self.connect_closure(
             signals::SLIDES_SORTED,
             false,
@@ -285,7 +285,7 @@ impl SlideManager {
         );
     }
 
-    pub fn connect_current_slide_changed<F: Fn(&Self, &Slide) -> () + 'static>(&self, f: F) {
+    pub fn connect_current_slide_changed<F: Fn(&Self, &Slide) + 'static>(&self, f: F) {
         self.connect_closure(
             signals::CURRENT_SLIDE_CHANGED,
             false,
@@ -293,7 +293,7 @@ impl SlideManager {
         );
     }
 
-    pub fn connect_reseted<F: Fn() -> () + 'static>(&self, f: F) {
+    pub fn connect_reseted<F: Fn() + 'static>(&self, f: F) {
         self.connect_closure(
             signals::RESETED,
             false,
@@ -301,7 +301,7 @@ impl SlideManager {
         );
     }
 
-    pub fn connect_item_clicked<F: Fn(&Self, Option<CanvasItem>) -> () + 'static>(&self, f: F) {
+    pub fn connect_item_clicked<F: Fn(&Self, Option<CanvasItem>) + 'static>(&self, f: F) {
         self.connect_closure(
             signals::ITEM_CLICKED,
             false,

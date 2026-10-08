@@ -77,11 +77,7 @@ impl FileManager {
             let res = dialog.save_future(window).await;
             if let Ok(user_file) = &res {
                 Self::create_file_if_not_exists(user_file);
-
-                let Some(path) = user_file.path() else {
-                    return None;
-                };
-
+                let path = user_file.path()?;
                 std::fs::write(path, data).expect("failed to write file");
             }
 
@@ -201,7 +197,7 @@ impl FileManager {
             .as_ref()
             .and_then(FileManager::get_data)
             .and_then(|v| String::from_utf8(v).ok())
-            .and_then(|v| Self::parse_schedule_file(v))
+            .and_then(Self::parse_schedule_file)
             .unwrap_or_default()
 
         // NOTE: we will have to append a head before saving
@@ -386,16 +382,13 @@ impl FileManager {
     }
 
     pub fn file_to_base64(file: &gio::File) -> Option<String> {
-        let Some(bytes) = Self::get_data(file) else {
-            return None;
-        };
-
-        return Some(glib::base64_encode(bytes.as_slice()).to_string());
+        let bytes = Self::get_data(file)?;
+        Some(glib::base64_encode(bytes.as_slice()).to_string())
     }
 
     pub fn base64_to_file(filename: &str, base64_data: String) -> String {
         let data = glib::base64_decode(&base64_data);
-        match gio::File::for_path(&filename).replace_contents(
+        match gio::File::for_path(filename).replace_contents(
             &data,
             None,
             false,
@@ -423,19 +416,14 @@ impl FileManager {
             return None;
         };
 
-        let Some(url) = file
+        let url = file
             .clone()
             .path()
             .as_ref()
             .and_then(|v| v.to_str())
-            .map(|s| s.to_string())
-        else {
-            return None;
-        };
+            .map(|s| s.to_string())?;
 
-        let Some(filename) = std::path::Path::new(&url).file_name() else {
-            return None;
-        };
+        let filename = std::path::Path::new(&url).file_name()?;
 
         let symlink_path = AppConfigDir::dir_path(dir).join(filename);
         let path = symlink_path.display().to_string();
@@ -535,7 +523,7 @@ impl FileManager {
         glib::spawn_future_local(async move {
             let texture = gio::spawn_blocking({
                 let path = path.clone();
-                let size = size.clone().unwrap_or((1920, 1080));
+                let size = size.unwrap_or((1920, 1080));
                 move || {
                     let pixbuf =
                         gtk::gdk_pixbuf::Pixbuf::from_file_at_scale(&path, size.0, size.1, true)

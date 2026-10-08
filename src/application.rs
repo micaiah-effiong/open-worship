@@ -203,6 +203,9 @@ mod imp {
 
             self.add_app_menu(Some(&main_window.window_box()));
 
+            if cfg!(debug_assertions) {
+                main_window.open_editor(None, None);
+            }
             main_window.show_all();
 
             let monitors = WidgetExt::display(&extended_screen).monitors();

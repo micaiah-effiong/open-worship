@@ -40,6 +40,7 @@ use crate::widgets::message_alert_editor::MessageAlertEditor;
 use crate::widgets::message_alert_editor_window::MessageAlertEditorWindow;
 use crate::widgets::message_alert_viewer::MessageAlertViewer;
 use crate::widgets::message_alert_wrapper::MessageAlertWapper;
+use crate::widgets::ow_spinbutton::OwSpinButton;
 use crate::widgets::settings_window::SettingsWindow;
 use crate::widgets::{self, canvas, search};
 
@@ -96,7 +97,8 @@ pub fn init_app() {
             // win.present();
         }
 
-        let _ = build_ui(app);
+        // let _ = build_ui(app);
+        build_ui_collapsible(app);
         // build_dnd_ui(&app);
     });
 
@@ -519,4 +521,66 @@ fn show_notification(window: &gtk::Window, message: &str) {
         //     .icon("firefox")
         //     .show();
     });
+}
+
+fn build_ui_collapsible(app: &impl IsA<gtk::Application>) {
+    let window = gtk::ApplicationWindow::builder()
+        .application(app)
+        .title("Collapsible Sidebar")
+        .default_width(800)
+        .default_height(500)
+        .build();
+
+    // --- Sidebar content ---
+    let sidebar_box = gtk::Box::new(gtk::Orientation::Vertical, 6);
+    sidebar_box.set_margin_top(12);
+    sidebar_box.set_margin_bottom(12);
+    sidebar_box.set_margin_start(12);
+    sidebar_box.set_margin_end(12);
+    sidebar_box.set_width_request(180);
+
+    let home_btn = gtk::Button::with_label("Home");
+    let settings_btn = gtk::Button::with_label("Settings");
+    sidebar_box.append(&home_btn);
+    sidebar_box.append(&settings_btn);
+    sidebar_box.append(&gtk::SpinButton::with_range(10.0, 100.0, 1.0));
+    sidebar_box.append(&OwSpinButton::with_range(10.0, 100.0, 1.0));
+
+    // --- Revealer wraps the sidebar ---
+    let revealer = gtk::Revealer::builder()
+        .transition_type(gtk::RevealerTransitionType::SlideRight)
+        .transition_duration(200)
+        .reveal_child(true) // start expanded
+        .child(&sidebar_box)
+        .build();
+
+    // --- Main content ---
+    let main_content = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    main_content.set_hexpand(true);
+    main_content.set_vexpand(true);
+    main_content.append(&gtk::Label::new(Some("Main content")));
+
+    // --- Toggle button (put in a header bar, or wherever) ---
+    let toggle_btn = gtk::Button::with_label("☰");
+    toggle_btn.connect_clicked(glib::clone!(
+        #[weak]
+        revealer,
+        move |_| {
+            revealer.set_reveal_child(!revealer.reveals_child());
+        }
+    ));
+
+    // --- Header bar with toggle ---
+    let header = gtk::HeaderBar::new();
+    header.pack_start(&toggle_btn);
+    window.set_titlebar(Some(&header));
+
+    // --- Layout: revealer (sidebar) + main content side by side ---
+    let root = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+    root.append(&revealer);
+    root.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+    root.append(&main_content);
+
+    window.set_child(Some(&root));
+    window.present();
 }

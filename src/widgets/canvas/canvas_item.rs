@@ -4,7 +4,6 @@ const REAL_HEIGHT: i32 = 510;
 mod imp {
     use std::cell::{Cell, RefCell};
     use std::sync::OnceLock;
-    use std::{i32, u32};
 
     use glib::subclass::object::ObjectImpl;
     use glib::subclass::types::ObjectSubclass;
@@ -14,7 +13,7 @@ mod imp {
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
-    use crate::utils::{self, WidgetChildrenExt, WidgetExtrasExt};
+    use crate::utils::{self, WidgetChildrenExt};
     // use crate::services::history_manager::history_action::{HistoryAction, TypedHistoryAction};
     // use crate::services::utils::{self, rect};
     use crate::widgets::canvas::canvas::Canvas;
@@ -216,27 +215,31 @@ mod imp {
 
                         ci.button_release_event(g);
 
-                        if let Some((x, y, w, h)) = ci.obj().bounds() {
-                            ci.obj().canvas().map(|c| {
-                                let r = gdk::Rectangle::new(x, y, w, h);
-                                let (x, y) = c.check_alignment_guides(r);
+                        if let Some((x, y, w, h)) = ci.obj().bounds()
+                            && let Some(c) = ci.obj().canvas()
+                        {
+                            let r = gdk::Rectangle::new(x, y, w, h);
+                            let (x, y) = c.check_alignment_guides(r);
 
-                                if x.abs() <= Canvas::ALIGNMENT_GUIDE_THRESHOLD {
-                                    let dx = ci.delta_x.get() as f64 /* * c.current_ratio() */ + x as f64;
+                            if x.abs() <= Canvas::ALIGNMENT_GUIDE_THRESHOLD {
+                                let dx =
+                                    ci.delta_x.get() as f64 /* * c.current_ratio() */ + x as f64;
 
-                                    ci.emit_move_item(dx as i32, ci.delta_y.get());
-                                }
-                                if y.abs() <= Canvas::ALIGNMENT_GUIDE_THRESHOLD {
-                                    let dy = ci.delta_x.get() as f64 /* * c.current_ratio() */ + y as f64;
+                                ci.emit_move_item(dx as i32, ci.delta_y.get());
+                            }
+                            if y.abs() <= Canvas::ALIGNMENT_GUIDE_THRESHOLD {
+                                let dy =
+                                    ci.delta_x.get() as f64 /* * c.current_ratio() */ + y as f64;
 
-                                    ci.emit_move_item( ci.delta_y.get(), dy as i32);
-                                }
-                                ci.emit_checkposition();
-                            });
-                        }
+                                ci.emit_move_item(ci.delta_y.get(), dy as i32);
+                            }
+                            ci.emit_checkposition();
+                        };
 
                         ci.show_alignment_guides.set(false);
-                        ci.obj().canvas().map(|c| c.hide_alignment_guides());
+                        if let Some(c) = ci.obj().canvas() {
+                            c.hide_alignment_guides()
+                        }
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
                 ));
@@ -251,7 +254,9 @@ mod imp {
 
                         ci.button_release_event(g);
                         ci.show_alignment_guides.set(false);
-                        ci.obj().canvas().map(|c| c.hide_alignment_guides());
+                        if let Some(c) = ci.obj().canvas() {
+                            c.hide_alignment_guides()
+                        }
                         g.set_state(gtk::EventSequenceState::Claimed);
                     }
                 ));
@@ -302,7 +307,7 @@ mod imp {
     impl BoxImpl for CanvasItem {}
 
     impl CanvasItem {
-        fn emit_checkposition(&self) {
+        pub fn emit_checkposition(&self) {
             self.obj().emit_by_name::<()>(signals::CHECK_POSITION, &[]);
         }
 
@@ -315,9 +320,7 @@ mod imp {
         }
 
         pub(super) fn get_save_data(&self) -> Option<CanvasItemData> {
-            let Some(data) = self.save_data.borrow().clone() else {
-                return None;
-            };
+            let data = self.save_data.borrow().clone()?;
             serde_json::from_str(&data).ok()
         }
 
@@ -374,9 +377,6 @@ mod imp {
             let Some((x, y)) = event.current_event().and_then(|v| v.position()) else {
                 return;
             };
-
-            let x: f64 = x.into();
-            let y: f64 = y.into();
 
             let x = (x - self.start_x.get()) as i32;
             let y = (y - self.start_y.get()) as i32;
@@ -468,8 +468,6 @@ mod imp {
             }
 
             self.emit_checkposition();
-
-            return;
         }
 
         fn button_press_event(&self, _event: &gtk::GestureClick) -> bool {
@@ -486,9 +484,6 @@ mod imp {
             let Some((x, y)) = _event.current_event().and_then(|v| v.position()) else {
                 return false;
             };
-
-            let x: f64 = x.into();
-            let y: f64 = y.into();
 
             if self.holding.get() {
                 return true;
@@ -581,7 +576,7 @@ mod imp {
                         return;
                     }
                     ci.button_press_event(event);
-                    ci.set_holding(id as u32);
+                    ci.set_holding(id);
                     event.set_state(gtk::EventSequenceState::Claimed);
                 }
             ));
@@ -689,8 +684,8 @@ mod imp {
             let w = self.real_width.get();
             let h = self.real_height.get();
             let item_type = self.obj().serialise_item();
-            let data = CanvasItemData::new(x, y, w, h, item_type);
-            data
+
+            CanvasItemData::new(x, y, w, h, item_type)
         }
 
         /// virtuals
@@ -711,7 +706,7 @@ mod imp {
         pub fn is_presentation_mode(&self) -> bool {
             self.canvas
                 .upgrade()
-                .and_then(|c| Some(c.presentation_mode()))
+                .map(|c| c.presentation_mode())
                 .unwrap_or(false)
         }
     }

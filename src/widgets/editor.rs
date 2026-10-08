@@ -2,16 +2,24 @@ use crate::application_window::MainApplicationWindow;
 use crate::services::slide::Slide;
 use crate::utils::{self, ListViewExtra, WidgetChildrenExt};
 use crate::widgets::canvas::serialise::{SlideData, SlideManagerData};
+use gtk::gdk;
 use gtk::glib;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::*;
 mod canvas_toolbar;
 mod editor_listitem;
 mod editor_toolbar;
+mod side_toolbar;
 mod text_toolbar;
 
 // const WIDTH: i32 = 1000;
 const MIN_TEXT_WIDTH: i32 = 300;
+
+#[cfg(target_os = "macos")]
+const PRIMARY_MOD: gdk::ModifierType = gdk::ModifierType::META_MASK;
+
+#[cfg(not(target_os = "macos"))]
+const PRIMARY_MOD: gdk::ModifierType = gdk::ModifierType::CONTROL_MASK;
 
 mod signals {
     pub const SAVE: &str = "save";
@@ -36,7 +44,10 @@ mod imp {
         application_window::MainApplicationWindow,
         services::slide_manager::SlideManager,
         utils::WidgetExtrasExt,
-        widgets::editor::{editor_listitem::EditorListItem, editor_toolbar::EditorToolbar},
+        widgets::editor::{
+            editor_listitem::EditorListItem, editor_toolbar::EditorToolbar,
+            side_toolbar::SideToolBar,
+        },
     };
     use gtk::{
         gdk,
@@ -68,6 +79,7 @@ mod imp {
         pub(super) notebook: RefCell<gtk::Notebook>,
 
         pub(super) toolbar_box: RefCell<gtk::Box>,
+        pub(super) side_toolbar: RefCell<gtk::Revealer>,
         pub(super) editor_type: RefCell<EditorType>,
 
         pub(super) main_window: glib::WeakRef<MainApplicationWindow>,
@@ -199,12 +211,12 @@ mod imp {
             };
             box_ui.append(&box_header);
             box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-
-            let toolbar_box = self.toolbar_box.borrow().clone();
-            toolbar_box.set_orientation(gtk::Orientation::Vertical);
-            toolbar_box.append(&EditorToolbar::new(&self.slide_manager.borrow()));
-            toolbar_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-            box_ui.append(&toolbar_box);
+            //
+            // let toolbar_box = self.toolbar_box.borrow().clone();
+            // toolbar_box.set_orientation(gtk::Orientation::Vertical);
+            // toolbar_box.append(&EditorToolbar::new(&self.slide_manager.borrow()));
+            // toolbar_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+            // box_ui.append(&toolbar_box);
 
             let editor_box = {
                 // EDITOR SECTION
@@ -224,14 +236,47 @@ mod imp {
                 let screen = self.slide_manager.borrow().slideshow();
                 self.screen.replace(screen.clone());
                 screen.set_margin_all(4);
+
+                let frame_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
                 let aspect_frame = gtk::AspectFrame::builder()
-                    .css_name("pink_box")
                     .ratio(AppConfig::aspect_ratio())
                     .obey_child(false)
                     .child(&screen)
                     .build();
                 aspect_frame.set_size_request(300, -1);
-                pane.set_end_child(Some(&aspect_frame));
+                frame_box.append(&aspect_frame);
+                frame_box.append(&gtk::Separator::new(gtk::Orientation::Vertical));
+
+                let side_toolbar = self.side_toolbar.borrow().clone();
+                side_toolbar.set_transition_type(gtk::RevealerTransitionType::SlideRight);
+                frame_box.append(&side_toolbar);
+                let toolbox = SideToolBar::new(&self.slide_manager.borrow());
+                toolbox.set_width_request(MIN_TEXT_WIDTH);
+                side_toolbar.set_child(Some(&toolbox));
+                side_toolbar.set_reveal_child(true);
+
+                {
+                    let ctl = gtk::ShortcutController::new();
+                    ctl.set_scope(gtk::ShortcutScope::Local);
+                    let trigger = gtk::KeyvalTrigger::new(gdk::Key::backslash, PRIMARY_MOD);
+
+                    let action = gtk::CallbackAction::new(glib::clone!(
+                        #[weak]
+                        side_toolbar,
+                        #[upgrade_or]
+                        glib::Propagation::Proceed,
+                        move |_, _| {
+                            side_toolbar.set_reveal_child(!side_toolbar.reveals_child());
+                            glib::Propagation::Stop
+                        }
+                    ));
+
+                    let sh = gtk::Shortcut::new(Some(trigger), Some(action));
+                    ctl.add_shortcut(sh);
+                    obj.add_controller(ctl);
+                }
+
+                pane.set_end_child(Some(&frame_box));
 
                 let frame_box = gtk::Box::builder()
                     .orientation(gtk::Orientation::Vertical)
@@ -525,6 +570,7 @@ impl Editor {
         let t = editor_type.unwrap_or_default();
         if t == EditorType::Song {
             imp.toolbar_box.borrow().set_visible(false);
+            imp.side_toolbar.borrow().set_visible(false);
             imp.notebook.borrow().remove_page(Some(1));
         }
         imp.editor_type.replace(t);
