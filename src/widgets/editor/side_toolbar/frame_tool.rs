@@ -1,4 +1,7 @@
-use gtk::glib::{self, object::ObjectExt, subclass::types::ObjectSubclassIsExt};
+use gtk::{
+    glib::{self, object::ObjectExt, subclass::types::ObjectSubclassIsExt},
+    prelude::WidgetExt,
+};
 
 use crate::{
     services::slide_manager::SlideManager,
@@ -170,8 +173,14 @@ impl FrameTool {
             .build()
     }
 
-    pub fn update_props(&self, ci: &CanvasItem, _: &SlideManager) {
+    pub fn update_props(&self, ci: &Option<CanvasItem>, _: &SlideManager) {
         let imp = self.imp();
+
+        let Some(ci) = ci.clone() else {
+            self.set_sensitive(false);
+            return;
+        };
+        self.set_sensitive(true);
 
         if let Some((cci, signal)) = imp.item_signal_id.take() {
             cci.disconnect(signal);

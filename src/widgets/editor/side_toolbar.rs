@@ -114,9 +114,7 @@ mod imp {
                 #[weak(rename_to=imp)]
                 self,
                 move |sm, _| {
-                    let Some(ci) = sm.current_item().and_downcast::<CanvasItem>() else {
-                        return;
-                    };
+                    let ci = sm.current_item().and_downcast::<CanvasItem>();
 
                     imp.frame_tool.borrow().update_props(&ci, sm);
                     imp.text_tool.borrow().update_props(&ci, sm);
@@ -127,10 +125,7 @@ mod imp {
                 #[weak(rename_to=imp)]
                 self,
                 move |sm, _| {
-                    let Some(ci) = sm.current_item().and_downcast::<CanvasItem>() else {
-                        return;
-                    };
-
+                    let ci = sm.current_item().and_downcast::<CanvasItem>();
                     imp.frame_tool.borrow().update_props(&ci, sm);
                     imp.canvas_tool.borrow().update_props(&ci, sm);
                 }

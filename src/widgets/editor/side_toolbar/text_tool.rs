@@ -4,7 +4,7 @@ use gtk::{
         object::{Cast, ObjectExt},
         subclass::types::ObjectSubclassIsExt,
     },
-    prelude::{TextBufferExt, TextTagExt, ToggleButtonExt},
+    prelude::{TextBufferExt, TextTagExt, ToggleButtonExt, WidgetExt},
 };
 
 use crate::{
@@ -477,10 +477,15 @@ impl TextTool {
             .build()
     }
 
-    pub fn update_props(&self, ci: &CanvasItem, _sm: &SlideManager) {
+    pub fn update_props(&self, ci: &Option<CanvasItem>, _sm: &SlideManager) {
         let imp = self.imp();
 
-        let Some(ti) = ci.downcast_ref::<TextItem>() else {
+        let items = ci
+            .as_ref()
+            .and_then(|ci| ci.downcast_ref::<TextItem>().map(|ti| (ci.clone(), ti)));
+
+        self.set_sensitive(items.is_some());
+        let Some((ci, ti)) = items else {
             return;
         };
 
@@ -492,7 +497,7 @@ impl TextTool {
         imp.font_size_btn
             .borrow()
             .clone()
-            .set_value(&ti.font_size().into());
+            .set_value(ti.font_size() as f64);
 
         imp.shadow_btn.borrow().set_active(ti.text_shadow());
         imp.outline_btn.borrow().set_active(ti.text_outline());

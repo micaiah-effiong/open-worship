@@ -243,7 +243,7 @@ impl CanvasTool {
         obj
     }
 
-    pub fn update_props(&self, _: &CanvasItem, sm: &SlideManager) {
+    pub fn update_props(&self, _: &Option<CanvasItem>, sm: &SlideManager) {
         let imp = self.imp();
         let Some(slide) = sm.current_slide() else {
             return;
