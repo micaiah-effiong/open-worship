@@ -96,7 +96,7 @@ impl Slide {
     pub fn preview_width() -> i32 {
         Self::PREVIEW_WIDTH
     }
-    pub fn new(/* window: &SpiceWindow, */ save_data: Option<SlideData>) -> Self {
+    pub fn new(/* window: &Window, */ save_data: Option<SlideData>) -> Self {
         let slide = glib::Object::new::<Slide>();
 
         let canvas_data: Option<CanvasData> = save_data.clone().map(|d| d.into());
@@ -129,7 +129,7 @@ impl Slide {
     }
 
     #[doc = "visbility is false by default"]
-    pub fn empty(/* window: &SpiceWindow */) -> Self {
+    pub fn empty(/* window: &Window */) -> Self {
         let slide = glib::Object::new::<Slide>();
 
         let data = SlideData::from_default();

@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install GTK4 
-        run: brew install gtk4 librsvg libadwaita
+        run: brew install gtk4 librsvg libadwaita adwaita-icon-theme
 
       - name: check webp
         run: |

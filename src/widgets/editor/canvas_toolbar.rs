@@ -29,9 +29,6 @@ mod imp {
     #[derive(Debug, Default)]
     pub struct CanvasToolbar {
         pub slide_manager: glib::WeakRef<SlideManager>,
-        //
-        pub color: RefCell<gtk::ColorDialogButton>,
-        pub transition: RefCell<gtk::DropDown>,
     }
 
     #[glib::object_subclass]
@@ -51,92 +48,6 @@ mod imp {
     impl BoxImpl for CanvasToolbar {}
 
     impl CanvasToolbar {
-        fn build_transition_btn(&self) -> gtk::DropDown {
-            let transition_btn = gtk::DropDown::from_strings(&[
-                "None",
-                "Crossfade",
-                "SlideRight",
-                "SlideLeft",
-                "SlideUp",
-                "SlideDown",
-                "SlideLeftRight",
-                "SlideUpDown",
-                "OverUp",
-                "OverDown",
-                "OverLeft",
-                "OverRight",
-                "UnderUp",
-                "UnderDown",
-                "UnderLeft",
-                "UnderRight",
-                "OverUpDown",
-                "OverDownUp",
-                "OverLeftRight",
-                "OverRightLeft",
-                "RotateLeft",
-                "RotateRight",
-                "RotateLeftRight",
-            ]);
-            self.transition.replace(transition_btn.clone());
-            transition_btn.set_tooltip("Slide transition");
-
-            if let Some(t) = transition_btn
-                .first_child()
-                .and_downcast::<gtk::ToggleButton>()
-            {
-                t.set_css_classes(&["flat"]);
-            }
-
-            transition_btn.connect_selected_item_notify({
-                let sm = self.slide_manager.clone();
-                move |m| {
-                    let Some(sm) = sm.upgrade() else {
-                        return;
-                    };
-
-                    let item = m.selected_item();
-                    let Some(str_obj) = item.and_downcast::<gtk::StringObject>() else {
-                        return;
-                    };
-                    let transition_type = str_obj.string().to_string();
-
-                    let transition = match transition_type.as_str() {
-                        "None" => gtk::StackTransitionType::None,
-                        "Crossfade" => gtk::StackTransitionType::Crossfade,
-                        "SlideRight" => gtk::StackTransitionType::SlideRight,
-                        "SlideLeft" => gtk::StackTransitionType::SlideLeft,
-                        "SlideUp" => gtk::StackTransitionType::SlideUp,
-                        "SlideDown" => gtk::StackTransitionType::SlideDown,
-                        "SlideLeftRight" => gtk::StackTransitionType::SlideLeftRight,
-                        "SlideUpDown" => gtk::StackTransitionType::SlideUpDown,
-                        "OverUp" => gtk::StackTransitionType::OverUp,
-                        "OverDown" => gtk::StackTransitionType::OverDown,
-                        "OverLeft" => gtk::StackTransitionType::OverLeft,
-                        "OverRight" => gtk::StackTransitionType::OverRight,
-                        "UnderUp" => gtk::StackTransitionType::UnderUp,
-                        "UnderDown" => gtk::StackTransitionType::UnderDown,
-                        "UnderLeft" => gtk::StackTransitionType::UnderLeft,
-                        "UnderRight" => gtk::StackTransitionType::UnderRight,
-                        "OverUpDown" => gtk::StackTransitionType::OverUpDown,
-                        "OverDownUp" => gtk::StackTransitionType::OverDownUp,
-                        "OverLeftRight" => gtk::StackTransitionType::OverLeftRight,
-                        "OverRightLeft" => gtk::StackTransitionType::OverRightLeft,
-                        "RotateLeft" => gtk::StackTransitionType::RotateLeft,
-                        "RotateRight" => gtk::StackTransitionType::RotateRight,
-                        "RotateLeftRight" => gtk::StackTransitionType::RotateLeftRight,
-                        _ => gtk::StackTransitionType::None,
-                    };
-
-                    let Some(slide) = sm.current_slide() else {
-                        return;
-                    };
-                    slide.set_transition(transition);
-                }
-            });
-
-            transition_btn
-        }
-
         pub(super) fn build_canvas_toolbar(&self) {
             let toolbar = self.obj();
             toolbar.set_height_request(35);
@@ -148,75 +59,25 @@ mod imp {
                 return;
             };
 
-            toolbar.append(&self.build_transition_btn());
-
-            let color_btn = gtk::ColorDialogButton::new(Some(gtk::ColorDialog::new()));
-            color_btn.set_tooltip("Background color");
+            let undo_btn = gtk::Button::builder().icon_name("edit-undo").build();
+            undo_btn.set_tooltip("Undo");
             {
-                self.color.replace(color_btn.clone());
-                color_btn.set_rgba(&gtk::gdk::RGBA::new(255.0, 255.0, 255.0, 1.0));
-                toolbar.append(&color_btn);
-
-                color_btn.connect_rgba_notify({
+                toolbar.append(&undo_btn);
+                undo_btn.add_css_class("flat");
+                undo_btn.connect_clicked({
                     let sm = sm.clone();
-                    move |c| {
-                        let Some(canvas) = sm.current_slide().and_then(|v| v.canvas()) else {
-                            return;
-                        };
-
-                        canvas.set_background_color(c.rgba().to_hex());
-                        canvas.style();
-                    }
+                    move |_| sm.history_manager().undo()
                 });
             }
 
-            let image_btn = gtk::Button::builder().icon_name("picture").build();
-            image_btn.set_tooltip("Background image");
+            let redo_btn = gtk::Button::builder().icon_name("edit-redo").build();
+            redo_btn.set_tooltip("Redo");
             {
-                toolbar.append(&image_btn);
-                image_btn.add_css_class("flat");
-                image_btn.connect_clicked({
+                toolbar.append(&redo_btn);
+                redo_btn.add_css_class("flat");
+                redo_btn.connect_clicked({
                     let sm = sm.clone();
-                    move |btn| {
-                        let win = btn.toplevel_window();
-                        let Some(image_file) = FileManager::open_image(win.as_ref()) else {
-                            return;
-                        };
-
-                        let Some(path) =
-                            FileManager::file_to_link(&image_file, AppConfigDir::SlideMedia)
-                        else {
-                            return;
-                        };
-
-                        let Some(canvas) = sm.current_slide().and_then(|v| v.canvas()) else {
-                            return;
-                        };
-
-                        canvas.set_background_pattern(path);
-                        canvas.style();
-                    }
-                });
-            }
-
-            let remove_image_btn = gtk::Button::builder().icon_name("remove-picture").build();
-            remove_image_btn.set_tooltip("Remove background image");
-            {
-                toolbar.append(&remove_image_btn);
-                remove_image_btn.add_css_class("flat");
-                remove_image_btn.connect_clicked({
-                    let sm = self.slide_manager.clone();
-                    move |_| {
-                        let Some(sm) = sm.upgrade() else {
-                            return;
-                        };
-                        let Some(canvas) = sm.current_slide().and_then(|v| v.canvas()) else {
-                            return;
-                        };
-
-                        canvas.set_background_pattern("");
-                        canvas.style();
-                    }
+                    move |_| sm.history_manager().redo()
                 });
             }
         }
@@ -232,14 +93,6 @@ mod imp {
             let Some(c) = slide.canvas() else {
                 return;
             };
-
-            if let Ok(color) = gdk::RGBA::parse(&c.background_color()) {
-                self.color.borrow().set_rgba(&color);
-            }
-
-            self.transition
-                .borrow()
-                .set_selected(utils::transition_to_int(slide.transition()));
         }
     }
 }
@@ -259,7 +112,7 @@ impl Default for CanvasToolbar {
 impl CanvasToolbar {
     pub fn new(slide_manager: &SlideManager) -> Self {
         let obj: Self = glib::Object::new();
-        obj.imp().slide_manager.set(Some(&slide_manager));
+        obj.imp().slide_manager.set(Some(slide_manager));
 
         slide_manager.connect_current_slide_changed(glib::clone!(
             #[weak]

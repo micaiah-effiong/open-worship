@@ -126,6 +126,22 @@ impl Grabber {
                     gesture.set_state(gtk::EventSequenceState::Claimed);
                 }
             ));
+            g_click.connect_cancel(|g, evt| {
+                glib::g_warning!("Grabber", "Grabber cancelled {evt:?}");
+            });
+            g_click.connect_stopped(glib::clone!(
+                #[weak]
+                g,
+                move |gesture| {
+                    glib::g_warning!("Grabber", "Grabber stopped");
+                    if let Some((x, y)) = gesture.current_event().and_then(|v| v.position()) {
+                        glib::g_warning!("Grabber", "Grabber stopped at x={x}, y={y}");
+                        let id = g.imp().id.get();
+                        g.emit_by_name::<()>(signals::GRABBED_STOPPED, &[gesture, &id, &x, &y]);
+                    };
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                }
+            ));
 
             g.add_controller(g_click);
         }

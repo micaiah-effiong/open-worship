@@ -6,9 +6,20 @@ use gtk::prelude::WidgetExt;
 
 use gtk::{EventControllerKey, GestureClick, Overlay, gdk, glib};
 
-use crate::utils::{self, WidgetChildrenExt};
+use crate::utils::{self, WidgetChildrenExt, rect};
 use crate::widgets::canvas::canvas_item::{CanvasItem, CanvasItemExt};
 use crate::widgets::canvas::serialise::CanvasData;
+
+mod signals {
+    pub const REQUEST_DRAW_PREVIEW: &str = "request-draw-preview";
+    pub const ITEM_CLICKED: &str = "item-clicked";
+    pub const RATIO_CHANGED: &str = "ratio-changed";
+    pub const NEXT_SLIDE: &str = "next-slide";
+    pub const PREVIOUS_SLIDE: &str = "previous-slide";
+    pub const CLICKED: &str = "clicked";
+    pub const ITEM_ADDED: &str = "item-added";
+    pub const ITEM_MOVED: &str = "item-moved";
+}
 
 mod imp {
     use gtk::glib::Properties;
@@ -21,7 +32,6 @@ mod imp {
     use core::f64;
     use std::cell::{Cell, RefCell};
     use std::sync::OnceLock;
-    use std::usize;
 
     use super::*;
     use crate::utils::{WidgetChildrenExt, WidgetExtrasExt};
@@ -81,13 +91,6 @@ mod imp {
         }
     }
 
-    pub const REQUEST_DRAW_PREVIEW: &str = "request-draw-preview";
-    pub const ITEM_CLICKED: &str = "item-clicked";
-    pub const RATIO_CHANGED: &str = "ratio-changed";
-    pub const NEXT_SLIDE: &str = "next-slide";
-    pub const PREVIOUS_SLIDE: &str = "previous-slide";
-    pub const CLICKED: &str = "clicked";
-
     #[glib::derived_properties]
     impl ObjectImpl for ImpCanvas {
         fn constructed(&self) {
@@ -131,8 +134,8 @@ mod imp {
             overlay.connect_get_child_position({
                 let cc = obj.clone().downgrade();
                 move |ov, widget| {
-                    let Some(cc) = cc.upgrade() else { return None };
-                    return cc.connect_get_child_position(ov, widget);
+                    let cc = cc.upgrade()?;
+                    cc.connect_get_child_position(ov, widget)
                 }
             });
 
@@ -182,17 +185,23 @@ mod imp {
 
             SIGNAL.get_or_init(|| {
                 vec![
-                    Signal::builder(REQUEST_DRAW_PREVIEW).build(),
-                    Signal::builder(ITEM_CLICKED)
+                    Signal::builder(signals::REQUEST_DRAW_PREVIEW).build(),
+                    Signal::builder(signals::ITEM_CLICKED)
                         .param_types([Option::<CanvasItem>::static_type()])
                         .build(),
-                    Signal::builder(RATIO_CHANGED)
+                    Signal::builder(signals::RATIO_CHANGED)
                         .param_types([f64::static_type()])
                         .build(),
-                    Signal::builder(NEXT_SLIDE).build(),
-                    Signal::builder(PREVIOUS_SLIDE).build(),
-                    Signal::builder(CLICKED)
+                    Signal::builder(signals::NEXT_SLIDE).build(),
+                    Signal::builder(signals::PREVIOUS_SLIDE).build(),
+                    Signal::builder(signals::CLICKED)
                         .param_types([GestureClick::static_type()])
+                        .build(),
+                    Signal::builder(signals::ITEM_ADDED)
+                        .param_types([CanvasItem::static_type()])
+                        .build(),
+                    Signal::builder(signals::ITEM_MOVED)
+                        .param_types([CanvasItem::static_type(), rect::Rect::static_type()])
                         .build(),
                 ]
             })
@@ -349,7 +358,7 @@ impl Canvas {
         self.emit_request_draw_preview();
     }
 
-    pub fn move_up(&self, item_: &CanvasItem, _add_undo_action: Option<bool>) {
+    pub fn move_up(&self, item_: &CanvasItem, _add_undo_action: bool) {
         let mut index = 0;
 
         for child in self.widget().get_children::<CanvasItem>() {
@@ -371,7 +380,7 @@ impl Canvas {
         self.imp().reorder_overlay(item_, index + 1);
     }
 
-    pub fn move_down(&self, item_: &CanvasItem, _add_undo_action: Option<bool>) {
+    pub fn move_down(&self, item_: &CanvasItem, _add_undo_action: bool) {
         let overlay = self.widget();
         // let mut index: i32 = 0;
 
@@ -420,6 +429,12 @@ impl Canvas {
             }
         ));
 
+        canvas_item.connect_item_moved(glib::clone!(
+            #[weak(rename_to=c)]
+            self,
+            move |ci, rect| c.emit_item_moved(ci, rect)
+        ));
+
         canvas_item.connect_move_item(glib::clone!(
             #[weak(rename_to=c)]
             self,
@@ -433,7 +448,7 @@ impl Canvas {
                 let x = (delta_x as f64 / c.current_ratio()) as i32 + r.x;
                 let y = (delta_y as f64 / c.current_ratio()) as i32 + r.y;
 
-                ci.set_rectangle(utils::rect::Rect::new(x, y, r.width, r.height));
+                ci.set_rectangle(rect::Rect::new(x, y, r.width, r.height));
 
                 // ci.queue_allocate();
                 ci.style(); // NOTE: allows font rescaling after item resize
@@ -454,6 +469,7 @@ impl Canvas {
         // }
 
         self.emit_request_draw_preview();
+        self.emit_item_added(&canvas_item);
 
         // println!("C_PRESENTATION_MODE {}", self.presentation_mode());
         if self.presentation_mode() {
@@ -469,7 +485,7 @@ impl Canvas {
 
         CanvasData {
             background_color: self.imp().background_color.borrow().clone(),
-            background_pattern: (!bg_pattern.is_empty()).then(|| bg_pattern),
+            background_pattern: (!bg_pattern.is_empty()).then_some(bg_pattern),
         }
     }
 
@@ -511,30 +527,36 @@ impl Canvas {
     }
 
     pub fn emit_clicked(&self, gesture: &GestureClick) {
-        self.emit_by_name::<()>(imp::CLICKED, &[gesture]);
+        self.emit_by_name::<()>(signals::CLICKED, &[gesture]);
     }
 
     fn emit_ratio_changed(&self, ratio: f64) {
-        self.emit_by_name::<()>(imp::RATIO_CHANGED, &[&ratio]);
+        self.emit_by_name::<()>(signals::RATIO_CHANGED, &[&ratio]);
     }
 
     pub fn emit_item_clicked(&self, item: Option<CanvasItem>) {
-        self.emit_by_name::<()>(imp::ITEM_CLICKED, &[&item]);
+        self.emit_by_name::<()>(signals::ITEM_CLICKED, &[&item]);
     }
 
     pub fn emit_request_draw_preview(&self) {
-        self.emit_by_name::<()>(imp::REQUEST_DRAW_PREVIEW, &[]);
+        self.emit_by_name::<()>(signals::REQUEST_DRAW_PREVIEW, &[]);
     }
     pub fn emit_next_slide(&self) {
-        self.emit_by_name::<()>(imp::NEXT_SLIDE, &[]);
+        self.emit_by_name::<()>(signals::NEXT_SLIDE, &[]);
     }
     pub fn emit_previous_slide(&self) {
-        self.emit_by_name::<()>(imp::PREVIOUS_SLIDE, &[]);
+        self.emit_by_name::<()>(signals::PREVIOUS_SLIDE, &[]);
+    }
+    pub fn emit_item_added(&self, ci: &CanvasItem) {
+        self.emit_by_name::<()>(signals::ITEM_ADDED, &[ci]);
+    }
+    pub fn emit_item_moved(&self, ci: &CanvasItem, rect: &rect::Rect) {
+        self.emit_by_name::<()>(signals::ITEM_MOVED, &[ci, rect]);
     }
 
     pub fn connect_clicked<F: Fn(&GestureClick) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
-            imp::CLICKED,
+            signals::CLICKED,
             false,
             glib::closure_local!(move |_: &Self, g: &GestureClick| f(g)),
         )
@@ -544,7 +566,7 @@ impl Canvas {
         f: F,
     ) -> glib::SignalHandlerId {
         self.connect_closure(
-            imp::REQUEST_DRAW_PREVIEW,
+            signals::REQUEST_DRAW_PREVIEW,
             false,
             glib::closure_local!(move |c: &Self| {
                 f(c);
@@ -553,7 +575,7 @@ impl Canvas {
     }
     pub fn connect_next_slide<F: Fn() + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
-            imp::NEXT_SLIDE,
+            signals::NEXT_SLIDE,
             false,
             glib::closure_local!(move |_: &Self| {
                 f();
@@ -562,7 +584,7 @@ impl Canvas {
     }
     pub fn connect_previous_slide<F: Fn() + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
-            imp::PREVIOUS_SLIDE,
+            signals::PREVIOUS_SLIDE,
             false,
             glib::closure_local!(move |_: &Self| {
                 f();
@@ -574,7 +596,7 @@ impl Canvas {
         f: F,
     ) -> glib::SignalHandlerId {
         self.connect_closure(
-            imp::ITEM_CLICKED,
+            signals::ITEM_CLICKED,
             false,
             glib::closure_local!(move |_: &Self, ci: Option<CanvasItem>| {
                 f(ci);
@@ -583,11 +605,33 @@ impl Canvas {
     }
     pub fn connect_ratio_changed<F: Fn(f64) + 'static>(&self, f: F) -> glib::SignalHandlerId {
         self.connect_closure(
-            imp::RATIO_CHANGED,
+            signals::RATIO_CHANGED,
             false,
             glib::closure_local!(move |_: &Self, ratio: f64| {
                 f(ratio);
             }),
+        )
+    }
+    pub fn connect_item_added<F: Fn(&Self, &CanvasItem) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::ITEM_ADDED,
+            false,
+            glib::closure_local!(move |obj: &Self, ci: &CanvasItem| f(obj, ci)),
+        )
+    }
+    pub fn connect_item_moved<F: Fn(&Self, &CanvasItem, &rect::Rect) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::ITEM_MOVED,
+            false,
+            glib::closure_local!(move |obj: &Self, ci: &CanvasItem, rect: &rect::Rect| f(
+                obj, ci, rect
+            )),
         )
     }
 
@@ -639,7 +683,7 @@ impl Canvas {
             self.update_alignment_guides(rect);
         }
 
-        let allocation = utils::rect::Rect::new(x, y, width, height);
+        let allocation = rect::Rect::new(x, y, width, height);
         Some(allocation.into())
     }
 

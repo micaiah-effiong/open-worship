@@ -1,5 +1,6 @@
 pub mod alert;
 pub mod file_manager;
+pub mod history_manager;
 pub mod message_alert_manager;
 pub mod openlyrics;
 pub mod settings;

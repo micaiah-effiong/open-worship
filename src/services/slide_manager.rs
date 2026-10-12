@@ -1,5 +1,3 @@
-use std::usize;
-
 use gtk::{
     glib::{
         self,
@@ -43,20 +41,19 @@ mod imp {
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
-    use super::*;
+    use crate::services::history_manager::history_action::HistoryManager;
     use crate::services::settings::ApplicationSettings;
     use crate::services::slide::Slide;
     use crate::utils::{WidgetChildrenExt, int_to_transition, transition_to_int};
     use crate::widgets::canvas::canvas_item::CanvasItem;
     // use crate::services::utils::{self, AspectRatio};
-    // use crate::spice_window::SpiceWindow;
     // use crate::widgets::canvas_item::base::CanvasItem;
 
     #[derive(Default, Properties)]
     #[properties(wrapper_type=super::SlideManager)]
     pub struct SlideManager {
         // #[property(get, construct_only)]
-        // pub window: glib::WeakRef<SpiceWindow>,
+        // pub window: glib::WeakRef<Window>,
         #[property(get, set)]
         pub slideshow: RefCell<gtk::Stack>,
         #[property(get, set)]
@@ -87,6 +84,9 @@ mod imp {
 
         #[property(get, set)]
         pub log: Cell<bool>,
+
+        #[property(get, set)]
+        pub history_manager: RefCell<HistoryManager>,
     }
 
     #[glib::object_subclass]
@@ -97,10 +97,6 @@ mod imp {
 
     #[glib::derived_properties]
     impl ObjectImpl for SlideManager {
-        fn constructed(&self) {
-            self.parent_constructed();
-        }
-
         fn signals() -> &'static [glib::subclass::Signal] {
             static SIGNALS: OnceLock<Vec<Signal>> = OnceLock::new();
 
@@ -141,7 +137,7 @@ mod imp {
                 return Some(ps);
             }
 
-            return None;
+            None
         }
 
         pub fn propagating_ratio(&self) -> bool {
@@ -323,7 +319,7 @@ impl SlideManager {
         self.imp().making_new_slide.set(value);
     }
 
-    pub fn new(/* window: SpiceWindow */) -> Self {
+    pub fn new(/* window: Window */) -> Self {
         Self::default()
     }
 
@@ -352,7 +348,7 @@ impl SlideManager {
             }
         }
 
-        return slide_count;
+        slide_count
     }
 
     pub fn serialise(&self) -> SlideManagerData {
@@ -465,9 +461,10 @@ impl SlideManager {
             s.load_slide();
         }
 
-        let current_index = ((data.current_slide as usize) < data.slides.len())
-            .then_some(data.current_slide)
-            .unwrap_or(0);
+        let current_index = match (data.current_slide as usize) < data.slides.len() {
+            true => data.current_slide,
+            false => 0,
+        };
         self.set_current_slide(self.slides().get(current_index as usize).cloned());
 
         // let slide = match self.slides().len() > data.preview_slide as usize {
@@ -509,6 +506,18 @@ impl SlideManager {
             move || sm.previous_slide()
         ));
 
+        canvas.connect_item_moved(glib::clone!(
+            #[weak(rename_to=sm)]
+            self,
+            move |_, ci, rect| sm.history_manager().item_moved(ci, rect, true)
+        ));
+
+        canvas.connect_item_added(glib::clone!(
+            #[weak(rename_to=sm)]
+            self,
+            move |_, ci| sm.history_manager().item_changed(ci, "visible", false)
+        ));
+
         canvas.connect_ratio_changed(glib::clone!(
             #[weak(rename_to=sm)]
             self,
@@ -539,16 +548,20 @@ impl SlideManager {
             }
         ));
 
-        // if undoable_action {
-        //     slide.set_visible(false);
-        //     let action = TypedHistoryAction::slide_changed(&slide, "visible");
-        //     if let Some(window) = self.window() {
-        //         window
-        //             .history_manager()
-        //             .add_undoable_action(action.into(), Some(true));
-        //     }
-        //     slide.set_visible(true);
-        // }
+        if undoable_action {
+            if !self.slides().is_empty() {
+                slide.set_visible(false);
+                self.history_manager()
+                    .slide_changed(&slide, "visible", true);
+            }
+            //     let action = TypedHistoryAction::slide_changed(&slide, "visible");
+            //     if let Some(window) = self.window() {
+            //         window
+            //             .history_manager()
+            //             .add_undoable_action(action.into(), Some(true));
+            //     }
+            slide.set_visible(true);
+        }
 
         if let Some(current_slide) = self.current_slide()
             && let Some(index) = self.slides().iter().position(|v| v.eq(&current_slide))
@@ -577,10 +590,10 @@ impl SlideManager {
                     if visible {
                         sm.set_current_slide(Some(slide.clone()));
                     } else {
-                        let mut next_slide = sm.get_next_slide(&slide);
+                        let mut next_slide = sm.get_next_slide(slide);
 
                         if next_slide.is_none() {
-                            next_slide = sm.get_previous_slide(&slide);
+                            next_slide = sm.get_previous_slide(slide);
                         }
 
                         if let Some(next_slide) = next_slide {
@@ -677,7 +690,7 @@ impl SlideManager {
 
     pub fn move_down(&self, slide: &Slide) {
         if let Some(index) = self.slides().iter().position(|v| v.eq(slide))
-            && let Some(next_slide) = self.get_next_slide(&slide)
+            && let Some(next_slide) = self.get_next_slide(slide)
             && let Some(next_index) = self.slides().iter().position(|v| v.eq(&next_slide))
         {
             self.set_slides(slide.clone(), Some(next_index));
@@ -689,7 +702,7 @@ impl SlideManager {
 
     pub fn move_up(&self, slide: &Slide) {
         if let Some(index) = self.slides().iter().position(|v| v.eq(slide))
-            && let Some(prev_slide) = self.get_previous_slide(&slide)
+            && let Some(prev_slide) = self.get_previous_slide(slide)
             && let Some(prev_index) = self.slides().iter().position(|v| v.eq(&prev_slide))
         {
             self.set_slides(slide.clone(), Some(prev_index));
@@ -732,16 +745,10 @@ impl SlideManager {
             canvas.add_item(item, true);
         }
 
-        return item;
+        item
     }
 
     pub fn jump_to_checkpoint(&self) {
-        // if let Some(win) = self.window()
-        //     && !win.is_presenting()
-        // {
-        //     return;
-        // }
-
         if let Some(checkpoint) = self.imp().checkpoint.borrow().clone() {
             let temp = checkpoint;
             self.imp().checkpoint.replace(self.current_slide());
@@ -750,12 +757,6 @@ impl SlideManager {
     }
 
     pub fn set_checkpoint(&self) {
-        // if let Some(win) = self.window()
-        //     && !win.is_presenting()
-        // {
-        //     return;
-        // }
-
         self.imp().checkpoint.replace(self.current_slide());
     }
 
@@ -782,7 +783,7 @@ impl SlideManager {
         if let (Some(current_slide_canvas), Some(current_item)) =
             (current_slide.canvas(), self.current_item())
         {
-            current_slide_canvas.move_up(&current_item, None);
+            current_slide_canvas.move_up(&current_item, false);
         } else {
             self.move_up(&current_slide);
         }
@@ -797,7 +798,7 @@ impl SlideManager {
         if let (Some(current_slide_canvas), Some(current_item)) =
             (current_slide.canvas(), self.current_item())
         {
-            current_slide_canvas.move_down(&current_item, None);
+            current_slide_canvas.move_down(&current_item, false);
         } else {
             self.move_down(&current_slide);
         }

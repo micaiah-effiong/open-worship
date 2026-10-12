@@ -14,9 +14,9 @@ use gtk::glib::object::IsA;
 use gtk::glib::prelude::*;
 use gtk::glib::subclass::types::ObjectSubclassIsExt;
 use gtk::prelude::{
-    AccessibleExt, AdjustmentExt, BoxExt, ButtonExt, DialogExt, GtkApplicationExt, GtkWindowExt,
-    OrientableExt, ScrollableExt, SnapshotExt, StyleContextExt, TextBufferExt, TextViewExt,
-    WidgetExt, WidgetExtManual,
+    AccessibleExt, AdjustmentExt, BoxExt, ButtonExt, DialogExt, EditableExt, GtkApplicationExt,
+    GtkWindowExt, OrientableExt, ScrollableExt, SnapshotExt, StyleContextExt, TextBufferExt,
+    TextViewExt, WidgetExt, WidgetExtManual,
 };
 use gtk::subclass::window;
 use gtk::{CssProvider, pango};
@@ -49,6 +49,11 @@ pub fn init_app() {
 
     {
         if let Some(g_settings) = gtk::Settings::default() {
+            g_settings.set_gtk_icon_theme_name(Some("Adwaita"));
+            let display = gtk::gdk::Display::default().unwrap();
+            let theme = gtk::IconTheme::for_display(&display);
+            println!("{}", theme.has_icon("edit-undo-symbolic"));
+            println!("{:?}", theme.search_path());
             // g_settings.set_gtk_application_prefer_dark_theme(true);
         }
 
@@ -543,8 +548,22 @@ fn build_ui_collapsible(app: &impl IsA<gtk::Application>) {
     let settings_btn = gtk::Button::with_label("Settings");
     sidebar_box.append(&home_btn);
     sidebar_box.append(&settings_btn);
+
     sidebar_box.append(&gtk::SpinButton::with_range(10.0, 100.0, 1.0));
-    sidebar_box.append(&OwSpinButton::with_range(10.0, 100.0, 1.0));
+
+    let r_spin = OwSpinButton::with_range(10.0, 100.0, 1.0);
+    r_spin.set_numeric(false);
+    r_spin.connect_input(|spin| {
+        let text = spin.text();
+        let temp = text.trim_end_matches("°C");
+        Some(Ok(temp.parse::<f64>().unwrap_or_else(|_| spin.value())))
+    });
+    r_spin.connect_output(|spin| {
+        let text = format!("{}°C", spin.value());
+        spin.set_text(&text);
+        glib::Propagation::Stop
+    });
+    sidebar_box.append(&r_spin);
 
     // --- Revealer wraps the sidebar ---
     let revealer = gtk::Revealer::builder()

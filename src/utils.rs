@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::f64;
 
 use gtk::gdk_pixbuf::prelude::PixbufLoaderExt;
 use gtk::gio::prelude::ListModelExt;
@@ -739,4 +740,14 @@ pub fn label_tag(items: Vec<&str>) -> Vec<String> {
         .collect();
 
     items
+}
+
+pub fn rotate_point(x: f64, y: f64, degree: f64) -> (f64, f64) {
+    let radian = degree * f64::consts::PI / 180.0;
+    let cos = radian.cos();
+    let sin = radian.sin();
+    let rx = x * cos - y * sin;
+    let ry = y * cos + x * sin;
+
+    (rx, ry)
 }

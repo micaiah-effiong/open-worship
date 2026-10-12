@@ -159,6 +159,20 @@ mod imp {
         pub(super) activates_default: Cell<bool>,
 
         pub(super) insert_text_handler: RefCell<Option<glib::SignalHandlerId>>,
+
+        #[property(get, set = |this:&Self,val:bool|{
+            this.hide_buttons.set(val);
+            this.obj().children().for_each(|v|if !v.is::<gtk::Text>(){
+                v.set_visible(!val);
+            });
+
+        })]
+        pub(super) hide_buttons: Cell<bool>,
+
+        pub(super) icon: RefCell<gtk::Image>,
+
+        #[property(get)]
+        pub(super) icon_name: RefCell<Option<String>>,
     }
 
     impl Default for OwSpinButton {
@@ -168,11 +182,8 @@ mod imp {
                 adjustment_handlers: RefCell::new(Vec::new()),
                 entry: RefCell::new(gtk::Text::default()),
                 button_box: RefCell::new(gtk::Box::new(gtk::Orientation::Vertical, 0)),
-                up_button: RefCell::new(Self::build_spin_button_widget("pan-up-symbolic", "up")),
-                down_button: RefCell::new(Self::build_spin_button_widget(
-                    "pan-down-symbolic",
-                    "down",
-                )),
+                up_button: RefCell::new(Self::build_spin_button_widget("pan-up", "up")),
+                down_button: RefCell::new(Self::build_spin_button_widget("pan-down", "down")),
                 click_child: RefCell::new(None),
                 timer: RefCell::new(None),
                 update_policy: RefCell::new(gtk::SpinButtonUpdatePolicy::Always),
@@ -190,6 +201,9 @@ mod imp {
                 edited: Cell::new(bool::default()),
                 activates_default: Cell::new(bool::default()),
                 insert_text_handler: RefCell::new(None),
+                hide_buttons: Cell::new(false),
+                icon: RefCell::new(gtk::Image::default()),
+                icon_name: RefCell::new(None),
             }
         }
     }
@@ -329,6 +343,11 @@ mod imp {
             obj.set_overflow(gtk::Overflow::Hidden);
             self.set_max_width_chars(0);
 
+            let icon = self.icon.borrow();
+            icon.set_parent(&obj);
+            icon.set_visible(false);
+            icon.set_margin_start(6);
+
             let entry = self.entry.borrow().clone();
             entry.set_hexpand(true);
             entry.set_vexpand(true);
@@ -462,13 +481,18 @@ mod imp {
             SIGNALS.get_or_init(|| {
                 vec![
                     Signal::builder(signals::INPUT)
-                        .param_types([f64::static_type()])
+                        .param_types([glib::Pointer::static_type()])
                         .return_type::<i32>()
                         .run_last()
                         .build(),
                     Signal::builder(signals::OUTPUT)
                         .run_last()
                         .return_type::<bool>()
+                        .accumulator(|_hint, acc, value| {
+                            let stop = value.get::<bool>().unwrap_or(false);
+                            *acc = value.clone();
+                            !stop
+                        })
                         .build(),
                     Signal::builder(signals::VALUE_CHANGED).run_last().build(),
                     Signal::builder(signals::ACTIVATE)
@@ -625,7 +649,7 @@ mod imp {
                 return;
             };
 
-            self.orientation.set(orientation);
+            self.orientation.replace(orientation);
             btn_box.set_orientation(orientation);
 
             let up_btn = self.up_button.borrow().clone();
@@ -688,7 +712,11 @@ mod imp {
         }
 
         fn _set_digits(&self, value: i32) {
-            self.configure(Some(self.obj().adjustment()), self.climb_rate.get(), value);
+            let obj = self.obj();
+            if obj.digits() != value {
+                self.digits.set(value);
+                obj.value_changed(&obj.adjustment());
+            }
         }
 
         fn unset_adjustment(&self) {
@@ -788,6 +816,14 @@ mod imp {
                 self.update_policy.replace(value);
                 self.obj().notify_update_policy();
             }
+        }
+        fn set_hide_button_(&self, val: bool) {
+            self.hide_buttons.set(val);
+            self.obj().children().for_each(|v| {
+                if !v.is::<gtk::Text>() {
+                    v.set_visible(!val);
+                }
+            });
         }
     }
 
@@ -948,8 +984,15 @@ impl OwSpinButton {
 }
 
 impl OwSpinButton {
-    pub fn emit_input(&self, value: f64) -> i32 {
-        self.emit_by_name::<i32>(signals::INPUT, &[&value])
+    pub fn emit_input(&self) -> Result<f64, bool> {
+        let mut val: f64 = 0.0;
+        let ptr = &mut val as *mut f64 as glib::Pointer;
+
+        match self.emit_by_name::<i32>(signals::INPUT, &[&ptr]) {
+            -1 => Err(true),
+            0 => self.default_input().map_err(|v| v == GTK_ERROR_INPUT), // nobody handled it: g_strtod equivalent
+            _ => Ok(val),
+        }
     }
     pub fn emit_output(&self) -> bool {
         self.emit_by_name::<bool>(signals::OUTPUT, &[])
@@ -967,24 +1010,37 @@ impl OwSpinButton {
         self.emit_by_name::<()>(signals::WRAPPED, &[])
     }
 
-    pub fn connect_input<F: Fn(&Self, f64) -> i32 + 'static>(
+    pub fn connect_input<F: Fn(&Self) -> Option<Result<f64, ()>> + 'static>(
         &self,
         f: F,
     ) -> gtk::glib::SignalHandlerId {
         self.connect_closure(
             signals::INPUT,
-            true,
-            glib::closure_local!(|obj: &Self, data: f64| f(obj, data)),
+            false,
+            glib::closure_local!(|obj: &Self, value: glib::Pointer| {
+                let value_ptr = value as *mut f64;
+                match f(obj) {
+                    Some(Ok(v)) => {
+                        unsafe { *value_ptr = v };
+                        1
+                    }
+                    Some(Err(())) => -1,
+                    None => 0,
+                }
+            }),
         )
     }
-    pub fn connect_output<F: Fn(&Self) -> bool + 'static>(
+    pub fn connect_output<F: Fn(&Self) -> glib::Propagation + 'static>(
         &self,
         f: F,
     ) -> gtk::glib::SignalHandlerId {
         self.connect_closure(
             signals::OUTPUT,
             true,
-            glib::closure_local!(|obj: &Self| f(obj)),
+            glib::closure_local!(|obj: &Self| {
+                let return_val = f(obj);
+                bool::from(return_val)
+            }),
         )
     }
     pub fn connect_value_changed<F: Fn(&Self) + 'static>(
@@ -1099,18 +1155,10 @@ impl OwSpinButton {
     }
 
     fn update(&self) {
-        let mut val: f64 = 0.0;
-        let mut error = false;
-
-        let emit_val = self.emit_input(val);
-        if emit_val == 0 {
-            match self.default_input() {
-                Ok(v) => val = v,
-                Err(v) => error = v == GTK_ERROR_INPUT,
-            };
-        } else if emit_val == GTK_ERROR_INPUT {
-            error = true;
-        }
+        let (mut val, error) = match self.emit_input() {
+            Ok(v) => (v, false),
+            Err(e) => (0.0, e),
+        };
 
         if self.update_policy() == gtk::SpinButtonUpdatePolicy::Always {
             if val < self.adjustment().lower() {
@@ -1512,6 +1560,15 @@ impl OwSpinButton {
             entry.unblock_signal(&id);
             self.imp().insert_text_handler.replace(Some(id));
         }
+    }
+
+    pub fn set_icon_name(&self, val: Option<&str>) {
+        let this = self.imp();
+        let icon = this.icon.borrow();
+        icon.set_visible(val.is_some());
+        icon.set_icon_name(val);
+        this.icon_name.replace(val.map(str::to_string));
+        self.notify_icon_name();
     }
 }
 

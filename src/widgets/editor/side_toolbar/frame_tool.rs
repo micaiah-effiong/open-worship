@@ -18,7 +18,7 @@ mod imp {
     };
     use gtk::{
         glib::subclass::{object::ObjectImplExt, types::ObjectSubclassExt},
-        prelude::{BoxExt, GridExt, ObjectExt, OrientableExt, WidgetExt},
+        prelude::{BoxExt, EditableExt, GridExt, ObjectExt, OrientableExt, WidgetExt},
         subclass::{box_::BoxImpl, prelude::DerivedObjectProperties, widget::WidgetImpl},
     };
 
@@ -36,6 +36,7 @@ mod imp {
         pub(super) y_spin: RefCell<OwSpinButton>,
         pub(super) w_spin: RefCell<OwSpinButton>,
         pub(super) h_spin: RefCell<OwSpinButton>,
+        pub(super) r_spin: RefCell<OwSpinButton>,
         pub(super) is_setting_position: Cell<bool>,
 
         pub(super) item_signal_id: RefCell<Option<(CanvasItem, glib::SignalHandlerId)>>,
@@ -97,8 +98,38 @@ mod imp {
                 move |spin| imp.handle_spin_btn_change_value(spin, |r| &mut r.height)
             ));
 
+            let r_spin = OwSpinButton::with_range(0.0, 360.0, 1.0);
+            r_spin.set_hide_buttons(true);
+            r_spin.set_numeric(false);
+            r_spin.set_icon_name(Some("object-rotate"));
+            r_spin.set_tooltip_text(Some("Rotate"));
+            r_spin.connect_output(|spin| {
+                spin.set_text(&format!("{}°", spin.value()));
+                glib::Propagation::Stop
+            });
+            r_spin.connect_output(|spin| {
+                let text = format!("{}°", spin.value());
+                spin.set_text(&text);
+                glib::Propagation::Stop
+            });
+            r_spin.connect_value_changed(glib::clone!(
+                #[weak(rename_to=imp)]
+                self,
+                move |spin| {
+                    if let Some((sm, ci)) = imp
+                        .obj()
+                        .slide_manager()
+                        .and_then(|sm| sm.current_item().map(|v| (sm.clone(), v)))
+                    {
+                        sm.history_manager().item_changed(&ci, "rotation", true);
+                        ci.set_rotation(spin.value());
+                        ci.style();
+                    };
+                }
+            ));
+
             {
-                let spins = [&x_spin, &y_spin, &w_spin, &h_spin];
+                let spins = [&x_spin, &y_spin, &w_spin, &h_spin, &r_spin];
                 for s in spins {
                     s.set_hexpand(true); // take the extra space
                     s.set_halign(gtk::Align::Fill); // default, stated for clarity
@@ -118,6 +149,7 @@ mod imp {
             info_grid.attach(&w_spin, 1, 1, 1, 1);
             info_grid.attach(&h_label, 2, 1, 1, 1);
             info_grid.attach(&h_spin, 3, 1, 1, 1);
+            info_grid.attach(&r_spin, 0, 2, 2, 1);
 
             self.x_spin.replace(x_spin);
             self.y_spin.replace(y_spin);
@@ -191,6 +223,7 @@ impl FrameTool {
         imp.y_spin.borrow().set_value(r.y as f64);
         imp.w_spin.borrow().set_value(r.width as f64);
         imp.h_spin.borrow().set_value(r.height as f64);
+        imp.r_spin.borrow().set_value(ci.rotation());
 
         let signal = ci.connect_checkposition(glib::clone!(
             #[weak]
@@ -208,6 +241,7 @@ impl FrameTool {
                     imp.y_spin.borrow().set_value(r.y as f64);
                     imp.w_spin.borrow().set_value(r.width as f64);
                     imp.h_spin.borrow().set_value(r.height as f64);
+                    imp.r_spin.borrow().set_value(ci.rotation());
                 }
             }
         ));

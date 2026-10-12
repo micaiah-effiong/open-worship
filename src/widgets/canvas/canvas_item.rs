@@ -13,9 +13,7 @@ mod imp {
     use gtk::prelude::*;
     use gtk::subclass::prelude::*;
 
-    use crate::utils::{self, WidgetChildrenExt};
-    // use crate::services::history_manager::history_action::{HistoryAction, TypedHistoryAction};
-    // use crate::services::utils::{self, rect};
+    use crate::utils::{self, WidgetChildrenExt, rect};
     use crate::widgets::canvas::canvas::Canvas;
     use crate::widgets::canvas::grabber::Grabber;
     use crate::widgets::canvas::serialise::CanvasItemData;
@@ -34,7 +32,7 @@ mod imp {
         #[property(get, set, default_value = 0)]
         pub delta_y: Cell<i32>,
 
-        // pub(super) undo_move_action: RefCell<HistoryAction>,
+        pub(super) undo_move_action: RefCell<Option<utils::rect::Rect>>,
         #[property(get=Self::item_visible_, set=Self::set_item_visible_)]
         pub item_visible: Cell<bool>,
 
@@ -58,6 +56,8 @@ mod imp {
         pub real_height: Cell<i32>,
         pub real_x: Cell<i32>,
         pub real_y: Cell<i32>,
+
+        #[property(get, set)]
         pub rotation: Cell<f64>,
 
         pub grid: RefCell<gtk::Grid>,
@@ -252,6 +252,8 @@ mod imp {
                             return;
                         }
 
+                        ci.undo_move_action.replace(None);
+
                         ci.button_release_event(g);
                         ci.show_alignment_guides.set(false);
                         if let Some(c) = ci.obj().canvas() {
@@ -299,6 +301,9 @@ mod imp {
                         .build(),
                     Signal::builder(signals::CHECK_POSITION).build(),
                     Signal::builder(signals::ACTIVE_CHANGED).build(),
+                    Signal::builder(signals::ITEM_MOVED)
+                        .param_types([rect::Rect::static_type()])
+                        .build(),
                 ]
             })
         }
@@ -317,6 +322,11 @@ mod imp {
 
         fn emit_move_item(&self, x: i32, y: i32) {
             self.obj().emit_by_name::<()>(signals::MOVE_ITEM, &[&x, &y]);
+        }
+        fn emit_item_moved(&self) {
+            if let Some(rect) = self.undo_move_action.take() {
+                self.obj().emit_by_name::<()>(signals::ITEM_MOVED, &[&rect]);
+            }
         }
 
         pub(super) fn get_save_data(&self) -> Option<CanvasItemData> {
@@ -346,7 +356,7 @@ mod imp {
             size.max(MIN_SIZE as f64) as i32
         }
 
-        fn fix_position(&self, delta: i32, _length: i32, initial_length: i32) -> i32 {
+        fn fix_position(&self, delta: i32, initial_length: i32) -> i32 {
             let Some(canvas) = self.canvas.upgrade() else {
                 return delta;
             };
@@ -378,8 +388,8 @@ mod imp {
                 return;
             };
 
-            let x = (x - self.start_x.get()) as i32;
-            let y = (y - self.start_y.get()) as i32;
+            let dx = (x - self.start_x.get()) as i32;
+            let dy = (y - self.start_y.get()) as i32;
 
             let Some(canvas) = self.canvas.upgrade() else {
                 return;
@@ -387,82 +397,82 @@ mod imp {
 
             let canvas_current_ratio = canvas.current_ratio();
 
-            let real_width = self.real_width.get();
-            let real_height = self.real_height.get();
+            // let real_width = self.real_width.get();
+            // let real_height = self.real_height.get();
             let start_w = self.start_w.get();
             let start_h = self.start_h.get();
 
             match self.holding_id.get() {
                 0 => {
                     // Moving
-                    self.delta_x.set(x);
-                    self.delta_y.set(y);
+                    self.delta_x.set(dx);
+                    self.delta_y.set(dy);
                 }
                 1 => {
                     // Top left
-                    self.delta_x.set(self.fix_position(x, real_width, start_w));
-                    self.delta_y.set(self.fix_position(y, real_height, start_h));
+                    self.delta_x.set(self.fix_position(dx, start_w));
+                    self.delta_y.set(self.fix_position(dy, start_h));
                     self.real_height.set(Self::fix_size(
-                        start_h as f64 - 1.0 / canvas_current_ratio * y as f64,
+                        start_h as f64 - 1.0 / canvas_current_ratio * dy as f64,
                     ));
                     self.real_width.set(Self::fix_size(
-                        start_w as f64 - 1.0 / canvas_current_ratio * x as f64,
+                        start_w as f64 - 1.0 / canvas_current_ratio * dx as f64,
                     ));
                 }
                 2 => {
                     // Top
-                    self.delta_y.set(self.fix_position(y, real_height, start_h));
+                    self.delta_y.set(self.fix_position(dy, start_h));
                     self.real_height.set(Self::fix_size(
-                        start_h as f64 - 1.0 / canvas_current_ratio * y as f64,
+                        start_h as f64 - 1.0 / canvas_current_ratio * dy as f64,
                     ));
                 }
                 3 => {
                     // Top right
-                    self.delta_y.set(self.fix_position(y, real_height, start_h));
+                    self.delta_y.set(self.fix_position(dy, start_h));
                     self.real_height.set(Self::fix_size(
-                        start_h as f64 - 1.0 / canvas_current_ratio * y as f64,
+                        start_h as f64 - 1.0 / canvas_current_ratio * dy as f64,
                     ));
                     self.real_width.set(Self::fix_size(
-                        start_w as f64 + 1.0 / canvas_current_ratio * x as f64,
+                        start_w as f64 + 1.0 / canvas_current_ratio * dx as f64,
                     ));
                 }
                 4 => {
                     // Right
                     self.real_width.set(Self::fix_size(
-                        start_w as f64 + 1.0 / canvas_current_ratio * x as f64,
+                        start_w as f64 + 1.0 / canvas_current_ratio * dx as f64,
                     ));
                 }
                 5 => {
                     // Bottom Right
                     self.real_width.set(Self::fix_size(
-                        start_w as f64 + 1.0 / canvas_current_ratio * x as f64,
+                        start_w as f64 + 1.0 / canvas_current_ratio * dx as f64,
                     ));
                     self.real_height.set(Self::fix_size(
-                        start_h as f64 + 1.0 / canvas_current_ratio * y as f64,
+                        start_h as f64 + 1.0 / canvas_current_ratio * dy as f64,
                     ));
                 }
                 6 => {
                     // Bottom
                     self.real_height.set(Self::fix_size(
-                        start_h as f64 + 1.0 / canvas_current_ratio * y as f64,
+                        start_h as f64 + 1.0 / canvas_current_ratio * dy as f64,
                     ));
                 }
                 7 => {
                     // Bottom left
                     self.real_height.set(Self::fix_size(
-                        start_h as f64 + 1.0 / canvas_current_ratio * y as f64,
+                        start_h as f64 + 1.0 / canvas_current_ratio * dy as f64,
                     ));
                     self.real_width.set(Self::fix_size(
-                        start_w as f64 - 1.0 / canvas_current_ratio * x as f64,
+                        start_w as f64 - 1.0 / canvas_current_ratio * dx as f64,
                     ));
-                    self.delta_x.set(self.fix_position(x, real_width, start_w));
+                    self.delta_x.set(self.fix_position(dx, start_w));
                 }
                 8 => {
                     // Left
                     self.real_width.set(Self::fix_size(
-                        start_w as f64 - 1.0 / canvas_current_ratio * x as f64,
+                        start_w as f64 - 1.0 / canvas_current_ratio * dx as f64,
                     ));
-                    self.delta_x.set(self.fix_position(x, real_width, start_w));
+                    self.delta_x.set(self.fix_position(dx, start_w));
                 }
                 9_u32..=u32::MAX => panic!("Invalid holding id"),
             }
@@ -475,12 +485,6 @@ mod imp {
                 return false;
             };
 
-            // if let Some(window) = canvas.imp().window.upgrade()
-            //     && window.is_presenting()
-            // {
-            //     return false;
-            // };
-
             let Some((x, y)) = _event.current_event().and_then(|v| v.position()) else {
                 return false;
             };
@@ -490,7 +494,7 @@ mod imp {
             }
 
             // let undo_move_action = TypedHistoryAction::item_moved(&self.obj().clone());
-            // self.undo_move_action.replace(undo_move_action.into());
+            self.undo_move_action.replace(Some(self.obj().rectangle()));
 
             self.start_x.set(x);
             self.start_y.set(y);
@@ -534,6 +538,8 @@ mod imp {
             // }
 
             self.emit_move_item(self.delta_x.get(), self.delta_y.get());
+            self.emit_item_moved();
+
             self.delta_x.set(0);
             self.delta_y.set(0);
 
@@ -721,6 +727,7 @@ use gtk::prelude::*;
 use gtk::subclass::box_::BoxImpl;
 use gtk::subclass::prelude::*;
 
+use crate::utils::rect;
 use crate::widgets::canvas::serialise::{CanvasItemData, CanvasItemType};
 
 pub(super) mod signals {
@@ -731,6 +738,7 @@ pub(super) mod signals {
     pub const MOVE_ITEM: &str = "move-item";
     pub const CHECK_POSITION: &str = "check-position";
     pub const ACTIVE_CHANGED: &str = "active-changed";
+    pub const ITEM_MOVED: &str = "item-moved";
 }
 
 glib::wrapper! {
@@ -814,6 +822,17 @@ pub trait CanvasItemExt: IsA<CanvasItem> {
             glib::closure_local!(move |c: &CanvasItem, x: i32, y: i32| {
                 f(c, x, y);
             }),
+        )
+    }
+
+    fn connect_item_moved<F: Fn(&CanvasItem, &rect::Rect) + 'static>(
+        &self,
+        f: F,
+    ) -> glib::SignalHandlerId {
+        self.connect_closure(
+            signals::ITEM_MOVED,
+            false,
+            glib::closure_local!(move |c: &CanvasItem, rect: &rect::Rect| f(c, rect)),
         )
     }
 

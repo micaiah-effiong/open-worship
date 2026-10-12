@@ -211,12 +211,12 @@ mod imp {
             };
             box_ui.append(&box_header);
             box_ui.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-            //
-            // let toolbar_box = self.toolbar_box.borrow().clone();
-            // toolbar_box.set_orientation(gtk::Orientation::Vertical);
-            // toolbar_box.append(&EditorToolbar::new(&self.slide_manager.borrow()));
-            // toolbar_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
-            // box_ui.append(&toolbar_box);
+
+            let toolbar_box = self.toolbar_box.borrow().clone();
+            toolbar_box.set_orientation(gtk::Orientation::Vertical);
+            toolbar_box.append(&EditorToolbar::new(&self.slide_manager.borrow()));
+            toolbar_box.append(&gtk::Separator::new(gtk::Orientation::Horizontal));
+            box_ui.append(&toolbar_box);
 
             let editor_box = {
                 // EDITOR SECTION
