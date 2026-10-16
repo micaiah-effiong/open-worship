@@ -72,7 +72,7 @@ pub fn init_app() {
         //         gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
         //     );
         // }
-        match gtk::glib::setenv("GTK_CSD", "0", false) {
+        match unsafe { gtk::glib::setenv("GTK_CSD", "0", false) } {
             Ok(_) => (),
             Err(e) => {
                 println!("An error occured while setting GTK_CSD:\n{:?}", e);

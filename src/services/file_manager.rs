@@ -300,7 +300,7 @@ impl FileManager {
                     let p = std::path::Path::new(bg);
                     let file = gio::File::for_path(p);
                     let Some(content_type) =
-                        gio::content_type_get_mime_type(&gio::content_type_guess(Some(p), &[]).0)
+                        gio::content_type_get_mime_type(&gio::content_type_guess(Some(p), None).0)
                     else {
                         return;
                     };
@@ -480,7 +480,7 @@ impl FileManager {
                 _ => continue,
             };
 
-            let guess = gio::content_type_guess(Some(file_entry.path()), &[]);
+            let guess = gio::content_type_guess(Some(file_entry.path()), None);
             if let Some(mime_type) = gio::content_type_get_mime_type(&guess.0)
                 && !mime_type.contains("image")
             {

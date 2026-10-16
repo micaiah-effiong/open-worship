@@ -36,7 +36,7 @@ rusqlite = { version = "0.34.0", features = ["bundled"] }
 serde = { version = "1.0.217", features = ["derive"] }
 serde_json = "1.0.138"
 futures-util = "0.3.31"
-gtk = { version = "0.9.2", features = ["v4_14"], package = "gtk4" }
+gtk = { version = "0.11.5", features = ["v4_14"], package = "gtk4" }
 strum = "0.27"
 strum_macros = "0.27"
 # gsettings-macro = "0.2.2"
@@ -45,8 +45,8 @@ gobject_macro = { path = "gobject_macro" }
 sha2 = "0.11.0"
 hex = "0.4.3"
 surf = "2.3.2"
-adw = { version = "0.7.2", package = "libadwaita", features = ["v1_7" ] }
-pangocairo = "0.20.0"
+adw = { version = "0.9.2", package = "libadwaita", features = ["v1_7" ] }
+pangocairo = "0.22.9"
 regex = "1.12.3"
 openlyrics = "0.1.1"
 quick-xml = { version = "0.40.1", features = ["serialize"] }

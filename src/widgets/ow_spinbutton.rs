@@ -94,6 +94,7 @@ mod imp {
             },
             translate::IntoGlib,
             types::StaticType,
+            value::ToValue,
             variant::ToVariant,
         },
         prelude::{
@@ -490,15 +491,19 @@ mod imp {
                         .return_type::<bool>()
                         .accumulator(|_hint, acc, value| {
                             let stop = value.get::<bool>().unwrap_or(false);
-                            *acc = value.clone();
-                            !stop
+                            let result = stop.to_value();
+
+                            match !stop {
+                                true => std::ops::ControlFlow::Continue(result),
+                                false => std::ops::ControlFlow::Break(result),
+                            }
                         })
                         .build(),
                     Signal::builder(signals::VALUE_CHANGED).run_last().build(),
                     Signal::builder(signals::ACTIVATE)
                         .run_last()
                         .action()
-                        .class_handler(|_, args| {
+                        .class_handler(|args| {
                             // real_button_activate
                             let spin = args[0]
                                 .get::<super::OwSpinButton>()
@@ -512,7 +517,7 @@ mod imp {
                     Signal::builder(signals::CHANGE_VALUE)
                         .action()
                         .run_last()
-                        .class_handler(|_, args| {
+                        .class_handler(|args| {
                             let spin = args[0]
                                 .get::<super::OwSpinButton>()
                                 .expect("expected OwSpinButton");
@@ -944,7 +949,7 @@ mod imp {
 glib::wrapper! {
 pub struct OwSpinButton(ObjectSubclass<imp::OwSpinButton>)
         @extends gtk::Widget,
-        @implements gtk::Accessible,  gtk::AccessibleRange, gtk::Editable/*, gtk::CellEditable*/;
+        @implements gtk::Accessible,  gtk::AccessibleRange, gtk::Editable, gtk::ConstraintTarget, gtk::Buildable/*, gtk::CellEditable*/;
 }
 
 impl Default for OwSpinButton {

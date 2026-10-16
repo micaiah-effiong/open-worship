@@ -361,44 +361,50 @@ impl OwApplication {
 
                 let dapp = app.downgrade();
                 dialog.present(Some(&app.main_window()));
-                dialog.choose(&app.main_window(), None::<&gio::Cancellable>, move |res| {
-                    if "import" != res.as_str() {
-                        return;
-                    };
-
-                    let mut song_data = vec![];
-
-                    for file in song_files.iter() {
-                        let Some(file_bytes) = FileManager::get_data(file) else {
+                dialog.choose(
+                    Some(&app.main_window()),
+                    None::<&gio::Cancellable>,
+                    move |res| {
+                        if "import" != res.as_str() {
                             return;
                         };
 
-                        let file_content = match String::from_utf8(file_bytes) {
-                            Ok(data) => data,
-                            Err(e) => {
-                                println!("Error converting vec to utf8: {:?}", e);
-                                return;
-                            }
-                        };
+                        let mut song_data = vec![];
 
-                        if !file_content.contains("http://openlyrics.info/namespace/2009/song") {
-                            continue;
+                        for file in song_files.iter() {
+                            let Some(file_bytes) = FileManager::get_data(file) else {
+                                return;
+                            };
+
+                            let file_content = match String::from_utf8(file_bytes) {
+                                Ok(data) => data,
+                                Err(e) => {
+                                    println!("Error converting vec to utf8: {:?}", e);
+                                    return;
+                                }
+                            };
+
+                            if !file_content.contains("http://openlyrics.info/namespace/2009/song")
+                            {
+                                continue;
+                            }
+
+                            let Some(data) = openlyrics::openlyrics_to_song_data(&file_content)
+                            else {
+                                continue;
+                            };
+
+                            song_data.push(data);
                         }
 
-                        let Some(data) = openlyrics::openlyrics_to_song_data(&file_content) else {
-                            continue;
+                        let _ = Query::insert_songs(&song_data);
+                        let Some(app) = dapp.upgrade() else {
+                            return;
                         };
 
-                        song_data.push(data);
-                    }
-
-                    let _ = Query::insert_songs(&song_data);
-                    let Some(app) = dapp.upgrade() else {
-                        return;
-                    };
-
-                    app.emit_song_imported();
-                });
+                        app.emit_song_imported();
+                    },
+                );
             })
             .build();
 

@@ -51,7 +51,7 @@ fn app_init() {
     gtk::gio::resources_register_include!("resources.gresource")
         .expect("could not find app resources");
 
-    match gtk::glib::setenv("GTK_CSD", "0", false) {
+    match unsafe { gtk::glib::setenv("GTK_CSD", "0", false) } {
         Ok(_) => (),
         Err(e) => {
             println!("An error occured while setting GTK_CSD:\n{:?}", e);
